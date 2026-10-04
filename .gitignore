@@ -1,0 +1,9 @@
+.build*/
+.swiftpm/
+DerivedData/
+*.xcuserstate
+.DS_Store
+# Your voice recordings stay local. The reference sentences (corpus/manifest.json, *.txt) are committed.
+corpus/audio/*.wav
+results/raw/
+.env
