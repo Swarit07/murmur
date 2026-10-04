@@ -45,6 +45,46 @@ struct GuardCheckerTests {
         #expect(g.check(input: "send it to Priya no wait to Marcus", output: "Send it to Marcus.").isEmpty)
     }
 
+    /// A small model sometimes swaps a correction instead of resolving it. Same words, opposite meaning.
+    @Test func swappedCorrectionCaught() {
+        #expect(kinds("Book a table for four, make that six people.", "Book a table for six people, make that four.").contains("order"))
+        #expect(kinds("Pick me up at the north entrance, I mean the south entrance.", "Pick me up at the south entrance, I mean the north entrance.").contains("order"))
+        #expect(kinds("Tell Sam the review is at noon, actually make it 1 PM.", "Tell Sam the review is at 1 PM, actually noon.").contains("order"))
+    }
+
+    @Test func resolvedCorrectionKeepsOrder() {
+        #expect(GuardChecker.movedWords(input: "Pick me up at the north entrance, I mean the south entrance.", output: "Pick me up at the south entrance.").isEmpty)
+        #expect(GuardChecker.movedWords(input: "We're flying into Boston, actually Providence, on Friday.", output: "We're flying into Providence on Friday.").isEmpty)
+        #expect(GuardChecker.movedWords(input: "So um I think we should maybe move it to Thursday", output: "I think we should move it to Thursday.").isEmpty)
+    }
+
+    @Test func mediumMayReorder() {
+        let flags = g.check(input: "on Friday we ship the release", output: "We ship the release on Friday.", allowReorder: true)
+        #expect(!flags.map(\.kind).contains("order"))
+        #expect(g.check(input: "on Friday we ship the release", output: "We ship the release on Friday.").map(\.kind).contains("order"))
+    }
+
+    /// Correct resolutions from round 1 that the guard wrongly rejected.
+    @Test(arguments: [
+        ("Add Jordan to the thread, no wait, add Taylor.", "Add Taylor to the thread."),
+        ("Print 20 copies, make that 25.", "Print 25 copies."),
+        ("Add milk, eggs, and bread, actually skip the bread.", "Add milk and eggs."),
+        ("Use the staging database, actually use production, for the report.", "Use the production database for the report."),
+        ("Set the font size to 14, no, 16 points.", "Set the font size to 16 points."),
+        ("The budget is fifty thousand, no, sixty thousand dollars.", "The budget is sixty thousand dollars."),
+        ("Tell her I'll be there at 6, no, 6:30.", "Tell her I'll be there at 6:30."),
+        ("Charge it to the company card, no, my personal card.", "Charge it to my personal card."),
+    ])
+    func resolvedCorrectionsPass(input: String, output: String) {
+        #expect(g.check(input: input, output: output).isEmpty)
+    }
+
+    @Test func leadingNoIsNotACorrection() {
+        #expect(!GuardChecker.hasCorrectionCue("No, I don't think we should ship it."))
+        #expect(GuardChecker.hasCorrectionCue("Set it to 14, no, 16."))
+        #expect(kinds("No, we can't ship it on Friday.", "We can ship it on Friday.").contains("negation"))
+    }
+
     @Test func backtrackingCannotAddNewNumbers() {
         #expect(kinds("let's meet at 2 actually 3", "Let's meet at 4.").contains("number"))
     }

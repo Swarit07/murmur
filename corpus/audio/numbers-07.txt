@@ -1,0 +1,1 @@
+Set the timeout to 250 milliseconds and retry 3 times.

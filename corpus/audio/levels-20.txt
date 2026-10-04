@@ -1,0 +1,1 @@
+I wasn't able to reproduce the bug on my machine, um, but Sam was, so maybe it's a config thing.

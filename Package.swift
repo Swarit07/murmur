@@ -21,6 +21,7 @@ let package = Package(
         .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.17.5"),
         .package(url: "https://github.com/argmaxinc/argmax-oss-swift.git", from: "1.1.0"),
         .package(url: "https://github.com/ml-explore/mlx-swift-lm.git", .upToNextMajor(from: "3.32.3")),
+        .package(url: "https://github.com/ml-explore/mlx-swift.git", .upToNextMinor(from: "0.32.3")),
         .package(url: "https://github.com/huggingface/swift-huggingface.git", from: "0.12.0"),
         .package(url: "https://github.com/huggingface/swift-transformers.git", from: "1.3.4"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.8.2"),
@@ -83,6 +84,7 @@ if withMLX {
             name: "CleanupMLX",
             dependencies: [
                 "Core", "Cleanup",
+                .product(name: "MLX", package: "mlx-swift"),
                 .product(name: "MLXLLM", package: "mlx-swift-lm"),
                 .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
                 .product(name: "MLXHuggingFace", package: "mlx-swift-lm"),

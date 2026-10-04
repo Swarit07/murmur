@@ -1,0 +1,1 @@
+Version 2.7.1 fixes the crash on macOS 14.

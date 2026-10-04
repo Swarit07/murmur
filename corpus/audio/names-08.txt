@@ -1,0 +1,1 @@
+Nguyen fixed the race condition in the SwiftUI view model.

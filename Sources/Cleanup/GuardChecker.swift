@@ -14,6 +14,7 @@ public enum GuardFlag: Sendable, Codable, Equatable, CustomStringConvertible {
     case protectedSpanChanged(String)
     case placeholderLost(String)
     case lengthRatio(Double)
+    case reordered(String)
 
     public var description: String {
         switch self {
@@ -29,6 +30,7 @@ public enum GuardFlag: Sendable, Codable, Equatable, CustomStringConvertible {
         case .protectedSpanChanged(let s): "quoted or code span changed: \(s)"
         case .placeholderLost(let s): "snippet placeholder lost: \(s)"
         case .lengthRatio(let r): String(format: "length ratio %.2f", r)
+        case .reordered(let s): "words moved: \(s)"
         }
     }
 
@@ -44,6 +46,7 @@ public enum GuardFlag: Sendable, Codable, Equatable, CustomStringConvertible {
         case .protectedSpanChanged: "protected"
         case .placeholderLost: "placeholder"
         case .lengthRatio: "length"
+        case .reordered: "order"
         }
     }
 }
@@ -63,10 +66,18 @@ public struct GuardChecker: Sendable {
         self.minRatioWithCorrection = minRatioWithCorrection
     }
 
-    static let correctionCues = [
-        "actually", "i mean", "no wait", "wait no", "wait,", "sorry", "scratch that", "make that", "rather",
-        "correction", "or rather", "let me rephrase", "instead", "change that to", "oops", "no no",
-    ]
+    /// Phrases a speaker uses to change their mind mid-sentence. ", no," and ", wait," only count between
+    /// commas, so a sentence that starts with "No," or says "no problem" is not a correction.
+    static let correctionCuePattern = try! NSRegularExpression(
+        pattern: #"(?i)\b(actually|i mean|no wait|wait no|sorry|scratch that|make that|or rather|rather|correction|instead|oops|let me rephrase|change that to|no no)\b|,\s*(no|wait)\s*,"#
+    )
+
+    /// Character offset of the first self-correction cue, if any.
+    static func correctionCueRange(_ text: String) -> Range<String.Index>? {
+        let range = NSRange(text.startIndex..., in: text)
+        guard let match = correctionCuePattern.firstMatch(in: text, range: range) else { return nil }
+        return Range(match.range, in: text)
+    }
 
     static let artifacts = [
         "<think", "</think", "<transcript", "</transcript", "here is the", "here's the", "cleaned text:",
@@ -78,11 +89,12 @@ public struct GuardChecker: Sendable {
     ]
 
     public static func hasCorrectionCue(_ text: String) -> Bool {
-        let t = text.lowercased()
-        return correctionCues.contains { t.contains($0) }
+        correctionCueRange(text) != nil
     }
 
-    public func check(input: String, output: String, placeholders: [String] = []) -> [GuardFlag] {
+    /// `allowReorder` is for the Medium level, which may restructure sentences. Light keeps the
+    /// speaker's word order, so a moved word there means a swapped correction or a rewrite.
+    public func check(input: String, output: String, placeholders: [String] = [], allowReorder: Bool = false) -> [GuardFlag] {
         var flags: [GuardFlag] = []
         let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty && !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -127,6 +139,11 @@ public struct GuardChecker: Sendable {
             flags.append(.placeholderLost(p))
         }
 
+        if !allowReorder {
+            let moved = Self.movedWords(input: input, output: trimmed)
+            if !moved.isEmpty { flags.append(.reordered(moved.joined(separator: ", "))) }
+        }
+
         let inCount = Self.words(input).count, outCount = Self.words(trimmed).count
         if inCount >= 4 {
             let ratio = Double(outCount) / Double(inCount)
@@ -139,6 +156,66 @@ public struct GuardChecker: Sendable {
     }
 
     // MARK: - Extraction
+
+    /// Function words a grammar fix may legitimately move or swap.
+    static let movable: Set<String> = [
+        "a", "an", "the", "and", "or", "but", "so", "to", "of", "in", "on", "at", "for", "with", "by", "from",
+        "i", "me", "my", "we", "us", "our", "you", "your", "he", "him", "his", "she", "her", "they", "them",
+        "their", "it", "its", "is", "are", "was", "were", "be", "been", "am", "do", "does", "did", "have",
+        "has", "had", "will", "would", "can", "could", "should", "that", "this", "there", "then", "just",
+        "also", "too", "very", "really", "like", "well", "yeah", "okay", "if", "as", "up", "out",
+    ]
+
+    /// Output words taken from the input but placed out of the input's order. Function words are
+    /// ignored, the rest are aligned (longest common subsequence). An output word that is not aligned but
+    /// still has an unused copy in the input was moved, not added.
+    ///
+    /// Backtracking legitimately moves the replacement forward ("add Jordan to the thread, no wait, add
+    /// Taylor" -> "Add Taylor to the thread"), so words spoken after a correction cue may move. Words
+    /// spoken before the cue may not: that is how a swapped correction shows up.
+    public static func movedWords(input: String, output: String) -> [String] {
+        let cueWordIndex = correctionCueRange(input).map { TextMetrics.normalizedWords(String(input[..<$0.lowerBound])).count } ?? Int.max
+        let a = TextMetrics.normalizedWords(input).enumerated().filter { !movable.contains($0.element) }
+        let b = TextMetrics.normalizedWords(output).filter { !movable.contains($0) }
+        guard !a.isEmpty, !b.isEmpty, a.count * b.count <= 250_000 else { return [] }
+        // Weighted LCS: every match counts 1000, plus 1 when the input word comes before the cue, so ties
+        // leave post-cue words (the replacement) unaligned rather than pre-cue words.
+        func weight(_ i: Int) -> Int { 1000 + (a[i].offset < cueWordIndex ? 1 : 0) }
+        var dp = [[Int]](repeating: [Int](repeating: 0, count: b.count + 1), count: a.count + 1)
+        for i in stride(from: a.count - 1, through: 0, by: -1) {
+            for j in stride(from: b.count - 1, through: 0, by: -1) {
+                let skip = max(dp[i + 1][j], dp[i][j + 1])
+                dp[i][j] = a[i].element == b[j] ? max(dp[i + 1][j + 1] + weight(i), skip) : skip
+            }
+        }
+        var alignedOut = Set<Int>(), alignedIn = Set<Int>()
+        var i = 0, j = 0
+        while i < a.count, j < b.count {
+            if a[i].element == b[j], dp[i][j] == dp[i + 1][j + 1] + weight(i) {
+                alignedOut.insert(j); alignedIn.insert(i)
+                i += 1; j += 1
+            } else if dp[i + 1][j] >= dp[i][j + 1] {
+                i += 1
+            } else {
+                j += 1
+            }
+        }
+        // Unused input copies of each word, split by side of the cue.
+        var unusedPre: [String: Int] = [:], unusedPost: [String: Int] = [:]
+        for (k, item) in a.enumerated() where !alignedIn.contains(k) {
+            if item.offset < cueWordIndex { unusedPre[item.element, default: 0] += 1 } else { unusedPost[item.element, default: 0] += 1 }
+        }
+        var moved: [String] = []
+        for (index, word) in b.enumerated() where !alignedOut.contains(index) {
+            if unusedPost[word, default: 0] > 0 {
+                unusedPost[word]! -= 1
+            } else if unusedPre[word, default: 0] > 0 {
+                unusedPre[word]! -= 1
+                moved.append(word)
+            }
+        }
+        return moved
+    }
 
     static func words(_ text: String) -> [String] {
         text.split(whereSeparator: { !($0.isLetter || $0.isNumber || $0 == "'" || $0 == "’") }).map(String.init)

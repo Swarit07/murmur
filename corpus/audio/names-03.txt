@@ -1,0 +1,1 @@
+We're switching the frontend from webpack to Vite next sprint.

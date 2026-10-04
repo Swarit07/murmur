@@ -1,0 +1,1 @@
+So basically the issue is that the API returns a 500 when the token is expired, which, uh, isn't great.

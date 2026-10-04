@@ -1,0 +1,1 @@
+The TypeScript compiler complains about the useEffect dependency array.
