@@ -421,11 +421,17 @@ struct Run: AsyncParsableCommand {
 
     @Option var runs: Int = 100
 
+    @Option(help: "Comma-separated engines whose transcripts go through cleanup. Default: the local engine with the lowest WER.")
+    var cleanupSources: String?
+
     @Flag(help: "Skip engine passes and reuse existing engine results.")
     var skipEngines = false
 
     @Flag(help: "Skip cleanup passes and reuse existing cleanup results.")
     var skipCleanup = false
+
+    @Flag(help: "Skip cleanup passes on the written sentences (keep existing ones).")
+    var skipReference = false
 
     func run() async throws {
         let hasKey = ProcessInfo.processInfo.environment["GROQ_API_KEY"]?.isEmpty == false
@@ -447,15 +453,17 @@ struct Run: AsyncParsableCommand {
         }
 
         // Pick the transcript source for end-to-end cleanup: the engine with the lowest WER.
-        let report = ReportBuilder(paths: paths)
-        let best = report.bestEngine()
+        let sources = cleanupSources.map { $0.split(separator: ",").map(String.init) }
+            ?? ReportBuilder(paths: paths).bestEngine().map { [$0] } ?? []
         if !skipCleanup {
             for id in cleanupIds {
-                print("\n▶ cleanup-pass \(id) on reference text")
-                try Self.spawn(["cleanup-pass", "--provider", id, "--source", "reference", "--runs", "\(runs)", "--corpus", paths.corpus, "--results", paths.results])
-                if let best {
-                    print("\n▶ cleanup-pass \(id) on \(best) transcripts")
-                    try Self.spawn(["cleanup-pass", "--provider", id, "--source", best, "--runs", "0", "--corpus", paths.corpus, "--results", paths.results])
+                if !skipReference {
+                    print("\n▶ cleanup-pass \(id) on reference text")
+                    try Self.spawn(["cleanup-pass", "--provider", id, "--source", "reference", "--runs", "\(runs)", "--corpus", paths.corpus, "--results", paths.results])
+                }
+                for source in sources {
+                    print("\n▶ cleanup-pass \(id) on \(source) transcripts")
+                    try Self.spawn(["cleanup-pass", "--provider", id, "--source", source, "--runs", "0", "--corpus", paths.corpus, "--results", paths.results])
                 }
             }
         }

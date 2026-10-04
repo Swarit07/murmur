@@ -220,14 +220,18 @@ struct ReportBuilder {
 
     func endToEndSection() -> String {
         var md = "## End to end\n\n"
-        // Estimate from the passes: transcription + rules + model (capped) per clip, best engine.
-        if let best = bestEngine(), let engine = engines.first(where: { $0.engine == best }) {
+        // Estimate from the passes: transcription + rules + model (capped) per clip, for every engine
+        // whose transcripts went through cleanup.
+        for engine in engines where engine.error == nil {
+            let passes = cleanups.filter { $0.source == engine.engine && $0.error == nil }
+            guard !passes.isEmpty else { continue }
             let transcribe = Dictionary(engine.clips.compactMap { c in c.ms.map { (c.id, $0) } }, uniquingKeysWith: { a, _ in a })
-            md += "### Estimate: \(best) + each cleanup option (key release to text, excluding capture flush and insertion)\n\n"
-            md += "| Cleanup | Clips | p50 | p95 |\n| --- | ---: | ---: | ---: |\n"
-            for r in cleanups where r.source == best && r.error == nil {
+            md += "### Estimate: \(engine.engine) + each cleanup option (key release to text, excluding capture flush and insertion)\n\n"
+            md += "| Cleanup | Clips | p50 | p95 | Corrections end to end |\n| --- | ---: | ---: | ---: | ---: |\n"
+            for r in passes {
                 let totals = r.clips.filter { $0.level == "light" }.compactMap { c in transcribe[c.id].map { $0 + c.rulesMs + min(c.llmMs ?? 0, 800) } }
-                md += "| \(r.provider) | \(totals.count) | \(Stats.percentile(totals, 50).map(Format.ms) ?? "-") | \(Stats.percentile(totals, 95).map(Format.ms) ?? "-") |\n"
+                let s = stats(r)
+                md += "| \(r.provider) | \(totals.count) | \(Stats.percentile(totals, 50).map(Format.ms) ?? "-") | \(Stats.percentile(totals, 95).map(Format.ms) ?? "-") | \(s.corrections.1 == 0 ? "-" : "\(s.corrections.0)/\(s.corrections.1)") |\n"
             }
             md += "\n"
         }

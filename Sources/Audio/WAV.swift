@@ -50,6 +50,9 @@ public enum WAV {
     /// Reads any audio file AVFoundation understands and converts it to 16 kHz mono Float32.
     public static func read(_ url: URL) throws -> [Float] {
         let file = try AVAudioFile(forReading: url)
+        // A key tapped faster than the microphone starts gives an empty file. That is a valid clip
+        // (it must insert nothing), not an error.
+        guard file.length > 0 else { return [] }
         let inFormat = file.processingFormat
         guard let input = AVAudioPCMBuffer(pcmFormat: inFormat, frameCapacity: AVAudioFrameCount(file.length)) else {
             throw AudioError.converterFailed
