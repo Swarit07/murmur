@@ -1,9 +1,5 @@
 # Files written before the redesign that still use raw literals. Each milestone rewrites its files and
 # removes them from this list; U8 leaves only debug tools.
-# U3 (Flow Bar)
-Sources/UI/FlowBarView.swift
-Sources/UI/FlowBarPanel.swift
-Sources/UI/FlowBarModel.swift
 # U4 (Hub shell and Home)
 Sources/HubUI/Hub.swift
 Sources/HubUI/Design.swift

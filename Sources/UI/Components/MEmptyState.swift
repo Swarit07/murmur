@@ -18,8 +18,8 @@ public struct FlowSquaresMotif: View {
             }
         }
         .frame(width: width, height: height)
-        .background(Capsule().fill(theme.flow.fill.color))
-        .overlay(Capsule().strokeBorder(theme.flow.border.color, lineWidth: FlowGeometry.border))
+        .background(Capsule(style: .circular).fill(theme.flow.fill.color))
+        .overlay(Capsule(style: .circular).strokeBorder(theme.flow.border.color, lineWidth: FlowGeometry.border))
         .accessibilityHidden(true)
     }
 }

@@ -134,7 +134,7 @@ public struct TooltipPill: View {
             .foregroundStyle(theme.flow.text.color)
             .padding(.horizontal, FlowGeometry.tooltipPaddingH)
             .frame(height: FlowGeometry.tooltipHeight)
-            .background(Capsule(style: .continuous).fill(theme.flow.tooltip.color))
+            .background(Capsule(style: .circular).fill(theme.flow.tooltip.color))
     }
 }
 

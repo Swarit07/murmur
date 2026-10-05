@@ -15,6 +15,8 @@ final class FlowBarWiring {
         self.app = app
         bar = FlowBarController(model: model)
         model.showAtAllTimes = AppSettings.shared.showFlowBar
+        model.levelSource = app.controller.micLevel
+        model.shortcutLabel = Self.shortcutLabel(DictationController.shortcutConfiguration(.shared).pushToTalk)
 
         model.onClick = { [weak app] in app?.controller.toggleHandsFree() }
         model.onStop = { [weak app] in app?.controller.stopHandsFree() }
@@ -38,6 +40,10 @@ final class FlowBarWiring {
             case .dismiss:
                 if notice.kind == .suggestion { app.controller.dismissSuggestion() } else { app.controller.clearMessage() }
             case .pasteLast: app.controller.pasteLast()
+            case .selectMicrophone, .troubleshoot:
+                // Both open the microphone settings until the Hub has a Help page (U4).
+                app.controller.clearMessage()
+                app.showSettings()
             }
         }
         model.onMenu = { [weak self, weak app] item in
@@ -57,6 +63,9 @@ final class FlowBarWiring {
             let key = note.object as? String
             MainActor.assumeIsolated {
                 if key == "showFlowBar" { self?.model.showAtAllTimes = AppSettings.shared.showFlowBar }
+                if key == "shortcuts" {
+                    self?.model.shortcutLabel = Self.shortcutLabel(DictationController.shortcutConfiguration(.shared).pushToTalk)
+                }
             }
         }
     }
@@ -68,6 +77,7 @@ final class FlowBarWiring {
         }
         lastPhase = status.phase
         model.command = status.command
+        if status.notice != nil { model.microphoneName = app.controller.microphoneName }
         model.state = Self.state(for: status)
     }
 
@@ -79,6 +89,19 @@ final class FlowBarWiring {
         case .loading, .idle, .error:
             if let n = status.notice { return .notice(flowNotice(n)) }
             return .idle
+        }
+    }
+
+    /// The push-to-talk shortcut as the tooltip names it: symbol and name for a single modifier
+    /// ("⌃ Ctrl"), the recorder's display name otherwise.
+    static func shortcutLabel(_ shortcut: Shortcut) -> String {
+        guard case .modifiers(let mods) = shortcut, mods.count == 1, let key = mods.first else { return shortcut.displayName }
+        return switch key {
+        case .fn: "fn"
+        case .control: "\(key.symbol) Ctrl"
+        case .option: "\(key.symbol) Option"
+        case .command: "\(key.symbol) Cmd"
+        case .shift: "\(key.symbol) Shift"
         }
     }
 
@@ -97,93 +120,17 @@ final class FlowBarWiring {
     }
 }
 
-/// Murmur's sounds, synthesized from the sound tokens each time they change, so tuning a pitch or a
-/// length in the token panel is heard on the next dictation. All original: sines with overtones,
-/// a short pitch glide and an exponential fade; no recorded audio.
+/// Murmur's sounds: the WAVs `Tools/make_sounds.py` synthesizes from the sound tokens (§6.3), loaded
+/// once and replayed. All original; no recorded audio.
 final class Sounds: SoundPlaying {
-    @MainActor private static var cache: [String: NSSound] = [:]
-
-    struct Note: CustomStringConvertible {
-        var hz: Double
-        var share: Double
-        var description: String { "\(hz)/\(share)" }
-    }
+    @MainActor private static var cache: [UISound: NSSound] = [:]
 
     @MainActor func play(_ sound: UISound) {
-        let t = LiveTokens.shared.value
-        if sound == .done && !t.soundDoneEnabled { return }
-        let notes: [Note], length: Double, volume: Double, glide: Double
-        switch sound {
-        case .start:
-            notes = [Note(hz: t.soundStartPitchLow, share: 0.42), Note(hz: t.soundStartPitchHigh, share: 0.58)]
-            length = t.soundStartLength; volume = t.soundVolume; glide = t.soundGlide
-        case .stop:
-            notes = [Note(hz: t.soundStopPitchHigh, share: 0.42), Note(hz: t.soundStopPitchLow, share: 0.58)]
-            length = t.soundStopLength; volume = t.soundVolume; glide = -t.soundGlide
-        case .done:
-            // The second note overlaps the first's tail, which is what makes a chime ring.
-            notes = [Note(hz: t.soundDonePitchLow, share: 0.35), Note(hz: t.soundDonePitchHigh, share: 0.65)]
-            length = t.soundDoneLength; volume = t.soundDoneVolume; glide = 0
-        case .error:
-            notes = [Note(hz: t.soundErrorPitchHigh, share: 0.4), Note(hz: t.soundErrorPitchLow, share: 0.6)]
-            length = t.soundErrorLength; volume = t.soundVolume; glide = -t.soundGlide / 2
+        if Self.cache[sound] == nil, let url = SoundFiles.url(sound.rawValue) {
+            Self.cache[sound] = NSSound(contentsOf: url, byReference: true)
         }
-        let overlap = sound == .done
-        let key = "\(sound)-\(notes)-\(length)-\(volume)-\(glide)-\(t.soundBrightness)-\(t.soundBellness)-\(t.soundAttack)"
-        if Self.cache[key] == nil {
-            let samples = Self.render(notes: notes, length: length, volume: volume, glide: glide,
-                                      brightness: t.soundBrightness, bellness: t.soundBellness, attack: t.soundAttack, overlap: overlap)
-            Self.cache[key] = NSSound(data: Self.wav(samples))
-        }
-        Self.cache[key]?.stop()
-        Self.cache[key]?.play()
-    }
-
-    static let rate = 44_100.0
-
-    static func render(notes: [Note], length: Double, volume: Double, glide: Double, brightness: Double,
-                       bellness: Double, attack: Double, overlap: Bool) -> [Float] {
-        let total = Int(length * rate)
-        var out = [Float](repeating: 0, count: total + Int(0.05 * rate))
-        var start = 0
-        // Overtones: ratio drifts from an exact harmonic toward a bell's inharmonic partials.
-        let partials: [(ratio: Double, amp: Double, decay: Double)] = [
-            (1, 1, 1),
-            (2 + 0.76 * bellness, 0.6 * brightness, 2.2),
-            (3 + 2.2 * bellness, 0.35 * brightness, 3.5),
-            (4.2 + 1.2 * bellness, 0.18 * brightness, 5),
-        ]
-        for (index, note) in notes.enumerated() {
-            let n = Int(length * note.share * rate)
-            // With overlap, each note rings past its slot; without, they follow each other.
-            let ring = overlap ? Int(Double(n) * (index == notes.count - 1 ? 1 : 2.2)) : n
-            var phases = [Double](repeating: 0, count: partials.count)
-            for k in 0..<ring where start + k < out.count {
-                let x = Double(k) / Double(max(ring, 1))
-                let hz = note.hz * (1 + glide * min(1, Double(k) / (0.04 * rate)))
-                let env = min(1, Double(k) / max(1, attack * rate)) * exp(-4.5 * x)
-                var v = 0.0
-                for (p, partial) in partials.enumerated() {
-                    phases[p] += 2 * .pi * hz * partial.ratio / rate
-                    v += sin(phases[p]) * partial.amp * exp(-4.5 * x * (partial.decay - 1))
-                }
-                out[start + k] += Float(v * env * volume / 1.6)
-            }
-            start += n
-        }
-        return out.map { max(-1, min(1, $0)) }
-    }
-
-    static func wav(_ samples: [Float]) -> Data {
-        var d = Data()
-        func u32(_ v: UInt32) { withUnsafeBytes(of: v.littleEndian) { d.append(contentsOf: $0) } }
-        func u16(_ v: UInt16) { withUnsafeBytes(of: v.littleEndian) { d.append(contentsOf: $0) } }
-        let bytes = UInt32(samples.count * 2)
-        d.append(contentsOf: Array("RIFF".utf8)); u32(36 + bytes); d.append(contentsOf: Array("WAVE".utf8))
-        d.append(contentsOf: Array("fmt ".utf8)); u32(16); u16(1); u16(1); u32(UInt32(rate)); u32(UInt32(rate) * 2); u16(2); u16(16)
-        d.append(contentsOf: Array("data".utf8)); u32(bytes)
-        for s in samples { u16(UInt16(bitPattern: Int16(s * 32_000))) }
-        return d
+        Self.cache[sound]?.stop()
+        Self.cache[sound]?.play()
     }
 }
 

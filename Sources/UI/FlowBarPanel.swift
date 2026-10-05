@@ -6,9 +6,6 @@ import SwiftUI
 /// full-screen ones. It can never become key or main, so clicking it never takes focus from the field
 /// you are dictating into (A2).
 final class FlowBarPanel: NSPanel {
-    /// Room around the bar for its shadow and for growing into a notice card.
-    static let shadowMargin: CGFloat = 16
-
     init() {
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         isFloatingPanel = true
@@ -70,16 +67,18 @@ public final class FlowBarController {
 
     // MARK: Placement
 
-    /// The canvas is large enough for the biggest state; the bar sits at its bottom center.
+    /// The panel never resizes (resizing a window jitters); it is as large as the largest state, and
+    /// the content animates inside it (§5.1).
     var canvasSize: CGSize { Self.canvas }
 
-    /// The panel's fixed size (also used by the snapshot tool).
+    /// The panel's fixed size (also used by the snapshot tool): the widest card, and the pill with the
+    /// tallest card above it.
     public static var canvas: CGSize {
         let t = LiveTokens.shared.value
-        return CGSize(
-            width: max(t.noticeWidth, t.handsFreeWidth, t.activeWidth) + FlowBarPanel.shadowMargin * 2,
-            height: max(t.noticeHeight, t.activeHeight) + FlowBarPanel.shadowMargin * 2
-        )
+        let margin = FlowGeometry.canvasMargin
+        let width = max(t.noticeWidth, FlowGeometry.toastMaxWidth, t.handsFreeWidth)
+        let above = max(FlowGeometry.alertMaxHeight, t.noticeHeight, t.tooltipHeight)
+        return CGSize(width: (width + margin * 2).rounded(.up), height: (t.activeHeight + t.tooltipGap + above + margin * 2).rounded(.up))
     }
 
     /// Bottom-center point the bar sits on: just above the Dock in the visible frame of the screen
@@ -101,7 +100,7 @@ public final class FlowBarController {
         guard let screen else { return }
         let a = anchor(on: screen)
         let size = canvasSize
-        let frame = NSRect(x: (a.x - size.width / 2).rounded(), y: (a.y - FlowBarPanel.shadowMargin).rounded(), width: size.width, height: size.height)
+        let frame = NSRect(x: (a.x - size.width / 2).rounded(), y: (a.y - FlowGeometry.canvasMargin).rounded(), width: size.width, height: size.height)
         if panel.frame != frame { panel.setFrame(frame, display: true) }
         updateMouseHandling()
     }
@@ -133,16 +132,44 @@ public final class FlowBarController {
 
     // MARK: Mouse
 
-    /// The bar's rectangle in screen coordinates.
-    var barRect: NSRect {
-        let size = model.barSize
+    /// The pill's mouse target in screen coordinates (the hover pill's area while idle).
+    var pillRect: NSRect {
+        let target = model.pillTarget
         let frame = panel.frame
-        return NSRect(x: frame.midX - size.width / 2, y: frame.minY + FlowBarPanel.shadowMargin, width: size.width, height: size.height)
+        return NSRect(x: frame.midX - target.width / 2, y: frame.minY + FlowGeometry.canvasMargin - FlowGeometry.hoverTargetSlop,
+                      width: target.width, height: target.height)
     }
 
-    /// Only the bar's own rectangle takes mouse events; everywhere else in the canvas passes through.
+    /// Where the tooltip or card starts: the pill's drawn top plus the gap (no gap without a pill).
+    private var aboveY: CGFloat {
+        let t = LiveTokens.shared.value
+        let pill = model.pillSize.height
+        return panel.frame.minY + FlowGeometry.canvasMargin + (pill > 0 ? pill + t.tooltipGap : 0)
+    }
+
+    /// The alert's or toast's rectangle, while one shows.
+    var cardRect: NSRect {
+        guard model.notice != nil else { return .zero }
+        let size = model.cardSize
+        return NSRect(x: panel.frame.midX - size.width / 2, y: aboveY, width: size.width, height: size.height)
+    }
+
+    var tooltipRect: NSRect {
+        let size = model.tooltipSize
+        guard size != .zero else { return .zero }
+        return NSRect(x: panel.frame.midX - size.width / 2, y: aboveY, width: size.width, height: size.height)
+    }
+
+    /// Only the pill, the tooltip and the card take mouse events; the rest of the canvas passes clicks
+    /// through. Also drives the pill's hover and pauses a toast's countdown under the pointer.
     func updateMouseHandling() {
-        let inside = barRect.insetBy(dx: -2, dy: -2).contains(NSEvent.mouseLocation) && model.displayed != .hidden
+        let mouse = NSEvent.mouseLocation
+        let overPill = model.pill != .none && pillRect.contains(mouse)
+        let overCard = cardRect.contains(mouse)
+        let overTip = tooltipRect.contains(mouse)
+        model.setHovering(overPill || (overTip && model.pill == .hover))
+        if model.notice != nil, model.countdownPaused != overCard { model.countdownPaused = overCard }
+        let inside = overPill || overCard || overTip
         if panel.ignoresMouseEvents == inside { panel.ignoresMouseEvents = !inside }
     }
 
@@ -175,6 +202,7 @@ public final class FlowBarController {
     private func trackChanges() {
         withObservationTracking {
             _ = model.displayed
+            _ = model.cardSize
             _ = LiveTokens.shared.value
         } onChange: { [weak self] in
             Task { @MainActor in
@@ -227,8 +255,8 @@ public final class FlowBarController {
     /// The panel, for design snapshots.
     public var panelForSnapshots: NSWindow { panel }
 
-    /// The bar's center in screen coordinates, for the automated focus test.
-    public var barCenter: NSPoint { NSPoint(x: barRect.midX, y: barRect.midY) }
+    /// The pill's center in screen coordinates, for the automated focus test.
+    public var barCenter: NSPoint { NSPoint(x: pillRect.midX, y: pillRect.midY) }
 
     /// Re-evaluates click-through now (the test moves the pointer, then clicks without waiting for the
     /// mouse-moved monitor).

@@ -63,7 +63,7 @@ public final class WindowManager {
         windows[id] = nil
     }
 
-    public func showTokens(forceState: ((FlowBarState?) -> Void)? = nil) {
+    public func showTokens(forceState: ((FlowBarGalleryEntry?) -> Void)? = nil) {
         show("tokens", title: "Flow Bar Tokens", size: NSSize(width: 460, height: 760)) { TokenPanel(forceState: forceState) }
     }
 }

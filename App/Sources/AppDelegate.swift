@@ -61,10 +61,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.hub?.status = status
         }
         hub = HubModel(controller: controller, store: store)
-        controller.onLevel = { [weak self] level in
-            self?.flowBar.model.push(level: level)
-            self?.hub.push(level: level)
-        }
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.setAccessibilityLabel("Murmur")
@@ -117,6 +113,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             MainActor.assumeIsolated {
                 guard let app = Self.shared, app.settings.debugMenu else { return }
                 app.runFocusTest(delay: 2)
+            }
+        }
+        // Performance pass (U3): a 10-second hands-free recording, then discarded (nothing is inserted
+        // or kept), so the Flow Bar can be profiled while it draws the live waveform.
+        DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.swaritsheel.Murmur.debug.recordTenSeconds"), object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated {
+                guard let app = Self.shared, app.settings.debugMenu, !app.controller.isRecording else { return }
+                let sounds = app.settings.soundsEnabled
+                app.settings.soundsEnabled = false
+                app.controller.toggleHandsFree()
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(10))
+                    app.controller.discardCurrent()
+                    app.settings.soundsEnabled = sounds
+                }
             }
         }
 
@@ -324,10 +335,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let sub = NSMenu()
         let states = NSMenuItem(title: "Force Flow Bar state", action: nil, keyEquivalent: "")
         let stateMenu = NSMenu()
-        for (index, state) in Self.forcibleStates.enumerated() {
-            let entry = item(state.name, #selector(forceState(_:)))
+        for (index, gallery) in Self.forcibleStates.enumerated() {
+            let entry = item(gallery.name, #selector(forceState(_:)))
             entry.tag = index
-            entry.state = flowBar.model.forced == state ? .on : .off
+            entry.state = flowBar.model.forced == gallery.state && flowBar.model.hovering == gallery.hover ? .on : .off
             stateMenu.addItem(entry)
         }
         stateMenu.addItem(.separator())
@@ -354,12 +365,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return parent
     }
 
-    static let forcibleStates: [FlowBarState] = FlowBarState.gallery.map(\.state)
+    static let forcibleStates = FlowBarState.gallery
 
-    @objc func forceState(_ sender: NSMenuItem) { flowBar.model.forced = Self.forcibleStates[sender.tag] }
-    @objc func clearForcedState() { flowBar.model.forced = nil }
+    @objc func forceState(_ sender: NSMenuItem) { flowBar.model.force(Self.forcibleStates[sender.tag]) }
+    @objc func clearForcedState() { flowBar.model.force(nil) }
     @objc func showTokens() {
-        windows.showTokens { [weak self] state in self?.flowBar.model.forced = state }
+        windows.showTokens { [weak self] entry in self?.flowBar.model.force(entry) }
     }
 
     @objc func showGallery() {
@@ -481,8 +492,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             for (lookName, look) in looks {
                 panel.appearance = NSAppearance(named: look)
                 var sheet: [NSBitmapImageRep] = []
-                for state in Self.forcibleStates {
-                    flowBar.model.forced = state
+                for entry in Self.forcibleStates {
+                    flowBar.model.force(entry)
                     try? await Task.sleep(for: .milliseconds(450))
                     if let rep = Self.capture(panel) { sheet.append(rep) }
                 }
@@ -494,6 +505,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     if let rep = Self.capture(panel) { sheet.append(rep) }
                 }
                 flowBar.model.command = false
+                flowBar.model.force(nil)
                 Self.contactSheet(sheet, columns: 2, scale: 1, to: dir.appendingPathComponent("sheet-bar-\(lookName).png"))
             }
             panel.appearance = nil

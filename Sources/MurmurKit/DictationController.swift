@@ -54,29 +54,14 @@ public struct DictationStatus: Equatable, Sendable {
     public var command = false
 }
 
-/// Hands microphone levels from the audio thread to the main actor.
-final class LevelRelay: @unchecked Sendable {
-    private let lock = NSLock()
-    private var handler: (@MainActor (Float) -> Void)?
-
-    func set(_ handler: (@MainActor (Float) -> Void)?) { lock.withLock { self.handler = handler } }
-
-    func send(_ level: Float) {
-        guard let handler = lock.withLock({ self.handler }) else { return }
-        DispatchQueue.main.async { MainActor.assumeIsolated { handler(level) } }
-    }
-}
-
 /// Key events in, text out. Owns the recorder, engines, History and insertion, and drives the Core
 /// state machine so every transition is checked and signposted. Runs on the main actor so key events
 /// are handled in order; the slow work happens on the engine and cleanup actors.
 @MainActor
 public final class DictationController {
     public var onStatus: ((DictationStatus) -> Void)?
-    /// Microphone level in dBFS while recording, for the Flow Bar waveform.
-    public var onLevel: (@MainActor (Float) -> Void)? {
-        didSet { levels.set(onLevel) }
-    }
+    /// Microphone level in dBFS while recording, read by the Flow Bar and the mic test at display rate.
+    public let micLevel = MicLevelSource()
     public private(set) var status = DictationStatus(phase: .loading) {
         didSet { if status != oldValue { onStatus?(status) } }
     }
@@ -88,7 +73,6 @@ public final class DictationController {
     let memoryStore = try! HistoryStore(url: nil)
     var history: HistoryStore { settings.neverStore ? memoryStore : store }
     let sounds: SoundPlaying?
-    let levels = LevelRelay()
     let recorder: AudioRecorder
     let gate = EnergySpeechGate()
     let insertion = InsertionTransaction(requireEditable: false)
@@ -150,7 +134,7 @@ public final class DictationController {
         self.settings = settings
         self.store = store
         self.sounds = sounds
-        recorder = AudioRecorder(onLevel: { [levels] level in levels.send(level) })
+        recorder = AudioRecorder(onLevel: { [micLevel] level in micLevel.write(level) })
         recognizer = HotkeyRecognizer(configuration: Self.shortcutConfiguration(settings))
         recorder.setDevice(uid: settings.microphoneUID)
     }

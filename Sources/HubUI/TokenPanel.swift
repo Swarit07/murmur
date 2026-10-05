@@ -9,11 +9,11 @@ import UI
 /// Swift" puts the current values on the clipboard for pasting into Tokens.swift.
 public struct TokenPanel: View {
     /// Forces a Flow Bar state (nil clears it); the app passes the live bar's model.
-    let forceState: ((FlowBarState?) -> Void)?
+    let forceState: ((FlowBarGalleryEntry?) -> Void)?
     @State private var debug = UIDebug.shared
     @State private var forcedName = "none"
 
-    public init(forceState: ((FlowBarState?) -> Void)? = nil) {
+    public init(forceState: ((FlowBarGalleryEntry?) -> Void)? = nil) {
         self.forceState = forceState
     }
 
@@ -72,7 +72,7 @@ public struct TokenPanel: View {
                     }
                     .labelsHidden()
                     .onChange(of: forcedName) {
-                        forceState(FlowBarState.gallery.first { $0.name == forcedName }?.state)
+                        forceState(FlowBarState.gallery.first { $0.name == forcedName })
                     }
                 }
             }

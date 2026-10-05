@@ -52,8 +52,6 @@ public final class HubModel {
     public var page: HubPage = .home
     var backStack: [HubPage] = []
     var forwardStack: [HubPage] = []
-    /// Latest microphone level, 0…1, for the level meters.
-    var micLevel: Double = 0
     /// The controller's latest status, for the sidebar's status card.
     public var status: DictationStatus?
 
@@ -89,8 +87,10 @@ public final class HubModel {
         go(all[(i + delta + all.count) % all.count])
     }
 
-    public func push(level dbfs: Float) {
-        micLevel = min(1, max(0, (Double(dbfs) + 60) / 50))
+    /// The microphone level, 0…1, read at display rate during the mic test.
+    var micLevel: Double {
+        guard let dbfs = controller.micLevel.read() else { return 0 }
+        return min(1, max(0, (Double(dbfs) + 60) / 50))
     }
 }
 
@@ -1073,7 +1073,9 @@ struct MicrophoneSettings: View {
         .onChange(of: selected) { model.controller.selectMicrophone(uid: selected.isEmpty ? nil : selected) }
         HStack {
             Button(testing ? "Stop test" : "Test microphone") { toggleTest() }
-            LevelMeter(level: testing ? model.micLevel : 0)
+            TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !testing)) { _ in
+                LevelMeter(level: testing ? model.micLevel : 0)
+            }
         }
         .onDisappear { if testing { toggleTest() } }
         .onReceive(NotificationCenter.default.publisher(for: .AVCaptureDeviceWasConnected)) { _ in devices = AudioDevices.inputs() }

@@ -2,6 +2,8 @@
 // unit test) and writes the WAVs the app plays. All original: sines and triangles, no recorded audio.
 // Assumed until measured from spectrograms of reference recordings (measurement only, never samples).
 
+import Foundation
+
 public struct ToneToken: Sendable, Equatable {
     public enum Wave: String, Sendable { case sine, triangle }
     public var wave: Wave
@@ -31,4 +33,20 @@ public enum SoundTokens {
     /// Kept from before the redesign at the owner's request (a confirmation when text lands): a soft
     /// rising pair an octave above the start sound. Not in §6.3.
     public static let done = ToneToken(wave: .sine, notes: [1568, 2349], noteLength: 0.070, gap: 0, attack: 0.006, decay: 0.090, peakDb: -20) // source: assumed // MEASURE
+}
+
+/// The WAVs `Tools/make_sounds.py` wrote from `SoundTokens`, bundled with the UI module.
+public enum SoundFiles {
+    public static let all: [(name: String, tone: ToneToken)] = [
+        ("start", SoundTokens.start), ("stop", SoundTokens.stop), ("error", SoundTokens.error), ("done", SoundTokens.done),
+    ]
+
+    public static func url(_ name: String) -> URL? {
+        Bundle.module.url(forResource: name, withExtension: "wav", subdirectory: "Sounds")
+    }
+
+    /// A tone's length in seconds: its notes plus the gaps between them.
+    public static func length(_ tone: ToneToken) -> Double {
+        Double(tone.notes.count) * tone.noteLength + Double(max(0, tone.notes.count - 1)) * tone.gap
+    }
 }

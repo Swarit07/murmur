@@ -34,21 +34,21 @@ public struct MTabs<Value: Hashable>: View {
                         .frame(height: HubGeometry.tabHeight - HubGeometry.tabInset * 2)
                         .background {
                             if selected {
-                                Capsule(style: .continuous)
+                                Capsule(style: .circular)
                                     .fill(c.bgPanel.color)
-                                    .overlay(Capsule(style: .continuous).strokeBorder(c.borderPanel.color, lineWidth: HubGeometry.hairline))
+                                    .overlay(Capsule(style: .circular).strokeBorder(c.borderPanel.color, lineWidth: HubGeometry.hairline))
                                     // The pill slides between tabs; under Reduce Motion it cross-fades in place.
                                     .matchedGeometryEffect(id: theme.motion.reduce ? "selection-\(i)" : "selection", in: namespace)
                             }
                         }
-                        .contentShape(Capsule())
+                        .contentShape(Capsule(style: .circular))
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
             }
         }
         .padding(HubGeometry.tabInset)
-        .background(Capsule(style: .continuous).fill(c.bgChip.color))
+        .background(Capsule(style: .circular).fill(c.bgChip.color))
         .animation(theme.motion.spring(MotionTokens.tabsSelect), value: selection)
         .focusable(isEnabled)
         .focused($focused)

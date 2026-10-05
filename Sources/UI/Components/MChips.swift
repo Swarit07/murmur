@@ -27,7 +27,7 @@ public struct MStatChip: View {
         }
         .fixedSize()
         .frame(height: HubGeometry.statChipHeight)
-        .background(Capsule().fill(theme.colors.bgChip.color))
+        .background(Capsule(style: .circular).fill(theme.colors.bgChip.color))
         .accessibilityElement(children: .combine)
     }
 }

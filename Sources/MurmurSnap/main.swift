@@ -34,21 +34,22 @@ enum Snap {
         window.orderFrontRegardless()
     }
 
-    static func capture(_ view: NSView, to url: URL, mayBeBlank: Bool = false) {
+    /// `fine` scans every other pixel: the idle Flow Bar is a 36 × 6 pill that a coarse grid misses.
+    static func capture(_ view: NSView, to url: URL, mayBeBlank: Bool = false, fine: Bool = false) {
         view.layoutSubtreeIfNeeded()
         guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { blank.append(url.lastPathComponent); return }
         view.cacheDisplay(in: view.bounds, to: rep)
-        if !mayBeBlank, isBlank(rep) { blank.append(url.path) }
+        if !mayBeBlank, isBlank(rep, fine: fine) { blank.append(url.path) }
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? rep.representation(using: .png, properties: [:])?.write(to: url)
         written += 1
     }
 
-    /// Blank means fewer than three distinct colors on a 16 × 16 sample grid.
-    static func isBlank(_ rep: NSBitmapImageRep) -> Bool {
+    /// Blank means fewer than three distinct colors on a 16 × 16 sample grid (or every other pixel).
+    static func isBlank(_ rep: NSBitmapImageRep, fine: Bool = false) -> Bool {
         var colors = Set<String>()
-        for x in stride(from: 0, to: rep.pixelsWide, by: max(1, rep.pixelsWide / 16)) {
-            for y in stride(from: 0, to: rep.pixelsHigh, by: max(1, rep.pixelsHigh / 16)) {
+        for x in stride(from: 0, to: rep.pixelsWide, by: fine ? 2 : max(1, rep.pixelsWide / 16)) {
+            for y in stride(from: 0, to: rep.pixelsHigh, by: fine ? 2 : max(1, rep.pixelsHigh / 16)) {
                 if let c = rep.colorAt(x: x, y: y) { colors.insert(String(format: "%.2f%.2f%.2f%.2f", c.redComponent, c.greenComponent, c.blueComponent, c.alphaComponent)) }
             }
         }
@@ -105,12 +106,20 @@ enum Snap {
             bar.contentView = host
             bar.appearance = NSAppearance(named: look)
             prepare(bar)
-            for (name, state) in FlowBarState.gallery {
+            for entry in FlowBarState.gallery {
+                model.force(entry)
+                pump(0.6)
+                capture(host, to: dir.appendingPathComponent("flowbar-\(entry.name).png"), mayBeBlank: entry.state == .hidden, fine: true)
+            }
+            // Command Mode draws the bars and the shimmer in clay.
+            model.command = true
+            for (name, state) in [("command-hold", FlowBarState.listening(handsFree: false)), ("command-processing", .processing)] {
                 model.forced = state
                 pump(0.6)
-                capture(host, to: dir.appendingPathComponent("flowbar-\(name).png"), mayBeBlank: state == .hidden)
+                capture(host, to: dir.appendingPathComponent("flowbar-\(name).png"))
             }
-            model.forced = nil
+            model.command = false
+            model.force(nil)
             bar.close()
         }
         // Design Gallery: every component in every state, light and dark side by side, at full height.

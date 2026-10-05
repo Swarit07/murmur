@@ -152,4 +152,26 @@ public enum FlowGeometry {
     public static let toastButtonSize = CGSize(width: 50, height: 30) // source: wis, absolute assumed // MEASURE
     public static let countdownRing: CGFloat = 16 // source: assumed // MEASURE
     public static let countdownStroke: CGFloat = 2 // source: assumed // MEASURE
+
+    /// Room around the drawn shapes inside the fixed panel.
+    public static let canvasMargin: CGFloat = 16 // source: assumed // MEASURE
+    /// An alert grows past 139 for a long body; the panel reserves this much.
+    public static let alertMaxHeight: CGFloat = 175 // source: assumed (139 plus two body lines) // MEASURE
+    public static let alertTitleGap: CGFloat = 4 // source: assumed // MEASURE
+    public static let alertBodyGap: CGFloat = 13 // source: assumed // MEASURE
+    public static let alertClose: CGFloat = 12 // source: assumed // MEASURE
+    public static let iconGap: CGFloat = 10 // source: assumed // MEASURE
+    public static let toastMaxWidth: CGFloat = 420 // source: assumed // MEASURE
+    public static let toastGap: CGFloat = 12 // source: assumed // MEASURE
+    public static let keycap: CGFloat = 20 // source: assumed // MEASURE
+    public static let keycapRadius: CGFloat = 5 // source: assumed // MEASURE
+    public static let keycapPaddingH: CGFloat = 5 // source: assumed // MEASURE
+    public static let keycapGap: CGFloat = 3 // source: assumed // MEASURE
+    /// The white rounded square in the stop circle, and the X in the cancel circle.
+    public static let stopGlyph: CGFloat = 7 // source: assumed // MEASURE
+    public static let stopGlyphRadius: CGFloat = 1.5 // source: assumed // MEASURE
+    public static let cancelGlyph: CGFloat = 7 // source: assumed // MEASURE
+    public static let checkGlyph: CGFloat = 14 // source: assumed // MEASURE
+    /// The idle pill's hover target: the hover pill's size, so the tiny pill is easy to reach.
+    public static let hoverTargetSlop: CGFloat = 2 // source: assumed // MEASURE
 }

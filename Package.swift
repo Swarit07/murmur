@@ -59,7 +59,7 @@ let package = Package(
             swiftSettings: strict
         ),
         // Design tokens, theme, components and the Flow Bar. Bundles Source Sans 3 and Newsreader (SIL OFL).
-        .target(name: "UI", dependencies: ["Core"], resources: [.copy("Resources/Fonts")], swiftSettings: strict),
+        .target(name: "UI", dependencies: ["Core"], resources: [.copy("Resources/Fonts"), .copy("Resources/Sounds")], swiftSettings: strict),
 
         // App-level orchestration the menu-bar app links: the dictation controller and its wiring.
         .target(
@@ -94,7 +94,7 @@ let package = Package(
         .testTarget(name: "StoreTests", dependencies: ["Core", "Store"], swiftSettings: strict),
         .testTarget(name: "CleanupTests", dependencies: ["Core", "Cleanup"], swiftSettings: strict),
         .testTarget(name: "InsertionTests", dependencies: ["Core", "Context", "Insertion"], swiftSettings: strict),
-        .testTarget(name: "UITests", dependencies: ["UI"], swiftSettings: strict),
+        .testTarget(name: "UITests", dependencies: ["UI", "Core"], swiftSettings: strict),
     ]
 )
 

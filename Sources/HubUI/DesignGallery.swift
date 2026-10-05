@@ -43,6 +43,13 @@ struct GalleryColumn: View {
 
     static let states = InteractionState.allCases
 
+    /// One forced model per Flow Bar gallery state.
+    static let flowModels: [FlowBarModel] = FlowBarState.gallery.map { entry in
+        let model = FlowBarModel()
+        model.force(entry)
+        return model
+    }
+
     var body: some View {
         let c = theme.colors
         VStack(alignment: .leading, spacing: 28) {
@@ -241,10 +248,39 @@ struct GalleryColumn: View {
             GallerySection("Empty state") {
                 MEmptyState("Hold fn and speak. Your dictations will appear here.", buttonTitle: "Try it")
             }
+
+            GallerySection("Flow Bar (identical in light and dark)") {
+                LazyVGrid(columns: [GridItem(.fixed(284), alignment: .topLeading), GridItem(.fixed(284), alignment: .topLeading)], spacing: 12) {
+                    ForEach(Array(Self.flowModels.enumerated()), id: \.offset) { index, model in
+                        FlowGalleryCell(name: FlowBarState.gallery[index].name, model: model)
+                    }
+                }
+            }
         }
         .padding(28)
         .frame(width: 640, alignment: .leading)
         .background(c.bgPanel.color)
+    }
+}
+
+/// One Flow Bar state at 60% on the window background, named.
+struct FlowGalleryCell: View {
+    @Environment(\.theme) private var theme
+    let name: String
+    let model: FlowBarModel
+    static let scale: CGFloat = 0.6
+
+    var body: some View {
+        let canvas = FlowBarController.canvas
+        VStack(alignment: .leading, spacing: 4) {
+            Text(name).textStyle(TypeTokens.meta).foregroundStyle(theme.colors.textSecondary.color)
+            FlowBarView(model: model)
+                .frame(width: canvas.width, height: canvas.height)
+                .scaleEffect(Self.scale, anchor: .topLeading)
+                .frame(width: canvas.width * Self.scale, height: canvas.height * Self.scale, alignment: .topLeading)
+                .background(theme.colors.bgWindow.color)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
     }
 }
 

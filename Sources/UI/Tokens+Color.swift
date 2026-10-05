@@ -137,6 +137,7 @@ public struct FlowBarColors: Sendable {
     public var stop = ColorToken("#C9503F") // source: logo (lifted 8% for legibility on black) // MEASURE
     public var alertBorder = ColorToken("#3A382F") // source: wis (warmed) // MEASURE
     public var button = ColorToken("#3E3C35") // source: wis (warmed) // MEASURE
+    public var buttonHover = ColorToken("#4A4840") // source: derived (button, one step lighter) // MEASURE
     public var iconError = ColorToken("#E27A66") // source: derived // MEASURE
     public var iconInfo = ColorToken("#D3D2CA") // source: ant
 

@@ -1,10 +1,11 @@
 import AppKit
 import SwiftUI
 
-/// Every number the Flow Bar uses (spec rule 5). These are runnable placeholders, not measurements:
-/// the owner replaces them with values measured from recordings of the reference app. Nothing in the
-/// UI hard-codes a size, color, duration, spring or sound value; it reads `LiveTokens`, which starts
-/// from these defaults and can be tuned at runtime from the debug panel.
+/// The Flow Bar's live-tunable tokens (spec rule 5, UI_REDESIGN.md §3.5 and §5.1). Defaults come from
+/// the redesign's static tokens (`FlowGeometry`, `FlowBarColors`, `MotionTokens`, `TypeTokens`), so
+/// there is one source of truth; the debug panel overrides them at runtime through `LiveTokens`.
+/// Names from before the redesign are kept (saved overrides keep decoding); the bar is identical in
+/// light and dark, so each light/dark color pair defaults to the same value.
 public struct Tokens: Codable, Equatable, Sendable {
     /// Saved overrides laid over the current defaults, so a token added later keeps its default
     /// instead of making the whole saved set unreadable.
@@ -15,127 +16,149 @@ public struct Tokens: Codable, Equatable, Sendable {
         return try? JSONDecoder().decode(Tokens.self, from: merged)
     }
 
-    // MARK: Bar geometry (points)
+    // MARK: Pill geometry (points). H = activeHeight.
 
-    /// Pill size while idle and visible.
-    public var idleWidth: Double = 44
-    public var idleHeight: Double = 10
-    /// Pill size while listening or processing.
-    public var activeWidth: Double = 120
-    public var activeHeight: Double = 34
-    /// Pill size while hands-free (room for the stop and cancel buttons).
-    public var handsFreeWidth: Double = 168
-    /// Card size for notices (errors, cancelled, no text box).
-    public var noticeWidth: Double = 400
-    public var noticeHeight: Double = 52
-    public var cornerRadius: Double = 17
+    /// The resting pill (not hovered).
+    public var idleWidth: Double = FlowGeometry.idleSize.width
+    public var idleHeight: Double = FlowGeometry.idleSize.height
+    /// Hovered idle pill, showing the idle squares.
+    public var hoverWidth: Double = FlowGeometry.hoverWidth
+    /// Hold-to-talk, processing and inserted pill width (assumed: the hover size).
+    public var activeWidth: Double = FlowGeometry.hoverWidth
+    public var activeHeight: Double = FlowGeometry.pillHeight
+    /// Hands-free pill: cancel circle, waveform, stop circle.
+    public var handsFreeWidth: Double = FlowGeometry.activeWidth
+    /// Round buttons on the hands-free pill, and the padding around them.
+    public var buttonDiameter: Double = FlowGeometry.buttonDiameter
+    public var buttonPadding: Double = FlowGeometry.buttonPadding
+    /// Pill corner radius (half the height: a capsule).
+    public var cornerRadius: Double = FlowGeometry.pillHeight / 2
+    public var borderWidth: Double = FlowGeometry.border
     /// Gap between the bar and the Dock (or the bottom of the visible frame).
-    public var bottomMargin: Double = 10
+    public var bottomMargin: Double = 10 // source: assumed // MEASURE
     /// Extra lift in a full-screen app's Space, where the Dock is hidden.
-    public var fullScreenLift: Double = 6
+    public var fullScreenLift: Double = 6 // source: assumed // MEASURE
     /// Offsets when the Dock sits on the left or right edge.
-    public var dockSideOffset: Double = 0
+    public var dockSideOffset: Double = 0 // source: assumed // MEASURE
 
-    // MARK: Waveform
+    // MARK: Tooltip, alert and toast
 
-    public var waveformBars: Int = 9
-    public var waveformBarWidth: Double = 3
-    public var waveformBarGap: Double = 3
-    public var waveformMinHeight: Double = 3
-    public var waveformMaxHeight: Double = 20
+    public var tooltipHeight: Double = FlowGeometry.tooltipHeight
+    /// Gap between the pill and the tooltip, alert or toast above it.
+    public var tooltipGap: Double = FlowGeometry.tooltipGap
+    /// Alert (transcription error, no audio).
+    public var noticeWidth: Double = FlowGeometry.alertSize.width
+    public var noticeHeight: Double = FlowGeometry.alertSize.height
+    public var alertRadius: Double = FlowGeometry.alertRadius
+    public var alertPadding: Double = FlowGeometry.alertPadding
+    /// Toast (paste error, cancelled, no text box, info).
+    public var toastWidth: Double = FlowGeometry.toastSize.width
+    public var toastHeight: Double = FlowGeometry.toastSize.height
+    public var toastRadius: Double = FlowGeometry.toastRadius
+
+    // MARK: Waveform and idle squares
+
+    public var waveformBars: Int = FlowGeometry.bars
+    public var waveformBarWidth: Double = FlowGeometry.barWidth
+    public var waveformBarGap: Double = FlowGeometry.barPitch - FlowGeometry.barWidth
+    /// A silent bar is a square (as tall as it is wide), so silence looks like the idle squares.
+    public var waveformMinHeight: Double = FlowGeometry.barWidth
+    public var waveformMaxHeight: Double = FlowGeometry.barMaxHeight
+    public var idleSquares: Int = FlowGeometry.idleSquares
+    public var squareSide: Double = FlowGeometry.squareSide
+    public var squarePitch: Double = FlowGeometry.squarePitch
     /// Level (dBFS) that maps to a silent and to a full bar.
-    public var waveformFloorDb: Double = -55
-    public var waveformCeilingDb: Double = -12
-    /// Smoothing toward a rising and a falling level, per update (0…1).
-    public var waveformAttack: Double = 0.55
-    public var waveformRelease: Double = 0.18
+    public var waveformFloorDb: Double = -55 // source: assumed // MEASURE
+    public var waveformCeilingDb: Double = -12 // source: assumed // MEASURE
+    /// One-pole smoothing time constants toward a rising and a falling level, seconds.
+    public var waveformAttack: Double = MotionTokens.waveAttack
+    public var waveformRelease: Double = MotionTokens.waveRelease
+    /// How often the bars scroll one step (the newest level enters on the right), per second.
+    public var waveformSampleRate: Double = 30 // source: assumed // MEASURE
+    /// How much shorter the outer bars are than the middle ones (0 = all equal), so it reads as a voice.
+    public var waveformCenterBias: Double = 0.45 // source: assumed // MEASURE
+    /// The level at which a bar has turned fully from a `flow-dot` square to a white bar.
+    public var waveformWhiteLevel: Double = 0.15 // source: assumed // MEASURE
+    /// Width of the processing shimmer's bright band, as a share of the row.
+    public var shimmerWidth: Double = 0.3 // source: assumed // MEASURE
 
-    // MARK: Color (light, dark), as hex RGBA
+    // MARK: Color (light, dark), as hex RGBA; identical pairs
 
-    public var surfaceLight: String = "#1C1C1EF2"
-    public var surfaceDark: String = "#2C2C2EF2"
-    public var waveformLight: String = "#FFFFFFFF"
-    public var waveformDark: String = "#FFFFFFFF"
-    public var idleLight: String = "#3A3A3CCC"
-    public var idleDark: String = "#636366CC"
-    public var stopLight: String = "#FF453AFF"
-    public var stopDark: String = "#FF453AFF"
-    public var cancelLight: String = "#FFFFFF99"
-    public var cancelDark: String = "#FFFFFF99"
-    public var errorLight: String = "#FF9F0AFF"
-    public var errorDark: String = "#FF9F0AFF"
-    public var successLight: String = "#30D158FF"
-    /// Command Mode's accent on the bar while it listens and works.
-    public var commandLight: String = "#BF8CFFFF"
-    public var commandDark: String = "#BF8CFFFF"
-    public var successDark: String = "#30D158FF"
-    public var textLight: String = "#FFFFFFFF"
-    public var textDark: String = "#FFFFFFFF"
-    public var secondaryTextLight: String = "#FFFFFFA6"
-    public var secondaryTextDark: String = "#FFFFFFA6"
+    public var surfaceLight: String = FlowBarColors.standard.fill.hex
+    public var surfaceDark: String = FlowBarColors.standard.fill.hex
+    public var waveformLight: String = FlowBarColors.standard.bar.hex
+    public var waveformDark: String = FlowBarColors.standard.bar.hex
+    public var idleLight: String = FlowBarColors.standard.fill.hex
+    public var idleDark: String = FlowBarColors.standard.fill.hex
+    public var dotLight: String = FlowBarColors.standard.dot.hex
+    public var dotDark: String = FlowBarColors.standard.dot.hex
+    public var stopLight: String = FlowBarColors.standard.stop.hex
+    public var stopDark: String = FlowBarColors.standard.stop.hex
+    public var cancelLight: String = FlowBarColors.standard.xCircle.hex
+    public var cancelDark: String = FlowBarColors.standard.xCircle.hex
+    public var cancelGlyphLight: String = FlowBarColors.standard.xGlyph.hex
+    public var cancelGlyphDark: String = FlowBarColors.standard.xGlyph.hex
+    public var errorLight: String = FlowBarColors.standard.iconError.hex
+    public var errorDark: String = FlowBarColors.standard.iconError.hex
+    public var infoLight: String = FlowBarColors.standard.iconInfo.hex
+    public var infoDark: String = FlowBarColors.standard.iconInfo.hex
+    /// The inserted check.
+    public var successLight: String = FlowBarColors.standard.bar.hex
+    public var successDark: String = FlowBarColors.standard.bar.hex
+    /// Command Mode's mark on the bar: the clay (rule 11, one accent).
+    public var commandLight: String = FlowBarColors.standard.stop.hex
+    public var commandDark: String = FlowBarColors.standard.stop.hex
+    public var textLight: String = FlowBarColors.standard.text.hex
+    public var textDark: String = FlowBarColors.standard.text.hex
+    public var secondaryTextLight: String = FlowBarColors.standard.dot.hex
+    public var secondaryTextDark: String = FlowBarColors.standard.dot.hex
+    public var borderLight: String = FlowBarColors.standard.border.hex
+    public var borderDark: String = FlowBarColors.standard.border.hex
+    public var tooltipLight: String = FlowBarColors.standard.tooltip.hex
+    public var tooltipDark: String = FlowBarColors.standard.tooltip.hex
+    public var alertBorderLight: String = FlowBarColors.standard.alertBorder.hex
+    public var alertBorderDark: String = FlowBarColors.standard.alertBorder.hex
+    public var alertButtonLight: String = FlowBarColors.standard.button.hex
+    public var alertButtonDark: String = FlowBarColors.standard.button.hex
+    public var alertButtonHoverLight: String = FlowBarColors.standard.buttonHover.hex
+    public var alertButtonHoverDark: String = FlowBarColors.standard.buttonHover.hex
 
-    // MARK: Material
+    // MARK: Material (flat: no blur, shadow off by default; rule 7)
 
-    /// Background blur (vibrancy) under the surface color.
-    public var useBlur: Bool = true
-    public var borderWidth: Double = 0.5
-    public var borderLight: String = "#FFFFFF26"
-    public var borderDark: String = "#FFFFFF1F"
-    public var shadowRadius: Double = 10
-    public var shadowOpacity: Double = 0.28
-    public var shadowY: Double = -2
+    public var useBlur: Bool = false
+    public var shadowEnabled: Bool = false
+    public var shadowRadius: Double = 10 // source: assumed // MEASURE
+    public var shadowOpacity: Double = 0.28 // source: assumed // MEASURE
+    public var shadowY: Double = -2 // source: assumed // MEASURE
 
     // MARK: Motion (seconds, spring response and damping)
 
-    public var appearDuration: Double = 0.18
-    public var disappearDuration: Double = 0.14
-    public var springResponse: Double = 0.32
-    public var springDamping: Double = 0.78
-    /// One cycle of the processing indicator.
-    public var processingLoopPeriod: Double = 1.1
-    /// How long the inserted confirmation stays.
-    public var confirmationHold: Double = 0.7
+    public var appearResponse: Double = MotionTokens.barAppear.response
+    public var appearDamping: Double = MotionTokens.barAppear.damping
+    public var appearScale: Double = MotionTokens.barAppearScale
+    public var disappearDuration: Double = MotionTokens.barDisappear
+    /// Idle ↔ hover ↔ hands-free.
+    public var springResponse: Double = MotionTokens.barExpand.response
+    public var springDamping: Double = MotionTokens.barExpand.damping
+    public var buttonsIn: Double = MotionTokens.barButtonsIn
+    /// One cycle of the processing shimmer.
+    public var processingLoopPeriod: Double = MotionTokens.processingPeriod
+    public var checkDraw: Double = MotionTokens.insertedCheck
+    /// How long the inserted check stays.
+    public var confirmationHold: Double = MotionTokens.insertedHold
     /// How long the cancelled toast stays (spec: about 3 s).
-    public var cancelledToastDuration: Double = 3.0
-    /// How long the no-text-box notice counts down.
-    public var noticeDuration: Double = 6.0
-    /// Waveform redraw rate (Hz).
-    public var waveformFrameRate: Double = 30
+    public var cancelledToastDuration: Double = 3.0 // source: assumed // MEASURE
+    /// How long other toasts count down.
+    public var noticeDuration: Double = 6.0 // source: assumed // MEASURE
+    public var toastIn: Double = MotionTokens.toastIn
+    public var toastRise: Double = MotionTokens.toastRise
+    public var toastOut: Double = MotionTokens.toastOut
+    public var tooltipDelay: Double = MotionTokens.tooltipDelay
 
     // MARK: Type
 
-    public var labelSize: Double = 12.5
-    public var labelWeight: String = "medium"
-    public var buttonSize: Double = 12
-    public var hubTypeface: String = "system"
-
-    // MARK: Sound
-
-    // Each sound is two notes. A note glides from its pitch by `soundGlide` (a fraction, + rises) and is
-    // built from a sine plus overtones; `soundBrightness` sets how loud the overtones are and
-    // `soundBellness` how far they drift from exact harmonics (0 = soft tone, 1 = bell).
-    public var soundStartPitchLow: Double = 587
-    public var soundStartPitchHigh: Double = 880
-    public var soundStartLength: Double = 0.17
-    public var soundStopPitchHigh: Double = 880
-    public var soundStopPitchLow: Double = 587
-    public var soundStopLength: Double = 0.16
-    /// The chime when text lands.
-    public var soundDonePitchLow: Double = 1047
-    public var soundDonePitchHigh: Double = 1568
-    public var soundDoneLength: Double = 0.42
-    public var soundDoneVolume: Double = 0.22
-    public var soundErrorPitchHigh: Double = 330
-    public var soundErrorPitchLow: Double = 247
-    public var soundErrorLength: Double = 0.30
-    public var soundVolume: Double = 0.30
-    public var soundGlide: Double = 0.04
-    public var soundBrightness: Double = 0.35
-    public var soundBellness: Double = 0.5
-    /// Attack time in seconds; release follows the note length.
-    public var soundAttack: Double = 0.004
-    /// Plays the done chime after a successful paste.
-    public var soundDoneEnabled: Bool = true
+    public var labelSize: Double = TypeTokens.flowText.size
+    public var alertTextSize: Double = TypeTokens.flowAlert.size
 
     public init() {}
 

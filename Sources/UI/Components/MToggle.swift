@@ -22,7 +22,7 @@ public struct MToggle: View {
         let c = theme.colors
         let size = HubGeometry.toggleSize
         let knob = size.height - HubGeometry.toggleKnobInset * 2
-        let track = Capsule(style: .continuous)
+        let track = Capsule(style: .circular)
         Button { isOn.toggle() } label: {
             ZStack(alignment: isOn ? .trailing : .leading) {
                 track.fill(isOn ? c.accentClay.color : c.bgHover.color)
