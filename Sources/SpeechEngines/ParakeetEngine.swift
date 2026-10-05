@@ -5,13 +5,14 @@ import Foundation
 /// NVIDIA Parakeet TDT models converted to CoreML by FluidAudio, run on the Neural Engine.
 public actor ParakeetEngine: SpeechEngine {
     public enum Version: String, Sendable {
-        case v3, v2, ultra
+        case v3, v2, ultra, phonon2
 
         var fluid: AsrModelVersion {
             switch self {
             case .v3: .v3
             case .v2: .v2
             case .ultra: .ultra
+            case .phonon2: .phonon2
             }
         }
     }

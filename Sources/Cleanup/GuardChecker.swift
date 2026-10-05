@@ -66,10 +66,12 @@ public struct GuardChecker: Sendable {
         self.minRatioWithCorrection = minRatioWithCorrection
     }
 
-    /// Phrases a speaker uses to change their mind mid-sentence. ", no," and ", wait," only count between
-    /// commas, so a sentence that starts with "No," or says "no problem" is not a correction.
+    /// Phrases a speaker uses to change their mind mid-sentence. A bare "no" or "wait" counts only after
+    /// a word and before a comma or period ("fourteen, no, sixteen", "fourteen. No, sixteen", "six no,
+    /// six thirty", "the docs folder, no the assets folder"), so a text that starts with "No," or says
+    /// "fine, no problem" is not a correction.
     static let correctionCuePattern = try! NSRegularExpression(
-        pattern: #"(?i)\b(actually|i mean|no wait|wait no|sorry|scratch that|make that|or rather|rather|correction|instead|oops|let me rephrase|change that to|no no)\b|,\s*(no|wait)\s*,"#
+        pattern: #"(?i)\b(actually|i mean|no wait|wait no|sorry|scratch that|make that|or rather|rather|correction|instead|oops|let me rephrase|change that to|no no)\b|(?<=\w)[,.]?\s+(no|wait)\s*[,.]|(?<=\w)[,.]\s+(no|wait)\s+(the|a|an|my|your|our|their|his|her|to|at|on|in|make|use|send|add)\b"#
     )
 
     /// Character offset of the first self-correction cue, if any.
@@ -275,8 +277,9 @@ public struct GuardChecker: Sendable {
         func finish(_ next: Character?) {
             guard !token.isEmpty else { return }
             if !sentenceStart, let first = token.first, first.isUppercase {
-                let lower = token.lowercased()
-                if !commonCapitalized.contains(lower) { out.insert(lower) }
+                let lower = token.lowercased().replacingOccurrences(of: "’", with: "'")
+                // "I" and every contraction of it (I'm, I'ma, I'd've) are capitalized but are not names.
+                if !commonCapitalized.contains(lower) && !lower.hasPrefix("i'") { out.insert(lower) }
             }
             sentenceStart = false
             token = ""

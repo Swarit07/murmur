@@ -36,6 +36,12 @@ struct GuardCheckerTests {
         #expect(kinds("send the report to Priya and me", "Send the report to Priya and Marcus.").contains("name"))
     }
 
+    /// Live test: "I'ma" was taken for a name, so dropping a repeated "I'm a I'ma" rejected the cleanup.
+    @Test func contractionsOfIAreNotNames() {
+        #expect(GuardChecker.names("And I'm a I'ma talk a little farther away, I'd say.").isEmpty)
+        #expect(!kinds("And I'm a I'ma talk a little farther away", "And I'm going to talk a little farther away.").contains("name"))
+    }
+
     @Test func nameRemovalCaughtWithoutCorrection() {
         #expect(kinds("loop in Priya and Marcus on this", "Loop in Priya on this.").contains("name"))
     }
@@ -79,8 +85,21 @@ struct GuardCheckerTests {
         #expect(g.check(input: input, output: output).isEmpty)
     }
 
+    /// Real transcripts put a period or nothing before "no": "fourteen. No, sixteen", "six no, six thirty".
+    @Test(arguments: [
+        ("Set the font size to fourteen. No, sixteen points.", "Set the font size to sixteen points."),
+        ("Tell her I'll be there at six no, six thirty.", "Tell her I'll be there at six thirty."),
+        ("Charge it to the company card. No, my personal card.", "Charge it to my personal card."),
+        ("The file is in the DOX folder, no the assets folder.", "The file is in the assets folder."),
+    ])
+    func transcriptStyleCorrectionsPass(input: String, output: String) {
+        #expect(g.check(input: input, output: output).isEmpty)
+    }
+
     @Test func leadingNoIsNotACorrection() {
         #expect(!GuardChecker.hasCorrectionCue("No, I don't think we should ship it."))
+        #expect(!GuardChecker.hasCorrectionCue("There is no problem with the build."))
+        #expect(!GuardChecker.hasCorrectionCue("That's fine, no problem at all."))
         #expect(GuardChecker.hasCorrectionCue("Set it to 14, no, 16."))
         #expect(kinds("No, we can't ship it on Friday.", "We can ship it on Friday.").contains("negation"))
     }

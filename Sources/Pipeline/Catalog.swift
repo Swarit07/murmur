@@ -6,7 +6,7 @@ import CleanupMLX
 
 /// Builds cleanup providers from the short ids used by the CLI and the bench.
 public enum CleanupCatalog {
-    public static let mlxNames = ["qwen3.5-0.8b", "qwen3.5-2b", "qwen3.5-4b", "qwen3-4b-2507"]
+    public static let mlxNames = ["qwen3.5-0.8b", "qwen3.5-2b", "qwen3.5-4b", "qwen3-4b-2507", "smollm3-3b", "gemma3-1b"]
     public static let ids: [String] = ["rules", "apple-foundation", "groq"] + mlxNames.map { "mlx:\($0)" }
 
     public static var mlxAvailable: Bool {

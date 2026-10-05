@@ -1,5 +1,7 @@
 # Milestone 0: where things stand
 
+**Status (2026-10-04, evening): Milestone 0 is complete and waiting for the owner's approval.** Results and the recommendation are in [m0-results.md](m0-results.md): Parakeet ultra + Qwen3.5-4B, with a measured release-to-paste time of 446 ms p50 live and 425 ms p50 over 100 replays. Do not start Milestone 1 until the owner approves. Steps 1–6 below are done; the history is kept for reference.
+
 Paused on 2026-10-04. Branch `milestone-0`. Milestone 1 has not started and waits for approval of the M0 results.
 
 ## Done

@@ -343,6 +343,7 @@ struct StallTest: AsyncParsableCommand {
 
 struct E2E: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
+        commandName: "e2e",
         abstract: "Replay recorded clips through the whole pipeline into a real TextEdit document: transcribe, clean up, paste. Needs Accessibility.",
         discussion: "Opens a new TextEdit document and pastes into it. Do not use the keyboard or mouse while it runs."
     )
@@ -436,7 +437,7 @@ struct Run: AsyncParsableCommand {
     func run() async throws {
         let hasKey = ProcessInfo.processInfo.environment["GROQ_API_KEY"]?.isEmpty == false
         let engineIds = engines.map { $0.split(separator: ",").map(String.init) }
-            ?? ["parakeet-v3", "parakeet-v2", "parakeet-ultra", "whisper-turbo", "apple-speech"] + (hasKey ? ["groq-whisper"] : [])
+            ?? ["parakeet-v3", "parakeet-v2", "parakeet-ultra", "parakeet-phonon2", "whisper-turbo", "apple-speech"] + (hasKey ? ["groq-whisper"] : [])
         var cleanupIds = cleanups.map { $0.split(separator: ",").map(String.init) }
             ?? ["rules", "apple-foundation"] + (CleanupCatalog.mlxAvailable ? CleanupCatalog.mlxNames.map { "mlx:\($0)" } : []) + (hasKey ? ["groq"] : [])
         if !CleanupCatalog.mlxAvailable { cleanupIds.removeAll { $0.hasPrefix("mlx:") } }

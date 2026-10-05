@@ -35,3 +35,11 @@ Newest last. Each entry: date, decision, reason.
 - **Apple Foundation Models keeps one prewarmed session ready**, created right after each use, so a dictation does not pay for reading the instructions.
 - **Guard: "X, no, Y" and "X, wait, Y" count as corrections** (only between commas, so a sentence starting "No," does not), and **words spoken after the cue may move forward** in the order check. Round 2 showed the guard rejecting 7 of 8 correct resolutions from Qwen3.5-4B (for example "add Jordan to the thread, no wait, add Taylor" → "Add Taylor to the thread"). Swapped corrections are still rejected because the swapped-in word was spoken before the cue.
 - **Same eight-example prompt for every provider.** Apple Foundation Models runs 500–800 ms per call with or without examples, and without them it misses corrections, so trimming the prompt for it does not help.
+
+## 2026-10-04 · Final M0 runs
+
+- **Added three more open candidates:** Parakeet phonon2 (speech), SmolLM3-3B and Gemma 3 1B (cleanup), at the owner's request for smaller or faster open models.
+- **Gemma 3 1B is reported as not measured.** In this harness it never emits a stop token, so every call runs to the token limit (~3.3 s) even though the visible answer is right. Not worth fixing for the bake-off: the comparable Qwen3.5-2B already falls well short on corrections.
+- **Guard accepts real-transcript correction shapes.** Speech engines write "fourteen. No, sixteen", "six no, six thirty" and "the docs folder, no the assets folder". The cue pattern now accepts a bare "no"/"wait" after a word, followed by a comma or period or by a short function word ("the", "my", "to" …). "That's fine, no problem" and a leading "No," still do not count. Without this, 4 of Qwen3.5-4B's 6 misses on real transcripts were correct answers the guard threw away.
+- **"I" and its contractions (I'm, I'ma, I'd) are never names** in the guard. Found in the live session: "I'ma" was taken for a name and a good cleanup was discarded.
+- **Report scores negation entities by count, not literal word,** so "we not rename" → "we don't rename" is not a change.

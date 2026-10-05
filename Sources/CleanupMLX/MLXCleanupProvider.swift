@@ -18,6 +18,8 @@ public actor MLXCleanupProvider: CleanupProvider {
         "qwen3.5-2b": "mlx-community/Qwen3.5-2B-4bit",
         "qwen3.5-4b": "mlx-community/Qwen3.5-4B-4bit",
         "qwen3-4b-2507": "mlx-community/Qwen3-4B-Instruct-2507-4bit",
+        "smollm3-3b": "mlx-community/SmolLM3-3B-4bit",
+        "gemma3-1b": "mlx-community/gemma-3-1b-it-qat-4bit",
     ]
 
     public nonisolated let id: String
@@ -35,7 +37,7 @@ public actor MLXCleanupProvider: CleanupProvider {
 
     public func load() async throws {
         guard container == nil else { return }
-        let configuration = ModelConfiguration(id: repo, extraEOSTokens: ["<|im_end|>"])
+        let configuration = ModelConfiguration(id: repo, extraEOSTokens: ["<|im_end|>", "<end_of_turn>"])
         container = try await #huggingFaceLoadModelContainer(configuration: configuration)
         // Build the prefix cache for the default prompt and compile the Metal kernels.
         _ = try await complete(CleanupPrompt.messages(for: "Say OK.", level: .light, vocabulary: []), maxTokens: 2)

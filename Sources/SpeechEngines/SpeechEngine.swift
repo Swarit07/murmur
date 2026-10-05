@@ -42,13 +42,14 @@ public enum SpeechError: Error, CustomStringConvertible {
 }
 
 public enum EngineCatalog {
-    public static let ids = ["parakeet-v3", "parakeet-v2", "parakeet-ultra", "whisper-turbo", "apple-speech", "groq-whisper"]
+    public static let ids = ["parakeet-v3", "parakeet-v2", "parakeet-ultra", "parakeet-phonon2", "whisper-turbo", "apple-speech", "groq-whisper"]
 
     public static func make(_ id: String) throws -> any SpeechEngine {
         switch id {
         case "parakeet-v3": ParakeetEngine(version: .v3)
         case "parakeet-v2": ParakeetEngine(version: .v2)
         case "parakeet-ultra": ParakeetEngine(version: .ultra)
+        case "parakeet-phonon2": ParakeetEngine(version: .phonon2)
         case "whisper-turbo": WhisperKitEngine(model: "large-v3-v20240930_turbo")
         case "whisper-turbo-626mb": WhisperKitEngine(model: "large-v3-v20240930_626MB")
         case "apple-speech": AppleSpeechEngine()

@@ -136,7 +136,10 @@ struct ReportBuilder {
     /// An unintended change: an entity or negation that was in the input is missing from the output,
     /// or a must-not-appear string (an answer, a translation) shows up.
     func changed(input: String, output: String, clip: CorpusClip) -> Bool {
-        for entity in clip.entities ?? [] where CorpusChecks.entityPresent(input, entity) && !CorpusChecks.entityPresent(output, entity) {
+        // Negation entities ("not", "don't") are judged by the negation count below, so "we not rename"
+        // -> "we don't rename" is not a change.
+        for entity in clip.entities ?? [] where GuardChecker.negationCount(entity) == 0
+            && CorpusChecks.entityPresent(input, entity) && !CorpusChecks.entityPresent(output, entity) {
             return true
         }
         if clip.set != "correction" && GuardChecker.negationCount(input) != GuardChecker.negationCount(output) { return true }
