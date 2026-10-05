@@ -11,7 +11,7 @@ import SpeechEngines
 import Store
 
 public enum UISound: String, Sendable, CaseIterable {
-    case start, stop, error
+    case start, stop, done, error
 }
 
 public protocol SoundPlaying: Sendable {
@@ -368,6 +368,7 @@ public final class DictationController {
             session = nil
             processing = nil
             status.phase = .inserted
+            if settings.soundsEnabled { sounds?.play(.done) }
             if firstAudioMs != nil { Signposts.transition(from: "released", to: "inserted \(timings.summary)") }
         case .failed(let failure):
             let kind: DictationErrorKind = failure == .noTextBox ? .noTextBox : .pasteFailed

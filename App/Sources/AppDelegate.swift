@@ -212,6 +212,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         states.submenu = stateMenu
         sub.addItem(states)
         sub.addItem(item("Token panel…", #selector(showTokens)))
+        let soundsItem = NSMenuItem(title: "Play sounds", action: nil, keyEquivalent: "")
+        let soundsMenu = NSMenu()
+        for sound in UISound.allCases {
+            let entry = item(sound.rawValue.capitalized, #selector(playSound(_:)))
+            entry.representedObject = sound.rawValue
+            soundsMenu.addItem(entry)
+        }
+        soundsItem.submenu = soundsMenu
+        sub.addItem(soundsItem)
         sub.addItem(item("Run focus test (50 trials)", #selector(runFocusTest)))
         sub.addItem(item("Open data folder", #selector(openDataFolder)))
         parent.submenu = sub
@@ -229,6 +238,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func forceState(_ sender: NSMenuItem) { flowBar.model.forced = Self.forcibleStates[sender.tag] }
     @objc func clearForcedState() { flowBar.model.forced = nil }
     @objc func showTokens() { windows.showTokens() }
+    @objc func playSound(_ sender: NSMenuItem) {
+        if let raw = sender.representedObject as? String, let sound = UISound(rawValue: raw) { sounds.play(sound) }
+    }
     @objc func hideFlowBar() { flowBar.bar.hide(for: 3600) }
     @objc func showFlowBar() { flowBar.bar.unhide() }
     @objc func openDataFolder() { NSWorkspace.shared.open(MurmurPaths.appSupport) }

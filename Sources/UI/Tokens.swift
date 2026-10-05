@@ -99,16 +99,31 @@ public struct Tokens: Codable, Equatable, Sendable {
 
     // MARK: Sound
 
-    public var soundStartPitchLow: Double = 660
-    public var soundStartPitchHigh: Double = 990
-    public var soundStartLength: Double = 0.16
-    public var soundStopPitchHigh: Double = 990
-    public var soundStopPitchLow: Double = 660
-    public var soundStopLength: Double = 0.15
+    // Each sound is two notes. A note glides from its pitch by `soundGlide` (a fraction, + rises) and is
+    // built from a sine plus overtones; `soundBrightness` sets how loud the overtones are and
+    // `soundBellness` how far they drift from exact harmonics (0 = soft tone, 1 = bell).
+    public var soundStartPitchLow: Double = 587
+    public var soundStartPitchHigh: Double = 880
+    public var soundStartLength: Double = 0.17
+    public var soundStopPitchHigh: Double = 880
+    public var soundStopPitchLow: Double = 587
+    public var soundStopLength: Double = 0.16
+    /// The chime when text lands.
+    public var soundDonePitchLow: Double = 1047
+    public var soundDonePitchHigh: Double = 1568
+    public var soundDoneLength: Double = 0.42
+    public var soundDoneVolume: Double = 0.22
     public var soundErrorPitchHigh: Double = 330
-    public var soundErrorPitchLow: Double = 262
-    public var soundErrorLength: Double = 0.27
-    public var soundVolume: Double = 0.35
+    public var soundErrorPitchLow: Double = 247
+    public var soundErrorLength: Double = 0.30
+    public var soundVolume: Double = 0.30
+    public var soundGlide: Double = 0.04
+    public var soundBrightness: Double = 0.35
+    public var soundBellness: Double = 0.5
+    /// Attack time in seconds; release follows the note length.
+    public var soundAttack: Double = 0.004
+    /// Plays the done chime after a successful paste.
+    public var soundDoneEnabled: Bool = true
 
     public init() {}
 

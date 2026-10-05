@@ -82,42 +82,83 @@ final class FlowBarWiring {
 }
 
 /// Murmur's sounds, synthesized from the sound tokens each time they change, so tuning a pitch or a
-/// length in the token panel is heard on the next dictation.
+/// length in the token panel is heard on the next dictation. All original: sines with overtones,
+/// a short pitch glide and an exponential fade; no recorded audio.
 final class Sounds: SoundPlaying {
     @MainActor private static var cache: [String: NSSound] = [:]
 
+    struct Note: CustomStringConvertible {
+        var hz: Double
+        var share: Double
+        var description: String { "\(hz)/\(share)" }
+    }
+
     @MainActor func play(_ sound: UISound) {
         let t = LiveTokens.shared.value
-        let tones: [(Double, Double)]
-        let length: Double
+        if sound == .done && !t.soundDoneEnabled { return }
+        let notes: [Note], length: Double, volume: Double, glide: Double
         switch sound {
-        case .start: tones = [(t.soundStartPitchLow, 0.45), (t.soundStartPitchHigh, 0.55)]; length = t.soundStartLength
-        case .stop: tones = [(t.soundStopPitchHigh, 0.45), (t.soundStopPitchLow, 0.55)]; length = t.soundStopLength
-        case .error: tones = [(t.soundErrorPitchHigh, 0.4), (t.soundErrorPitchLow, 0.6)]; length = t.soundErrorLength
+        case .start:
+            notes = [Note(hz: t.soundStartPitchLow, share: 0.42), Note(hz: t.soundStartPitchHigh, share: 0.58)]
+            length = t.soundStartLength; volume = t.soundVolume; glide = t.soundGlide
+        case .stop:
+            notes = [Note(hz: t.soundStopPitchHigh, share: 0.42), Note(hz: t.soundStopPitchLow, share: 0.58)]
+            length = t.soundStopLength; volume = t.soundVolume; glide = -t.soundGlide
+        case .done:
+            // The second note overlaps the first's tail, which is what makes a chime ring.
+            notes = [Note(hz: t.soundDonePitchLow, share: 0.35), Note(hz: t.soundDonePitchHigh, share: 0.65)]
+            length = t.soundDoneLength; volume = t.soundDoneVolume; glide = 0
+        case .error:
+            notes = [Note(hz: t.soundErrorPitchHigh, share: 0.4), Note(hz: t.soundErrorPitchLow, share: 0.6)]
+            length = t.soundErrorLength; volume = t.soundVolume; glide = -t.soundGlide / 2
         }
-        let key = "\(sound)-\(tones)-\(length)-\(t.soundVolume)"
+        let overlap = sound == .done
+        let key = "\(sound)-\(notes)-\(length)-\(volume)-\(glide)-\(t.soundBrightness)-\(t.soundBellness)-\(t.soundAttack)"
         if Self.cache[key] == nil {
-            Self.cache[key] = NSSound(data: Self.wav(tones: tones, length: length, volume: t.soundVolume))
+            let samples = Self.render(notes: notes, length: length, volume: volume, glide: glide,
+                                      brightness: t.soundBrightness, bellness: t.soundBellness, attack: t.soundAttack, overlap: overlap)
+            Self.cache[key] = NSSound(data: Self.wav(samples))
         }
         Self.cache[key]?.stop()
         Self.cache[key]?.play()
     }
 
-    /// Two short sine tones with a soft octave partial, fast attack and exponential release.
-    static func wav(tones: [(hz: Double, share: Double)], length: Double, volume: Double, rate: Double = 44_100) -> Data {
-        var samples: [Int16] = []
-        let gap = 0.012
-        for (index, tone) in tones.enumerated() {
-            let n = Int(max(0.01, length * tone.share - gap) * rate)
-            for k in 0..<n {
-                let time = Double(k) / rate
-                let attack = min(1, Double(k) / (0.004 * rate))
-                let release = exp(-5 * Double(k) / Double(n))
-                let wave = sin(2 * .pi * tone.hz * time) + 0.25 * sin(4 * .pi * tone.hz * time)
-                samples.append(Int16(max(-1, min(1, wave * attack * release * volume / 1.25)) * 32_000))
+    static let rate = 44_100.0
+
+    static func render(notes: [Note], length: Double, volume: Double, glide: Double, brightness: Double,
+                       bellness: Double, attack: Double, overlap: Bool) -> [Float] {
+        let total = Int(length * rate)
+        var out = [Float](repeating: 0, count: total + Int(0.05 * rate))
+        var start = 0
+        // Overtones: ratio drifts from an exact harmonic toward a bell's inharmonic partials.
+        let partials: [(ratio: Double, amp: Double, decay: Double)] = [
+            (1, 1, 1),
+            (2 + 0.76 * bellness, 0.6 * brightness, 2.2),
+            (3 + 2.2 * bellness, 0.35 * brightness, 3.5),
+            (4.2 + 1.2 * bellness, 0.18 * brightness, 5),
+        ]
+        for (index, note) in notes.enumerated() {
+            let n = Int(length * note.share * rate)
+            // With overlap, each note rings past its slot; without, they follow each other.
+            let ring = overlap ? Int(Double(n) * (index == notes.count - 1 ? 1 : 2.2)) : n
+            var phases = [Double](repeating: 0, count: partials.count)
+            for k in 0..<ring where start + k < out.count {
+                let x = Double(k) / Double(max(ring, 1))
+                let hz = note.hz * (1 + glide * min(1, Double(k) / (0.04 * rate)))
+                let env = min(1, Double(k) / max(1, attack * rate)) * exp(-4.5 * x)
+                var v = 0.0
+                for (p, partial) in partials.enumerated() {
+                    phases[p] += 2 * .pi * hz * partial.ratio / rate
+                    v += sin(phases[p]) * partial.amp * exp(-4.5 * x * (partial.decay - 1))
+                }
+                out[start + k] += Float(v * env * volume / 1.6)
             }
-            if index < tones.count - 1 { samples += [Int16](repeating: 0, count: Int(gap * rate)) }
+            start += n
         }
+        return out.map { max(-1, min(1, $0)) }
+    }
+
+    static func wav(_ samples: [Float]) -> Data {
         var d = Data()
         func u32(_ v: UInt32) { withUnsafeBytes(of: v.littleEndian) { d.append(contentsOf: $0) } }
         func u16(_ v: UInt16) { withUnsafeBytes(of: v.littleEndian) { d.append(contentsOf: $0) } }
@@ -125,7 +166,7 @@ final class Sounds: SoundPlaying {
         d.append(contentsOf: Array("RIFF".utf8)); u32(36 + bytes); d.append(contentsOf: Array("WAVE".utf8))
         d.append(contentsOf: Array("fmt ".utf8)); u32(16); u16(1); u16(1); u32(UInt32(rate)); u32(UInt32(rate) * 2); u16(2); u16(16)
         d.append(contentsOf: Array("data".utf8)); u32(bytes)
-        for s in samples { u16(UInt16(bitPattern: s)) }
+        for s in samples { u16(UInt16(bitPattern: Int16(s * 32_000))) }
         return d
     }
 }
