@@ -314,10 +314,14 @@ struct SnippetCard: View {
                 }
                 .frame(height: HubGeometry.iconButtonSmall)
             }
+            // A preview: long expansions stop after a few lines (Edit shows all of it).
             Text(snippet.expansion)
                 .textStyle(TypeTokens.expansion)
                 .foregroundStyle(c.textPrimary.color)
+                .lineLimit(HubGeometry.snippetPreviewLines)
+                .truncationMode(.tail)
                 .fixedSize(horizontal: false, vertical: true)
+                .accessibilityLabel(snippet.expansion)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, HubGeometry.expansionPadding.width)
                 .padding(.vertical, HubGeometry.expansionPadding.height)

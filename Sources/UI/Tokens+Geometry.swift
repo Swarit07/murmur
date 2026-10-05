@@ -171,6 +171,8 @@ public enum HubGeometry {
     public static let dictionarySoundsField: CGFloat = 220 // source: board
     public static let editRowPadding = CGSize(width: 12, height: 10) // source: board
     public static let searchFieldWidth: CGFloat = 320 // source: board
+    /// A snippet card previews this many lines of its expansion.
+    public static let snippetPreviewLines = 6 // source: derived (the board's longest sample, a sign-off, is 3 lines)
     /// The search field gives way down to this beside the filter in a narrow window.
     public static let searchFieldMin: CGFloat = 160 // source: derived ("Search 120 words" stays readable)
 
