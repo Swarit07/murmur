@@ -14,7 +14,7 @@ struct MurmurCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "murmur-cli",
         abstract: "Murmur Milestone 0 spike: record, transcribe, clean up and paste from the terminal.",
-        subcommands: [Doctor.self, Record.self, Transcribe.self, Clean.self, Dictate.self],
+        subcommands: [Doctor.self, Record.self, Transcribe.self, Clean.self, Command.self, Dictate.self],
         defaultSubcommand: Doctor.self
     )
 }
@@ -196,6 +196,30 @@ struct Clean: AsyncParsableCommand {
         print("final: \(out.text)")
         // A timed-out generation may still be running; let it finish before the process exits.
         await provider?.unload()
+    }
+}
+
+// MARK: - command
+
+struct Command: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(abstract: "Run a Command Mode instruction on some selected text (or none, for a draft).")
+
+    @Argument(help: "The spoken instruction.")
+    var instruction: String
+
+    @Option(help: "The selected text. Leave out to draft new text.")
+    var selection: String?
+
+    @Option(name: .shortAndLong, help: "Model: \(CleanupCatalog.ids.joined(separator: ", ")).")
+    var model: String = "mlx:qwen3.5-4b"
+
+    func run() async throws {
+        guard let provider = try CleanupCatalog.make(model) else { throw ValidationError("Command Mode needs a model, not rules.") }
+        try await provider.load()
+        let out = await CommandRunner(provider: provider).run(instruction: instruction, selection: selection)
+        print("\(Format.ms(out.ms))\(out.timedOut ? " (timed out)" : "")\(out.error.map { " error: \($0)" } ?? "")")
+        print(out.text ?? "")
+        await provider.unload()
     }
 }
 

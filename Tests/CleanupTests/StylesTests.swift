@@ -47,3 +47,15 @@ struct StylesTests {
         #expect(AppCategory.email.styles == [.formal, .casual, .excited])
     }
 }
+
+@Suite("Press enter (C11)")
+struct PressEnterTests {
+    @Test func splitsOnlyATrailingCommandWhenOn() {
+        #expect(PressEnter.split("Sounds good, see you then. Press enter.", enabled: true) == ("Sounds good, see you then", true))
+        #expect(PressEnter.split("ship it press enter", enabled: true) == ("ship it", true))
+        #expect(PressEnter.split("Press enter", enabled: true) == ("", true))
+        #expect(PressEnter.split("Ship it. Press enter.", enabled: false) == ("Ship it. Press enter.", false))
+        #expect(PressEnter.split("Don't press enter yet, I'm still typing.", enabled: true) == ("Don't press enter yet, I'm still typing.", false))
+        #expect(PressEnter.split("the express enterprise plan", enabled: true) == ("the express enterprise plan", false))
+    }
+}

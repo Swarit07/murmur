@@ -89,3 +89,20 @@ public struct SystemPasteSender: PasteSending {
         return false
     }
 }
+
+/// Presses keys in the frontmost app (C11's Return).
+public enum KeyPresser {
+    @MainActor
+    public static func pressReturn() {
+        guard AXIsProcessTrusted() else { return }
+        // A private source and no flags: the session state can still carry the Command flag of the paste
+        // keystroke just posted, which would turn this into Cmd+Return.
+        let source = CGEventSource(stateID: .privateState)
+        let code = CGKeyCode(kVK_Return)
+        for down in [true, false] {
+            guard let event = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: down) else { continue }
+            event.flags = []
+            event.post(tap: .cgSessionEventTap)
+        }
+    }
+}

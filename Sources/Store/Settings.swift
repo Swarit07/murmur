@@ -13,7 +13,7 @@ public final class AppSettings: @unchecked Sendable {
     }
 
     enum Key: String {
-        case engine, cleanupProvider, cleanupLevel, keyboardLayout, showInDock, soundsEnabled, microphoneUID, keepAudio, showFlowBar, debugMenu, transformsEnabled, smartFormatting, languages, shortcuts, neverStore, onboardingStep, onboardingDone, styles
+        case engine, cleanupProvider, cleanupLevel, keyboardLayout, showInDock, soundsEnabled, microphoneUID, keepAudio, showFlowBar, debugMenu, transformsEnabled, smartFormatting, languages, shortcuts, neverStore, onboardingStep, onboardingDone, styles, commandMode, pressEnter
     }
 
     private func string(_ key: Key, _ fallback: String) -> String { defaults.string(forKey: key.rawValue) ?? fallback }
@@ -71,6 +71,18 @@ public final class AppSettings: @unchecked Sendable {
     }
 
     /// C3 Smart Formatting: spoken lists become numbered lists, long dictations get paragraphs.
+    /// Command Mode (M1): off until turned on in Settings › Experimental.
+    public var commandMode: Bool {
+        get { defaults.bool(forKey: Key.commandMode.rawValue) }
+        set { set(newValue, .commandMode) }
+    }
+
+    /// C11: ending a dictation with "press enter" presses Return after the paste. Off by default.
+    public var pressEnter: Bool {
+        get { defaults.bool(forKey: Key.pressEnter.rawValue) }
+        set { set(newValue, .pressEnter) }
+    }
+
     public var smartFormatting: Bool {
         get { defaults.object(forKey: Key.smartFormatting.rawValue) as? Bool ?? true }
         set { set(newValue, .smartFormatting) }

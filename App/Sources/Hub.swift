@@ -134,7 +134,7 @@ struct HubView: View {
                     case .style: StylePage(model: model)
                     case .general: GeneralPage(model: model)
                     case .system: SystemPage(model: model)
-                    case .experimental: ExperimentalPage()
+                    case .experimental: ExperimentalPage(model: model)
                     case .privacy: PrivacyPage(model: model)
                     }
                 }
@@ -451,6 +451,15 @@ struct HistoryRow: View {
                     .lineLimit(3)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 HStack(spacing: 5) {
+                    if record.mode == "command" {
+                        Text("Command")
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Capsule().fill(Color.accentColor.opacity(0.15)))
+                            .foregroundStyle(Color.accentColor)
+                        if let instruction = record.rawText { Text("“\(instruction)”").lineLimit(1) }
+                    }
                     if let app = record.appName, !app.isEmpty { Text(app) }
                     if record.useRaw {
                         Text("·")
@@ -701,24 +710,36 @@ struct SystemPage: View {
 }
 
 struct ExperimentalPage: View {
+    let model: HubModel
+    @State private var commandMode = AppSettings.shared.commandMode
+    @State private var pressEnter = AppSettings.shared.pressEnter
+    @State private var confirmPressEnter = false
+
     var body: some View {
         Form {
             Section {
-                Toggle(isOn: .constant(false)) {
+                Toggle(isOn: $commandMode) {
                     Text("Command Mode")
-                    Text("Hold Fn+Control and speak an instruction to rewrite the selection or the draft at the cursor.")
+                    Text("Hold \(HotkeyConfiguration.defaultCommand(appleKeyboard: model.settings.keyboardLayout != "other").displayName) and speak an instruction, like “make this friendlier” or “translate to Spanish”. With text selected, Murmur rewrites it in place, and one ⌘Z brings it back. With nothing selected, it writes a draft at the cursor.")
                 }
-                .disabled(true)
-                Toggle(isOn: .constant(false)) {
+                .onChange(of: commandMode) { model.settings.commandMode = commandMode }
+                Toggle(isOn: Binding(get: { pressEnter }, set: { on in
+                    if on { confirmPressEnter = true } else { pressEnter = false; model.settings.pressEnter = false }
+                })) {
                     Text("Press Enter after “press enter”")
-                    Text("Ending a dictation with “press enter” presses Return after the paste.")
+                    Text("End a dictation with “press enter” and Murmur presses Return after pasting.")
                 }
-                .disabled(true)
             } footer: {
-                Footnote("These features are not available in this build yet.")
+                Footnote("Command Mode uses the cleanup model chosen in Settings › General › Models, on this Mac unless you picked a cloud model. You can change its shortcut in General › Shortcuts.")
             }
         }
         .formStyle(.grouped)
+        .alert("Turn on Press Enter?", isPresented: $confirmPressEnter) {
+            Button("Turn On") { pressEnter = true; model.settings.pressEnter = true }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("When a dictation ends with “press enter”, Murmur presses Return right after pasting. In chat apps that sends the message at once.")
+        }
     }
 }
 
@@ -869,6 +890,12 @@ struct ShortcutSettings: View {
         ShortcutRow(title: "Hands-free", shortcut: config.handsFree, model: model) { new in
             config.handsFree = new
             model.controller.setShortcuts(config)
+        }
+        if let command = config.command {
+            ShortcutRow(title: "Command Mode", shortcut: command, model: model) { new in
+                config.command = new
+                model.controller.setShortcuts(config)
+            }
         }
         HStack {
             Text("Double-tap push-to-talk also starts hands-free. Esc cancels.").font(.caption).foregroundStyle(.secondary)

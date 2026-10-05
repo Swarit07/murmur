@@ -64,11 +64,19 @@ public enum HotkeyAction: Sendable, Equatable {
     case cancel
     /// Stop and drop silently, no History entry: the key was a quick tap or part of another shortcut.
     case discard
+    /// Command Mode (M1): the Command shortcut went down; record a spoken instruction.
+    case startCommand
+    /// The Command shortcut joined a push-to-talk hold right away: keep recording, as a command.
+    case convertToCommand
+    /// The Command shortcut was released after a real hold: run the instruction.
+    case stopCommand
 }
 
 public struct HotkeyConfiguration: Sendable, Codable, Equatable {
     public var pushToTalk: Shortcut
     public var handsFree: Shortcut
+    /// Command Mode's shortcut, or nil while Command Mode is off (Settings › Experimental).
+    public var command: Shortcut?
     /// Another key within this window after push-to-talk goes down cancels it (Fn+arrow, Fn+F5).
     public var otherKeyWindowNs: UInt64
     /// A press shorter than this is a tap, not a hold.
@@ -82,12 +90,14 @@ public struct HotkeyConfiguration: Sendable, Codable, Equatable {
     public init(
         pushToTalk: Shortcut = .modifiers([.fn]),
         handsFree: Shortcut = .key(keyCode: HotkeyConfiguration.spaceKeyCode, modifiers: [.fn]),
+        command: Shortcut? = nil,
         otherKeyWindowNs: UInt64 = 250_000_000,
         tapMaxNs: UInt64 = 300_000_000,
         doubleTapWindowNs: UInt64 = 500_000_000
     ) {
         self.pushToTalk = pushToTalk
         self.handsFree = handsFree
+        self.command = command
         self.otherKeyWindowNs = otherKeyWindowNs
         self.tapMaxNs = tapMaxNs
         self.doubleTapWindowNs = doubleTapWindowNs
@@ -99,6 +109,11 @@ public struct HotkeyConfiguration: Sendable, Codable, Equatable {
     public static let otherKeyboard = HotkeyConfiguration(
         pushToTalk: .modifiers([.control, .option]),
         handsFree: .key(keyCode: spaceKeyCode, modifiers: [.control, .option]))
+
+    /// Command Mode's default: Fn+Control on Apple keyboards, Control+Option+Command otherwise.
+    public static func defaultCommand(appleKeyboard: Bool) -> Shortcut {
+        appleKeyboard ? .modifiers([.fn, .control]) : .modifiers([.control, .option, .command])
+    }
 }
 
 /// Turns input events into dictation actions. Pure and deterministic, so every rule is unit-tested
@@ -112,11 +127,13 @@ public struct HotkeyRecognizer: Sendable {
         case suppressed
         /// A hands-free dictation runs. `startedAt` drives the rapid-tap guard.
         case handsFree(startedAt: UInt64)
+        /// The Command shortcut is held and an instruction is being recorded.
+        case commanding(since: UInt64)
     }
 
     /// The edges and triggers events are reduced to, whatever kind of shortcut is configured.
     enum Input {
-        case pttDown, pttUp, otherKey, handsFreeTrigger, escape
+        case pttDown, pttUp, otherKey, handsFreeTrigger, escape, commandDown, commandUp
     }
 
     public var configuration: HotkeyConfiguration
@@ -126,6 +143,8 @@ public struct HotkeyRecognizer: Sendable {
     var held: Set<ModifierKey> = []
     /// Whether the push-to-talk shortcut is physically down (key, mouse button or Caps Lock kinds).
     var pttPressed = false
+    /// Whether a key-type Command shortcut is down.
+    var commandPressed = false
 
     public init(configuration: HotkeyConfiguration = .appleKeyboard) {
         self.configuration = configuration
@@ -159,6 +178,14 @@ public struct HotkeyRecognizer: Sendable {
         case .modifiers(let new, let time):
             let old = held
             held = new
+            // Command Mode's modifiers (Fn+Control) contain push-to-talk's (Fn), so they are checked
+            // first, and while a command records only its own edges count.
+            if case .modifiers(let commandSet)? = configuration.command {
+                if new == commandSet && old != commandSet { return [(.commandDown, time)] }
+                if case .commanding = state {
+                    return commandSet.isSubset(of: old) && !commandSet.isSubset(of: new) ? [(.commandUp, time)] : []
+                }
+            }
             var out: [(Input, UInt64)] = []
             if case .modifiers(let set) = ptt {
                 if new == set && old != set && !set.isSubset(of: old) {
@@ -178,6 +205,10 @@ public struct HotkeyRecognizer: Sendable {
             return out
         case .keyDown(let code, let time):
             if code == HotkeyConfiguration.escapeKeyCode { return [(.escape, time)] }
+            if case .key(let c, let mods)? = configuration.command, code == c, held == mods {
+                commandPressed = true
+                return [(.commandDown, time)]
+            }
             if case .key(let c, let mods) = ptt, code == c, held == mods {
                 pttPressed = true
                 return [(.pttDown, time)]
@@ -185,6 +216,10 @@ public struct HotkeyRecognizer: Sendable {
             if case .key(let c, let mods) = hf, code == c, held == mods { return [(.handsFreeTrigger, time)] }
             return [(.otherKey, time)]
         case .keyUp(let code, let time):
+            if case .key(let c, _)? = configuration.command, code == c, commandPressed {
+                commandPressed = false
+                return [(.commandUp, time)]
+            }
             if case .key(let c, _) = ptt, code == c, pttPressed {
                 pttPressed = false
                 return [(.pttUp, time)]
@@ -217,6 +252,26 @@ public struct HotkeyRecognizer: Sendable {
         case (.escape, .handsFree):
             state = pttIsDown ? .suppressed : .idle
             return [.cancel]
+        case (.escape, .commanding):
+            state = .suppressed
+            return [.cancel]
+
+        case (.commandDown, .idle):
+            lastTapUp = nil
+            state = .commanding(since: time)
+            return [.startCommand]
+        case (.commandDown, .holding(let since)):
+            // Control joined Fn right away: this press was the Command shortcut all along.
+            guard time &- since <= configuration.otherKeyWindowNs else { return [] }
+            state = .commanding(since: since)
+            return [.convertToCommand]
+        case (.commandDown, _):
+            return []
+        case (.commandUp, .commanding(let since)):
+            state = .idle
+            return time &- since < configuration.tapMaxNs ? [.discard] : [.stopCommand]
+        case (.commandUp, _):
+            return []
         case (.escape, _):
             // Esc also cancels while the controller is still transcribing or cleaning up, after the key
             // was released, so it is always reported. The controller ignores it when nothing is running.
@@ -256,6 +311,12 @@ public struct HotkeyRecognizer: Sendable {
                 return [.discard]
             }
             return []
+        case (.otherKey, .commanding(let since)):
+            if time &- since <= configuration.otherKeyWindowNs {
+                state = .suppressed
+                return [.discard]
+            }
+            return []
         case (.otherKey, .idle):
             lastTapUp = nil
             return []
@@ -273,6 +334,8 @@ public struct HotkeyRecognizer: Sendable {
             state = pttIsDown ? .suppressed : .idle
             return time &- startedAt <= configuration.doubleTapWindowNs ? [.cancel] : [.stopHandsFree]
         case (.handsFreeTrigger, .suppressed):
+            return []
+        case (.handsFreeTrigger, .commanding):
             return []
         }
     }

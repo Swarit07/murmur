@@ -41,6 +41,11 @@ final class SelfTest {
         return gone.isEmpty ? nil : "missing \(gone.joined(separator: ", "))"
     }
 
+    static let rewriteInstruction = "Make this more formal."
+    static let draftInstruction = "Write a one sentence thank you note to Sam for the flowers."
+    static let pressEnterPhrase = "Ship it, press enter."
+    private var textEditPID: pid_t = 0
+
     var cases: [Case] {
         [
             Case(name: "Plain dictation", phrase: "The quick brown fox jumps over the lazy dog.") { text in
@@ -87,7 +92,7 @@ final class SelfTest {
     func run() async -> String {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let startedAt = Date()
-        let saved = (transforms: settings.transformsEnabled, smart: settings.smartFormatting, sounds: settings.soundsEnabled)
+        let saved = (transforms: settings.transformsEnabled, smart: settings.smartFormatting, sounds: settings.soundsEnabled, pressEnter: settings.pressEnter)
         savedStyles = settings.styles
         let clipboard = Self.saveClipboard()
         let sentinel = "murmur-self-test-\(UUID().uuidString.prefix(8))"
@@ -103,7 +108,7 @@ final class SelfTest {
 
         // Synthesize every clip first, so the document is only open while dictating.
         var clips: [String: [Float]] = [:]
-        for phrase in cases.map(\.phrase) + ["Let's grab coffee after the meeting."] {
+        for phrase in cases.map(\.phrase) + ["Let's grab coffee after the meeting.", Self.rewriteInstruction, Self.draftInstruction, Self.pressEnterPhrase] {
             clips[phrase] = await synthesize(phrase)
         }
 
@@ -140,6 +145,53 @@ final class SelfTest {
                 record("Cancel while processing", "could not start a dictation", text: "")
             }
 
+            // Command Mode (M2): rewrite the selection in place; one Undo brings it back.
+            let original = "the meeting is on friday at three and everyone should bring their laptops"
+            Self.setValue(field, original)
+            Self.select(field, location: 0, length: (original as NSString).length)
+            try? await Task.sleep(for: .milliseconds(300))
+            if controller.commandForTest(clips[Self.rewriteInstruction] ?? []) {
+                let t0 = Date()
+                _ = await waitIdle(timeout: 40)
+                let ms = Int(Date().timeIntervalSince(t0) * 1000)
+                let rewritten = Self.value(field) ?? ""
+                let problem: String? = rewritten.isEmpty || rewritten == original ? "the selection was not rewritten"
+                    : Self.missing(["friday", "laptops"], in: rewritten.replacingOccurrences(of: "laptop ", with: "laptops ")).map { "rewrite lost facts: \($0)" }
+                record("Command Mode: rewrite selection", problem, text: rewritten, ms: ms)
+                let undone = Self.pressMenuItem(pid: textEditPID, startingWith: "Undo")
+                try? await Task.sleep(for: .milliseconds(500))
+                let after = Self.value(field) ?? ""
+                record("Command Mode: one Undo restores", undone && after == original ? nil : (undone ? "text after Undo differs" : "no Undo menu item"), text: after)
+            } else {
+                record("Command Mode: rewrite selection", "could not start a command", text: "")
+            }
+
+            // Command Mode with nothing selected writes a draft at the cursor.
+            Self.setValue(field, "")
+            if controller.commandForTest(clips[Self.draftInstruction] ?? []) {
+                let t0 = Date()
+                _ = await waitIdle(timeout: 40)
+                let ms = Int(Date().timeIntervalSince(t0) * 1000)
+                let draft = Self.value(field) ?? ""
+                record("Command Mode: draft at cursor", draft.isEmpty ? "nothing was written" : Self.missing(["sam"], in: draft), text: draft, ms: ms)
+            } else {
+                record("Command Mode: draft at cursor", "could not start a command", text: "")
+            }
+
+            // C11: "press enter" at the end presses Return after the paste.
+            Self.setValue(field, "")
+            settings.pressEnter = true
+            if controller.dictateForTest(clips[Self.pressEnterPhrase] ?? []) {
+                _ = await waitIdle()
+                try? await Task.sleep(for: .milliseconds(300))
+                let entered = Self.value(field) ?? ""
+                let problem: String? = Self.words(entered).contains("enter") ? "“press enter” was typed" : (entered.hasSuffix("\n") ? Self.missing(["ship"], in: entered) : "Return was not pressed")
+                record("Press Enter after “press enter”", problem, text: entered)
+            } else {
+                record("Press Enter after “press enter”", "could not start a dictation", text: "")
+            }
+            settings.pressEnter = saved.pressEnter
+
             // Paste last transcript (⌃⌘V) inserts the newest dictation again.
             Self.setValue(field, "")
             let last = (try? store.lastWithText())?.bestText ?? ""
@@ -173,6 +225,7 @@ final class SelfTest {
         settings.transformsEnabled = saved.transforms
         settings.smartFormatting = saved.smart
         settings.soundsEnabled = saved.sounds
+        settings.pressEnter = saved.pressEnter
         settings.styles = savedStyles
         Self.restoreClipboard(clipboard)
 
@@ -226,6 +279,7 @@ final class SelfTest {
         let config = NSWorkspace.OpenConfiguration()
         config.activates = true
         guard let app = try? await NSWorkspace.shared.open([documentURL], withApplicationAt: textEdit, configuration: config) else { return nil }
+        textEditPID = app.processIdentifier
         for _ in 0..<60 {
             try? await Task.sleep(for: .milliseconds(100))
             if app.isActive, let field = Self.focused(pid: app.processIdentifier), Self.attribute(field, kAXRoleAttribute) == kAXTextAreaRole {
@@ -261,6 +315,33 @@ final class SelfTest {
     }
 
     static func value(_ element: AXUIElement) -> String? { attribute(element, kAXValueAttribute) }
+
+    static func select(_ element: AXUIElement, location: Int, length: Int) {
+        var range = CFRange(location: location, length: length)
+        if let value = AXValueCreate(.cfRange, &range) {
+            AXUIElementSetAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, value)
+        }
+    }
+
+    /// Presses the first menu item whose title starts with `prefix` (TextEdit's "Undo Paste").
+    static func pressMenuItem(pid: pid_t, startingWith prefix: String) -> Bool {
+        var bar: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(AXUIElementCreateApplication(pid), kAXMenuBarAttribute as CFString, &bar) == .success, let bar else { return false }
+        func search(_ element: AXUIElement, depth: Int) -> Bool {
+            guard depth < 4 else { return false }
+            var children: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &children) == .success,
+                  let list = children as? [AXUIElement] else { return false }
+            for child in list {
+                if attribute(child, kAXRoleAttribute) == kAXMenuItemRole, attribute(child, kAXTitleAttribute)?.hasPrefix(prefix) == true {
+                    return AXUIElementPerformAction(child, kAXPressAction as CFString) == .success
+                }
+                if search(child, depth: depth + 1) { return true }
+            }
+            return false
+        }
+        return search(bar as! AXUIElement, depth: 0)
+    }
 
     static func setValue(_ element: AXUIElement, _ text: String) {
         AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, text as CFString)

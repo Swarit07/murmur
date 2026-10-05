@@ -134,8 +134,12 @@ public final class DictationController {
 
     /// The configured shortcuts (D8), or the defaults for the keyboard layout.
     public static func shortcutConfiguration(_ settings: AppSettings) -> HotkeyConfiguration {
-        if let data = settings.shortcuts, let saved = try? JSONDecoder().decode(HotkeyConfiguration.self, from: data) { return saved }
-        return settings.keyboardLayout == "other" ? .otherKeyboard : .appleKeyboard
+        let apple = settings.keyboardLayout != "other"
+        var config = apple ? HotkeyConfiguration.appleKeyboard : .otherKeyboard
+        if let data = settings.shortcuts, let saved = try? JSONDecoder().decode(HotkeyConfiguration.self, from: data) { config = saved }
+        // Command Mode's shortcut only listens while Command Mode is on (M1).
+        config.command = settings.commandMode ? (config.command ?? HotkeyConfiguration.defaultCommand(appleKeyboard: apple)) : nil
+        return config
     }
 
     public var shortcutConfiguration: HotkeyConfiguration { recognizer.configuration }
@@ -225,9 +229,14 @@ public final class DictationController {
 
     /// Builds the cleanup model's cached instructions for the current dictionary and settings.
     func prewarmCleanup() {
-        guard settings.transformsEnabled, let provider = cleanupProvider else { return }
+        guard let provider = cleanupProvider else { return }
         let request = currentCleanupRequest
-        Task { await CleanupRunner(rules: rules, provider: provider).prewarm(request) }
+        let transforms = settings.transformsEnabled, command = settings.commandMode
+        Task {
+            if transforms { await CleanupRunner(rules: rules, provider: provider).prewarm(request) }
+            // Command Mode's instructions and examples, so the first command is as fast as the rest.
+            if command { await provider.prewarm(CommandPrompt.messages(instruction: "OK", selection: nil)) }
+        }
     }
 
     var currentCleanupRequest: CleanupRequest {
@@ -239,9 +248,10 @@ public final class DictationController {
     func settingsChanged(_ key: String?) {
         switch key {
         case "engine", "cleanupProvider": reloadModels()
-        case "keyboardLayout", "shortcuts":
+        case "keyboardLayout", "shortcuts", "commandMode":
             recognizer = HotkeyRecognizer(configuration: Self.shortcutConfiguration(settings))
             updateCapsLockMonitor()
+            if key == "commandMode" { prewarmCleanup() }
         case "microphoneUID": recorder.setDevice(uid: settings.microphoneUID)
         case "cleanupLevel", "smartFormatting", "transformsEnabled": prewarmCleanup()
         default: break
@@ -307,9 +317,12 @@ public final class DictationController {
                 session?.mode = .handsFree
                 status.phase = .recording(handsFree: true)
             }
-        case .stopHold, .stopHandsFree: finish()
+        case .stopHold, .stopHandsFree, .stopCommand: finish()
         case .discard: discard()
         case .cancel: cancel()
+        case .startCommand: begin(.command)
+        case .convertToCommand:
+            if session != nil, recorder.isRunning { session?.mode = .command }
         }
     }
 
@@ -439,23 +452,65 @@ public final class DictationController {
         }
         state.send(.transcribed(trimmed))
 
-        // Clean up: rules, model with the 800 ms limit, guard; rule-cleaned text as the fallback.
-        // C1: the Transforms switch turns every AI edit off; the rules stage still runs.
-        let provider = settings.transformsEnabled ? cleanupProvider : nil
-        let request = currentCleanupRequest
-        let outcome = await CleanupRunner(rules: rules, provider: provider).run(trimmed, request: request)
-        timings.rulesMs = outcome.rulesMs
-        timings.llmMs = outcome.llmMs
-        log.notice("cleanup: \(outcome.fallback?.rawValue ?? (provider == nil ? "rules" : "model"), privacy: .public) after \(Format.ms(outcome.llmMs ?? 0), privacy: .public)\(outcome.flags.isEmpty ? "" : " flags " + outcome.flags.map(\.kind).joined(separator: ","), privacy: .public)")
-        guard isCurrent(token) else { return }
-        // S4: the style of the category the target app belongs to. None pastes the raw words.
-        let finalText = request.level == .none ? outcome.text : style(for: started.focus).apply(to: outcome.text)
+        // C11: "… press enter" at the end presses Return after the paste, when that is turned on.
+        let (spoken, pressEnterAfter) = started.mode == .command ? (trimmed, false) : PressEnter.split(trimmed, enabled: settings.pressEnter)
+        if pressEnterAfter, spoken.isEmpty {
+            _ = try? history.update(id: id) { $0.cleanText = ""; $0.status = .inserted; $0.errorCode = "press enter" }
+            state.send(.cleaned(""))
+            state.send(.inserted)
+            session = nil
+            processing = nil
+            KeyPresser.pressReturn()
+            status.phase = .inserted
+            return
+        }
+
+        let finalText: String
+        var replacesSelection = false
+        if started.mode == .command {
+            // Command Mode (M2): the transcript is an instruction for the selection, or for a draft.
+            guard let provider = cleanupProvider else {
+                _ = try? history.update(id: id) { $0.status = .transcriptionFailed; $0.errorCode = "no model" }
+                state.send(.cancel)
+                endSession(.dismiss)
+                fail("Command Mode needs a local or cloud model. Choose one in Settings › General › Models.")
+                return
+            }
+            let selection = await SelectionReader.selectedText(in: started.focus.element)
+            guard isCurrent(token) else { return }
+            let outcome = await CommandRunner(provider: provider).run(instruction: trimmed, selection: selection)
+            timings.llmMs = outcome.ms
+            log.notice("command: \(outcome.text == nil ? (outcome.timedOut ? "timeout" : "error") : "ok", privacy: .public) after \(Format.ms(outcome.ms), privacy: .public), \(selection?.isEmpty == false ? "selection" : "draft", privacy: .public)")
+            guard isCurrent(token) else { return }
+            guard let text = outcome.text else {
+                _ = try? history.update(id: id) { $0.status = .transcriptionFailed; $0.errorCode = outcome.timedOut ? "command timeout" : "command failed" }
+                state.send(.cancel)
+                endSession(.dismiss)
+                fail(outcome.timedOut ? "The command took too long. Try a shorter instruction." : "The command failed. Your instruction is in History.")
+                return
+            }
+            finalText = text
+            replacesSelection = selection?.isEmpty == false
+        } else {
+            // Clean up: rules, model with the time limit, guard; rule-cleaned text as the fallback.
+            // C1: the Transforms switch turns every AI edit off; the rules stage still runs.
+            let provider = settings.transformsEnabled ? cleanupProvider : nil
+            let request = currentCleanupRequest
+            let outcome = await CleanupRunner(rules: rules, provider: provider).run(spoken, request: request)
+            timings.rulesMs = outcome.rulesMs
+            timings.llmMs = outcome.llmMs
+            log.notice("cleanup: \(outcome.fallback?.rawValue ?? (provider == nil ? "rules" : "model"), privacy: .public) after \(Format.ms(outcome.llmMs ?? 0), privacy: .public)\(outcome.flags.isEmpty ? "" : " flags " + outcome.flags.map(\.kind).joined(separator: ","), privacy: .public)")
+            guard isCurrent(token) else { return }
+            // S4: the style of the category the target app belongs to. None pastes the raw words.
+            finalText = request.level == .none ? outcome.text : style(for: started.focus).apply(to: outcome.text)
+        }
         _ = try? history.update(id: id) { $0.cleanText = finalText; $0.timings = timings }
         guard state.send(.cleaned(finalText)) != nil else { return }
 
-        // Insert through the focus guard and the clipboard transaction.
+        // Insert through the focus guard and the clipboard transaction. A command's rewrite replaces the
+        // selection as it is, so one Cmd+Z brings the selection back.
         let current = FocusContext.snapshot()
-        let text = SmartSpacing.adjust(finalText, before: SmartSpacing.characterBeforeCursor(of: current.element))
+        let text = replacesSelection ? finalText : SmartSpacing.adjust(finalText, before: SmartSpacing.characterBeforeCursor(of: current.element))
         let insertStart = Clock.now()
         let pasted = PasteClock()
         let result = await insertion.insert(text, expected: started.focus, current: current) { pasted.mark() }
@@ -467,6 +522,10 @@ public final class DictationController {
 
         switch result {
         case .inserted:
+            if pressEnterAfter {
+                try? await Task.sleep(for: .milliseconds(120))
+                KeyPresser.pressReturn()
+            }
             _ = try? history.update(id: id) { $0.status = .inserted; $0.timings = timings }
             state.send(.inserted)
             session = nil
@@ -594,6 +653,13 @@ public final class DictationController {
     public func dictateForTest(_ samples: [Float]) -> Bool {
         guard engine != nil, session == nil else { return false }
         reprocess(samples, like: Session(mode: .hold, keyDownAt: Clock.now(), startedAt: Date(), focus: FocusContext.snapshot()))
+        return session != nil
+    }
+
+    /// Self-test: runs `samples` as a Command Mode instruction against whatever has focus now.
+    public func commandForTest(_ samples: [Float]) -> Bool {
+        guard engine != nil, session == nil else { return false }
+        reprocess(samples, like: Session(mode: .command, keyDownAt: Clock.now(), startedAt: Date(), focus: FocusContext.snapshot()))
         return session != nil
     }
 

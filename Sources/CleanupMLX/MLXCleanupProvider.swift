@@ -77,9 +77,11 @@ public actor MLXCleanupProvider: CleanupProvider {
                 cache = cached.map { $0.copy() }
                 start = tokens.count
             } else if usePrefixCache {
-                // Shared prefix: everything the full prompt has in common with the prompt minus the transcript.
-                let head = try context.tokenizer.applyChatTemplate(
-                    messages: Array(request.rendered.dropLast()), tools: nil, additionalContext: extra)
+                // Shared prefix: everything the full prompt has in common with the same conversation whose
+                // last message is empty. (Rendering it without the last message fails for a lone system
+                // prompt: chat templates require a user turn.)
+                let probe = Array(request.rendered.dropLast()) + [["role": "user", "content": ""] as [String: any Sendable]]
+                let head = try context.tokenizer.applyChatTemplate(messages: probe, tools: nil, additionalContext: extra)
                 let shared = min(zip(full, head).prefix { $0 == $1 }.count, full.count - 1)
                 let built = try context.model.newCache(parameters: parameters)
                 if shared > 0 {
