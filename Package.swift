@@ -33,7 +33,9 @@ let package = Package(
         .target(name: "Core", swiftSettings: strict),
 
         .target(name: "Hotkey", dependencies: ["Core"], swiftSettings: strict),
-        .target(name: "Audio", dependencies: ["Core"], swiftSettings: strict),
+        // Catches Objective-C exceptions from AVAudioEngine so a device problem cannot crash the app.
+        .target(name: "ObjCSupport"),
+        .target(name: "Audio", dependencies: ["Core", "ObjCSupport"], swiftSettings: strict),
         .target(
             name: "SpeechEngines",
             dependencies: [

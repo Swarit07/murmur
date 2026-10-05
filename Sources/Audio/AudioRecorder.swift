@@ -1,6 +1,15 @@
 @preconcurrency import AVFoundation
 import Core
 import Foundation
+import ObjCSupport
+
+/// Runs an AVAudioEngine call, turning a raised Objective-C exception into a thrown error.
+func catchingAudio(_ what: String, _ body: () -> Void) throws {
+    var error: NSError?
+    if !MurmurCatchException(body, &error) {
+        throw AudioError.engine("\(what): \(error?.localizedDescription ?? "unknown")")
+    }
+}
 
 public enum MicrophonePermission {
     public static var status: AVAuthorizationStatus { AVCaptureDevice.authorizationStatus(for: .audio) }
@@ -48,6 +57,7 @@ public final class AudioRecorder: @unchecked Sendable {
     /// Chooses the input device; nil follows the system default. Takes effect at the next `start`.
     public func setDevice(uid: String?) {
         lock.withLock {
+            guard uid != deviceUID else { return }
             deviceUID = uid
             needsRebuild = true
         }
@@ -64,16 +74,18 @@ public final class AudioRecorder: @unchecked Sendable {
         }
     }
 
+    /// Replaces the engine after a device or route change. Never prepares an engine without its input
+    /// node: AVAudioEngine raises on an empty graph. `start()` prepares after installing the tap.
     private func rebuildIfNeeded() {
         let (rebuild, uid) = lock.withLock { (needsRebuild, deviceUID) }
         guard rebuild else { return }
         engine.stop()
         engine = AVAudioEngine()
         observeConfiguration()
-        if let uid, var id = AudioDevices.deviceID(forUID: uid), let unit = engine.inputNode.audioUnit {
+        let input = engine.inputNode
+        if let uid, var id = AudioDevices.deviceID(forUID: uid), let unit = input.audioUnit {
             AudioUnitSetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0, &id, UInt32(MemoryLayout<AudioDeviceID>.size))
         }
-        engine.prepare()
         lock.withLock { needsRebuild = false }
     }
 
@@ -84,9 +96,9 @@ public final class AudioRecorder: @unchecked Sendable {
 
     public var isRunning: Bool { lock.withLock { running } }
 
+    /// Touches the input so the first `start()` is faster. Failures surface at `start()` instead.
     public func prepare() {
         _ = engine.inputNode.outputFormat(forBus: 0)
-        engine.prepare()
     }
 
     public func start() throws {
@@ -103,24 +115,35 @@ public final class AudioRecorder: @unchecked Sendable {
             firstBufferAt = nil
             running = true
         }
-        input.removeTap(onBus: 0)
-        input.installTap(onBus: 0, bufferSize: 512, format: format) { [weak self] buffer, _ in
-            self?.append(buffer)
-        }
-        engine.prepare()
         do {
-            try engine.start()
+            try catchingAudio("install tap") {
+                input.removeTap(onBus: 0)
+                input.installTap(onBus: 0, bufferSize: 512, format: format) { [weak self] buffer, _ in
+                    self?.append(buffer)
+                }
+            }
+            try catchingAudio("prepare") { self.engine.prepare() }
+            var startError: Error?
+            try catchingAudio("start") {
+                do { try self.engine.start() } catch { startError = error }
+            }
+            if let startError { throw AudioError.engine(startError.localizedDescription) }
         } catch {
-            input.removeTap(onBus: 0)
-            lock.withLock { running = false }
-            throw AudioError.engine(error.localizedDescription)
+            try? catchingAudio("remove tap") { input.removeTap(onBus: 0) }
+            lock.withLock {
+                running = false
+                needsRebuild = true
+            }
+            throw error
         }
     }
 
     /// Stops capture and returns everything recorded since `start`.
     public func stop() -> [Float] {
-        engine.inputNode.removeTap(onBus: 0)
-        engine.stop()
+        try? catchingAudio("stop") {
+            self.engine.inputNode.removeTap(onBus: 0)
+            self.engine.stop()
+        }
         return lock.withLock {
             running = false
             return samples

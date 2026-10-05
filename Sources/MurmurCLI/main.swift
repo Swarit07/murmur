@@ -66,15 +66,26 @@ struct Record: AsyncParsableCommand {
     @Option(help: "Stop automatically after this many seconds instead of waiting for Enter.")
     var seconds: Double?
 
+    @Option(help: "Input device: part of its name (see the Microphone menu in the app), or 'default'.")
+    var device: String?
+
     func run() async throws {
         guard await MicrophonePermission.ensure() else {
             throw ValidationError("Microphone access is denied. Allow your terminal app in System Settings > Privacy & Security > Microphone, then run this again.")
         }
         let recorder = AudioRecorder()
+        if let device, device != "default" {
+            guard let match = AudioDevices.inputs().first(where: { $0.name.localizedCaseInsensitiveContains(device) }) else {
+                throw ValidationError("No input device matches \(device). Inputs: \(AudioDevices.inputs().map(\.name).joined(separator: ", "))")
+            }
+            recorder.setDevice(uid: match.uid)
+        }
         recorder.prepare()
         print("Input: \(recorder.deviceName)")
-        print("Press Enter to start recording.")
-        await Terminal.waitForEnter()
+        if seconds == nil {
+            print("Press Enter to start recording.")
+            await Terminal.waitForEnter()
+        }
         try recorder.start()
         if let seconds {
             print("● Recording for \(seconds) s…")
