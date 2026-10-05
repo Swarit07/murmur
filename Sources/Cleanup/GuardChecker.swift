@@ -96,7 +96,11 @@ public struct GuardChecker: Sendable {
 
     /// `allowReorder` is for the Medium level, which may restructure sentences. Light keeps the
     /// speaker's word order, so a moved word there means a swapped correction or a rewrite.
-    public func check(input: String, output: String, placeholders: [String] = [], allowReorder: Bool = false) -> [GuardFlag] {
+    /// `vocabulary` is the user's dictionary: a dictionary term in the output is never an "added name",
+    /// because the model may legitimately fix "V" to "Vite" when Vite is in the dictionary.
+    public func check(
+        input: String, output: String, placeholders: [String] = [], allowReorder: Bool = false, vocabulary: [String] = []
+    ) -> [GuardFlag] {
         var flags: [GuardFlag] = []
         let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty && !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -122,11 +126,17 @@ public struct GuardChecker: Sendable {
         // Names: capitalized words that are not sentence-initial. Compared lowercased, and a name in the
         // output is fine if the same word appears anywhere in the input in any case.
         let wordsIn = Set(Self.words(input).map { $0.lowercased() })
+        let allowed = Set(vocabulary.flatMap { Self.words($0).map { $0.lowercased() } })
         let namesIn = Self.names(input), namesOut = Self.names(trimmed)
-        for n in namesOut where !wordsIn.contains(n) { flags.append(.nameAdded(n)) }
+        for n in namesOut where !wordsIn.contains(n) && !allowed.contains(n) { flags.append(.nameAdded(n)) }
         if !corrected {
             let wordsOut = Set(Self.words(trimmed).map { $0.lowercased() })
-            for n in namesIn where !wordsOut.contains(n) { flags.append(.nameRemoved(n)) }
+            // Dictionary terms the model put in that were not in the input: each may replace a word that
+            // looks like it ("V" -> "Vite", "Pri" -> "Priya"), which is a fix, not a removal.
+            let restored = allowed.subtracting(wordsIn).filter { wordsOut.contains($0) }
+            for n in namesIn where !wordsOut.contains(n) && !restored.contains(where: { Self.resembles(n, $0) }) {
+                flags.append(.nameRemoved(n))
+            }
         }
 
         let negIn = Self.negationCount(input), negOut = Self.negationCount(trimmed)
@@ -142,7 +152,7 @@ public struct GuardChecker: Sendable {
         }
 
         if !allowReorder {
-            let moved = Self.movedWords(input: input, output: trimmed)
+            let moved = Self.movedWords(input: input, output: trimmed).filter { !allowed.contains($0) }
             if !moved.isEmpty { flags.append(.reordered(moved.joined(separator: ", "))) }
         }
 
@@ -158,6 +168,26 @@ public struct GuardChecker: Sendable {
     }
 
     // MARK: - Extraction
+
+    /// A mis-heard fragment and the dictionary term it stands for: a prefix either way, or a close spelling.
+    static func resembles(_ heard: String, _ term: String) -> Bool {
+        if term.hasPrefix(heard) || heard.hasPrefix(term) { return true }
+        return editDistance(heard, term) <= max(1, term.count / 3)
+    }
+
+    static func editDistance(_ a: String, _ b: String) -> Int {
+        let a = Array(a), b = Array(b)
+        guard !a.isEmpty, !b.isEmpty else { return max(a.count, b.count) }
+        var prev = Array(0...b.count)
+        for i in 1...a.count {
+            var cur = [i] + [Int](repeating: 0, count: b.count)
+            for j in 1...b.count {
+                cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1))
+            }
+            prev = cur
+        }
+        return prev[b.count]
+    }
 
     /// Function words a grammar fix may legitimately move or swap.
     static let movable: Set<String> = [

@@ -42,6 +42,18 @@ struct GuardCheckerTests {
         #expect(!kinds("And I'm a I'ma talk a little farther away", "And I'm going to talk a little farther away.").contains("name"))
     }
 
+    /// T4: a dictionary term the model restores is not an injected name; anything else still is.
+    @Test func dictionaryTermsAreAllowed() {
+        let viteFlags = g.check(input: "we're switching from webpack to V next sprint", output: "We're switching from webpack to Vite next sprint.", vocabulary: ["Vite"])
+        #expect(viteFlags.isEmpty, "\(viteFlags)")
+        #expect(kinds("we're switching from webpack to V next sprint", "We're switching from webpack to Vite next sprint.").contains("name"))
+        #expect(kinds("ask Chivan about it", "Ask Siobhan and Marcus about it.").contains("name"))
+        #expect(g.check(input: "Pri and Marcus will present on Monday.", output: "Priya and Marcus will present on Monday.", vocabulary: ["Priya"]).isEmpty)
+        // A dictionary term may not replace an unrelated name.
+        #expect(kinds("Ask Marcus about the Redis cache.", "Ask Priya about the Redis cache.").contains("name"))
+        #expect(GuardChecker(minRatio: 0.55).check(input: "Ask Marcus about it.", output: "Ask Priya about it.", vocabulary: ["Priya"]).map(\.kind).contains("name"))
+    }
+
     @Test func nameRemovalCaughtWithoutCorrection() {
         #expect(kinds("loop in Priya and Marcus on this", "Loop in Priya on this.").contains("name"))
     }

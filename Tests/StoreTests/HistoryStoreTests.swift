@@ -61,4 +61,29 @@ struct HistoryStoreTests {
         try store.insert(record(.recorded, raw: nil, at: 5))
         #expect(try store.lastWithText()?.rawText == "real text")
     }
+
+    /// C10: undoing the AI edit makes the row stand for the raw text.
+    @Test func useRawSwapsBestText() throws {
+        let store = try HistoryStore(url: nil)
+        var r = record(.inserted, raw: "um meet at 3")
+        r.cleanText = "Meet at 3."
+        try store.insert(r)
+        #expect(try store.record(id: r.id)?.bestText == "Meet at 3.")
+        try store.update(id: r.id) { $0.useRaw = true }
+        #expect(try store.record(id: r.id)?.bestText == "um meet at 3")
+    }
+
+    @Test func dictionaryAndSnippetsRoundTrip() throws {
+        let store = try HistoryStore(url: nil)
+        try store.save(DictionaryRecord(term: "Chivan, Shivon", replacement: "Siobhan"))
+        try store.save(DictionaryRecord(term: "Kubernetes", replacement: "Kubernetes"))
+        let entries = try store.dictionary()
+        #expect(entries.map(\.replacement) == ["Kubernetes", "Siobhan"])
+        #expect(entries.last?.heardAs == ["Chivan", "Shivon"])
+        try store.deleteDictionaryEntry(id: entries[0].id)
+        #expect(try store.dictionary().count == 1)
+
+        try store.save(SnippetRecord(cue: "my email", expansion: "sam@example.com"))
+        #expect(try store.snippets().first?.expansion == "sam@example.com")
+    }
 }

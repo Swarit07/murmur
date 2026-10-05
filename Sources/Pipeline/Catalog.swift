@@ -7,7 +7,7 @@ import CleanupMLX
 /// Builds cleanup providers from the short ids used by the CLI and the bench.
 public enum CleanupCatalog {
     public static let mlxNames = ["qwen3.5-0.8b", "qwen3.5-2b", "qwen3.5-4b", "qwen3-4b-2507", "smollm3-3b", "gemma3-1b"]
-    public static let ids: [String] = ["rules", "apple-foundation", "groq"] + mlxNames.map { "mlx:\($0)" }
+    public static let ids: [String] = ["rules", "apple-foundation", "groq", "openrouter"] + mlxNames.map { "mlx:\($0)" }
 
     public static var mlxAvailable: Bool {
         #if canImport(CleanupMLX)
@@ -17,16 +17,22 @@ public enum CleanupCatalog {
         #endif
     }
 
-    /// `nil` means rules only. `groqKey` supplies the cloud key; nil reads `GROQ_API_KEY`.
-    public static func make(_ id: String, groqKey: (@Sendable () -> String?)? = nil) throws -> (any CleanupProvider)? {
-        let key = groqKey ?? { ProcessInfo.processInfo.environment["GROQ_API_KEY"] }
+    /// `nil` means rules only. `groqKey` and `openRouterKey` supply cloud keys; nil reads the
+    /// `GROQ_API_KEY` and `OPENROUTER_API_KEY` environment variables.
+    public static func make(
+        _ id: String, groqKey: (@Sendable () -> String?)? = nil, openRouterKey: (@Sendable () -> String?)? = nil
+    ) throws -> (any CleanupProvider)? {
+        let groq = groqKey ?? { ProcessInfo.processInfo.environment["GROQ_API_KEY"] }
+        let openRouter = openRouterKey ?? { ProcessInfo.processInfo.environment["OPENROUTER_API_KEY"] }
         switch id {
         case "rules", "none": return nil
         case "apple-foundation", "apple": return AppleFoundationCleanupProvider()
-        case "groq": return GroqCleanupProvider(key: key)
+        case "groq": return OpenAICompatibleCleanupProvider.groq(key: groq)
+        case "openrouter": return OpenAICompatibleCleanupProvider.openRouter(key: openRouter)
         case "stalled": return StalledCleanupProvider()
         default:
-            if id.hasPrefix("groq:") { return GroqCleanupProvider(model: String(id.dropFirst(5)), key: key) }
+            if id.hasPrefix("groq:") { return OpenAICompatibleCleanupProvider.groq(model: String(id.dropFirst(5)), key: groq) }
+            if id.hasPrefix("openrouter:") { return OpenAICompatibleCleanupProvider.openRouter(model: String(id.dropFirst(11)), key: openRouter) }
             let name = id.hasPrefix("mlx:") ? String(id.dropFirst(4)) : id
             if id.hasPrefix("mlx:") || mlxNames.contains(name) {
                 #if canImport(CleanupMLX)

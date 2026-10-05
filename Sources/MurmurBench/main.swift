@@ -13,7 +13,7 @@ struct MurmurBench: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "murmur-bench",
         abstract: "Milestone 0 bake-off: record the corpus, run engines and cleanup models, write the report.",
-        subcommands: [RecordCorpus.self, Run.self, EnginePass.self, CleanupPass.self, StallTest.self, E2E.self, Report.self, Status.self],
+        subcommands: [RecordCorpus.self, Run.self, EnginePass.self, CleanupPass.self, StallTest.self, E2E.self, Report.self, Status.self, VocabTest.self],
         defaultSubcommand: Status.self
     )
 }
@@ -403,6 +403,68 @@ struct E2E: AsyncParsableCommand {
         try ResultFiles.write(result, to: out)
         let totals = result.runs.compactMap(\.timings.totalMs)
         print("release → paste: p50 \(Stats.percentile(totals, 50).map(Format.ms) ?? "-") · p95 \(Stats.percentile(totals, 95).map(Format.ms) ?? "-") over \(totals.count) runs → \(out.path)")
+    }
+}
+
+// MARK: - vocab-test
+
+struct VocabTest: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "vocab-test",
+        abstract: "T4: dictionary terms passed to the engine. Transcribes the names and numbers clips with and without a dictionary of their terms and reports, per term, which runs got it right."
+    )
+    @OptionGroup var paths: CommonPaths
+    @Option var engine: String = "parakeet-ultra"
+    @Option(help: "Also run the rules (with the dictionary) and this cleanup provider with the vocabulary, and score the final text.")
+    var pipeline: String?
+
+    func run() async throws {
+        let corpus = try Corpus.load(from: paths.corpusURL)
+        let clips = corpus.clips.filter { ["names", "numbers"].contains($0.set) }
+        // Terms: names and technical words (not numbers, URLs or plain words).
+        let terms = Array(Set(clips.flatMap { $0.entities ?? [] }.filter { e in
+            e.first?.isLetter == true && !e.contains("/") && !e.contains("@") && e.rangeOfCharacter(from: .decimalDigits) == nil
+                && !["Friday", "Monday", "staging", "doesn't", "macOS 14"].contains(e)
+        })).sorted()
+        print("Dictionary (\(terms.count)): \(terms.joined(separator: ", "))")
+        let engine = try EngineCatalog.make(engine)
+        try await engine.load()
+        var runner: CleanupRunner?
+        if let pipeline {
+            let provider = try CleanupCatalog.make(pipeline)
+            try await provider?.load()
+            runner = CleanupRunner(rules: RulesCleaner(dictionary: terms.map { DictionaryEntry(term: $0, replacement: $0) }), provider: provider)
+        }
+        var rows: [(term: String, clip: String, bare: Bool, biased: Bool, bareText: String, biasedText: String)] = []
+        var bareMs: [Double] = [], biasedMs: [Double] = []
+        for clip in clips {
+            guard let samples = try? WAV.read(Corpus.audioURL(clip, in: paths.corpusURL)) else { continue }
+            var t = Clock.now()
+            let bare = try await engine.transcribe(samples, options: TranscribeOptions(language: "en"))
+            bareMs.append(Clock.ms(since: t))
+            t = Clock.now()
+            var biased = try await engine.transcribe(samples, options: TranscribeOptions(language: "en", vocabulary: terms))
+            biasedMs.append(Clock.ms(since: t))
+            if let runner {
+                biased = await runner.run(biased, request: CleanupRequest(level: .light, vocabulary: terms)).text
+            }
+            for term in (clip.entities ?? []) where terms.contains(term) {
+                rows.append((term, clip.id, CorpusChecks.entityPresent(bare, term), CorpusChecks.entityPresent(biased, term), bare, biased))
+            }
+        }
+        let missedBare = rows.filter { !$0.bare }
+        let fixed = missedBare.filter(\.biased)
+        let broke = rows.filter { $0.bare && !$0.biased }
+        print("\nTerm occurrences: \(rows.count). Bare engine right: \(rows.count - missedBare.count). With dictionary right: \(rows.filter(\.biased).count).")
+        print("Missed by the bare engine: \(missedBare.count); recognized with the dictionary: \(fixed.count) of them (target 8 of 10).")
+        print("Broken by the dictionary: \(broke.count)")
+        for r in missedBare { print("  \(r.biased ? "✓" : "✗") \(r.term) [\(r.clip)]  bare: \(r.bareText)  →  biased: \(r.biasedText)") }
+        for r in broke { print("  ! \(r.term) [\(r.clip)] broken: \(r.biasedText)") }
+        print(String(format: "\nTranscription p50: bare %@, with dictionary %@ (first biased run includes loading the CTC model)",
+                     Stats.percentile(bareMs, 50).map(Format.ms) ?? "-", Stats.percentile(Array(biasedMs.dropFirst()), 50).map(Format.ms) ?? "-"))
+        let summary: [String: Double] = ["occurrences": Double(rows.count), "missedBare": Double(missedBare.count), "fixed": Double(fixed.count), "broken": Double(broke.count),
+                                         "bareP50": Stats.percentile(bareMs, 50) ?? 0, "biasedP50": Stats.percentile(Array(biasedMs.dropFirst()), 50) ?? 0]
+        try ResultFiles.write(summary, to: paths.resultsURL.appendingPathComponent("vocab-test-\(ResultFiles.safeName(engine.id)).json"))
     }
 }
 

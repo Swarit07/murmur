@@ -5,10 +5,13 @@ public struct TranscribeOptions: Sendable {
     public var language: String?
     /// Dictionary terms passed to the engine as a prompt or bias where the engine supports it.
     public var vocabulary: [String]
+    /// What the engine tends to hear instead of a term (term → heard-as spellings), where supported.
+    public var aliases: [String: [String]]
 
-    public init(language: String? = nil, vocabulary: [String] = []) {
+    public init(language: String? = nil, vocabulary: [String] = [], aliases: [String: [String]] = [:]) {
         self.language = language
         self.vocabulary = vocabulary
+        self.aliases = aliases
     }
 }
 

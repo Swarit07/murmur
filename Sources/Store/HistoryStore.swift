@@ -42,6 +42,8 @@ public struct DictationRecord: Codable, Sendable, Identifiable, Equatable, Fetch
     public var errorCode: String?
     public var audioPath: String?
     public var timings: StageTimings?
+    /// C10: the row shows and pastes the raw transcript instead of the cleaned text.
+    public var useRaw: Bool = false
 
     public init(
         id: String = UUID().uuidString, startedAt: Date, durationMs: Double, appBundleId: String?, appName: String?,
@@ -64,9 +66,10 @@ public struct DictationRecord: Codable, Sendable, Identifiable, Equatable, Fetch
         self.timings = timings
     }
 
-    /// The best text this dictation has: cleaned if there is one, raw otherwise.
+    /// The text this dictation stands for: cleaned if there is one (unless the AI edit was undone), raw
+    /// otherwise.
     public var bestText: String? {
-        if let cleanText, !cleanText.isEmpty { return cleanText }
+        if !useRaw, let cleanText, !cleanText.isEmpty { return cleanText }
         if let rawText, !rawText.isEmpty { return rawText }
         return nil
     }
@@ -136,6 +139,12 @@ public final class HistoryStore: Sendable {
                 t.column("styleOverride", .text)
             }
         }
+        migrator.registerMigration("v2") { db in
+            try db.alter(table: "dictation") { t in
+                t.add(column: "useRaw", .boolean).notNull().defaults(to: false)
+            }
+            try db.create(index: "dictionary_entry_term", on: "dictionary_entry", columns: ["term"])
+        }
         return migrator
     }
 
@@ -197,7 +206,83 @@ public final class HistoryStore: Sendable {
         try db.read { try DictationRecord.fetchCount($0) }
     }
 
+    // MARK: Dictionary and snippets (S1, S3)
+
+    public static let vocabularyDidChange = Notification.Name("MurmurVocabularyDidChange")
+
+    public func dictionary() throws -> [DictionaryRecord] {
+        try db.read { try DictionaryRecord.order(Column("replacement").collating(.localizedCaseInsensitiveCompare)).fetchAll($0) }
+    }
+
+    public func save(_ entry: DictionaryRecord) throws {
+        try db.write { try entry.save($0) }
+        NotificationCenter.default.post(name: Self.vocabularyDidChange, object: nil)
+    }
+
+    public func deleteDictionaryEntry(id: String) throws {
+        _ = try db.write { try DictionaryRecord.deleteOne($0, key: id) }
+        NotificationCenter.default.post(name: Self.vocabularyDidChange, object: nil)
+    }
+
+    public func snippets() throws -> [SnippetRecord] {
+        try db.read { try SnippetRecord.order(Column("cue").collating(.localizedCaseInsensitiveCompare)).fetchAll($0) }
+    }
+
+    public func save(_ snippet: SnippetRecord) throws {
+        try db.write { try snippet.save($0) }
+        NotificationCenter.default.post(name: Self.vocabularyDidChange, object: nil)
+    }
+
+    public func deleteSnippet(id: String) throws {
+        _ = try db.write { try SnippetRecord.deleteOne($0, key: id) }
+        NotificationCenter.default.post(name: Self.vocabularyDidChange, object: nil)
+    }
+
     private func notify() {
         NotificationCenter.default.post(name: Self.didChange, object: nil)
+    }
+}
+
+/// A dictionary entry (S1). `replacement` is how the word or phrase is written; `term` is what the
+/// engine tends to hear instead (equal to `replacement` for a plain vocabulary word). Every
+/// replacement also biases the speech engine and is passed to the cleanup model.
+public struct DictionaryRecord: Codable, Sendable, Identifiable, Equatable, FetchableRecord, PersistableRecord {
+    public static let databaseTableName = "dictionary_entry"
+    public enum Source: String, Codable, Sendable { case manual, suggested }
+
+    public var id: String
+    public var term: String
+    public var replacement: String
+    public var source: Source
+    public var createdAt: Date
+
+    public init(id: String = UUID().uuidString, term: String, replacement: String, source: Source = .manual, createdAt: Date = Date()) {
+        self.id = id
+        self.term = term
+        self.replacement = replacement
+        self.source = source
+        self.createdAt = createdAt
+    }
+
+    /// The spellings the engine hears, one per comma-separated alternative in `term`.
+    public var heardAs: [String] {
+        term.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+    }
+}
+
+/// A snippet (S3): saying `cue` inserts `expansion`, which cleanup cannot alter.
+public struct SnippetRecord: Codable, Sendable, Identifiable, Equatable, FetchableRecord, PersistableRecord {
+    public static let databaseTableName = "snippet"
+
+    public var id: String
+    public var cue: String
+    public var expansion: String
+    public var createdAt: Date
+
+    public init(id: String = UUID().uuidString, cue: String, expansion: String, createdAt: Date = Date()) {
+        self.id = id
+        self.cue = cue
+        self.expansion = expansion
+        self.createdAt = createdAt
     }
 }

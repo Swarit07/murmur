@@ -68,7 +68,7 @@ public struct CleanupRunner: Sendable {
             let cleaned = CleanupPrompt.strip(raw)
             let flags = guardChecker.check(
                 input: ruled.text, output: cleaned, placeholders: Array(ruled.placeholders.keys),
-                allowReorder: request.level == .medium)
+                allowReorder: request.level == .medium, vocabulary: request.vocabulary)
             if !flags.isEmpty {
                 return CleanupOutcome(text: rulesText, rulesText: rulesText, modelText: cleaned, fallback: .guardFlagged, flags: flags, error: nil, rulesMs: rulesMs, llmMs: llmMs)
             }

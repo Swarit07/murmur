@@ -21,6 +21,10 @@ public actor ParakeetEngine: SpeechEngine {
     public nonisolated let isLocal = true
     let version: Version
     var manager: AsrManager?
+    /// Dictionary biasing (T4): a separate 110M CTC encoder spots dictionary terms in the audio and
+    /// rescores the TDT transcript. Loaded the first time a dictionary is in use.
+    var ctcModels: CtcModels?
+    var boosting: (key: String, session: VocabularyBoostingSession)?
 
     public init(version: Version) {
         self.version = version
@@ -43,12 +47,44 @@ public actor ParakeetEngine: SpeechEngine {
         // Parakeet needs at least one second of audio; pad short clips with silence.
         let padded = samples.count < 16_000 ? samples + [Float](repeating: 0, count: 16_000 - samples.count) : samples
         let result = try await manager.transcribe(padded, decoderState: &state)
-        return result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        var text = result.text
+        if !options.vocabulary.isEmpty, let timings = result.tokenTimings, !timings.isEmpty,
+           let session = try? await boostingSession(options) {
+            if let rescored = await session.rescore(text: text, tokenTimings: timings, audioSamples: padded), rescored.wasModified {
+                text = rescored.text
+            }
+        }
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// One boosting session per distinct dictionary; rebuilt when the dictionary changes.
+    func boostingSession(_ options: TranscribeOptions) async throws -> VocabularyBoostingSession {
+        let key = options.vocabulary.sorted().joined(separator: "\u{1F}") + "|" + options.aliases.keys.sorted().map { "\($0)=\(options.aliases[$0]!.joined(separator: ","))" }.joined(separator: ";")
+        if let boosting, boosting.key == key { return boosting.session }
+        if ctcModels == nil { ctcModels = try await CtcModels.downloadAndLoad() }
+        let terms = options.vocabulary.map { term in
+            CustomVocabularyTerm(text: term, aliases: options.aliases[term].flatMap { $0.isEmpty ? nil : $0 })
+        }
+        // Thresholds can be overridden for tuning sweeps (MURMUR_VOCAB_*); defaults are FluidAudio's.
+        let env = ProcessInfo.processInfo.environment
+        func value(_ name: String, _ fallback: Float) -> Float { env[name].flatMap(Float.init) ?? fallback }
+        let context = CustomVocabularyContext(
+            terms: terms,
+            alpha: value("MURMUR_VOCAB_ALPHA", ContextBiasingConstants.defaultAlpha),
+            minCtcScore: value("MURMUR_VOCAB_MINCTC", ContextBiasingConstants.defaultMinVocabCtcScore),
+            minSimilarity: value("MURMUR_VOCAB_MINSIM", ContextBiasingConstants.defaultMinSimilarity),
+            minCombinedConfidence: value("MURMUR_VOCAB_MINCONF", ContextBiasingConstants.defaultMinCombinedConfidence)
+        )
+        let session = try await VocabularyBoostingSession(vocabulary: context, ctcModels: ctcModels!)
+        boosting = (key, session)
+        return session
     }
 
     public func unload() async {
         await manager?.cleanup()
         manager = nil
+        boosting = nil
+        ctcModels = nil
     }
 }
 
