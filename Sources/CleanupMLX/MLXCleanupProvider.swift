@@ -55,8 +55,10 @@ public actor MLXCleanupProvider: CleanupProvider {
         if let draftRepo {
             draft.context = try await #huggingFaceLoadModel(configuration: ModelConfiguration(id: draftRepo, extraEOSTokens: ["<|im_end|>"]))
         }
+        Self.log.notice("loaded weights: MLX active \(Memory.activeMemory / 1_048_576, privacy: .public) MB")
         // Build the prefix cache for the default prompt and compile the Metal kernels.
         _ = try await complete(CleanupPrompt.messages(for: "Say OK.", level: .light, vocabulary: []), maxTokens: 2)
+        Self.log.notice("warmed: MLX active \(Memory.activeMemory / 1_048_576, privacy: .public) MB, cache \(Memory.cacheMemory / 1_048_576, privacy: .public) MB")
     }
 
     public func complete(_ messages: [ChatMessage], maxTokens: Int) async throws -> String {

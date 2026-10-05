@@ -110,11 +110,17 @@ public enum FocusContext {
         )
     }
 
-    /// The text of an editable element (its AX value), for S2's correction check.
-    public static func value(of element: AXUIElement?) -> String? {
+    /// The text of an editable element (its AX value), for S2's correction check. Nil for fields longer
+    /// than `maxLength` characters: reading a whole long document would stall the main thread.
+    public static func value(of element: AXUIElement?, maxLength: Int = 20_000) -> String? {
         guard let element else { return nil }
         AXUIElementSetMessagingTimeout(element, 0.3)
-        return string(element, kAXValueAttribute)
+        var count: CFTypeRef?
+        if AXUIElementCopyAttributeValue(element, kAXNumberOfCharactersAttribute as CFString, &count) == .success,
+           let n = count as? Int, n > maxLength {
+            return nil
+        }
+        return string(element, kAXValueAttribute).flatMap { $0.count > maxLength ? nil : $0 }
     }
 
     /// The address of the web page that contains `element`, for browsers and web views: walks up to

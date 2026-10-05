@@ -29,5 +29,5 @@ Branch `milestone-6`, 2026-10-05 (overnight). The gate itself needs the owner. S
 
 - **Gate:** side-by-side recordings within 1 pt and one frame. Needs the owner's recordings of the reference app to measure the tokens; `Tokens.swift` still holds placeholders, by design (spec rule 5).
 - **App matrix** (spec section 8): manual, owner.
-- **Residual MLX memory after unload** (~170–400 MB of live arrays, depending on what ran). It does not grow with use. Likely held inside mlx-swift-lm; worth a look before tuning the 120 MB target further.
+- **Residual MLX memory after unload.** Loading Qwen3.5 4B makes 2,257 MB of arrays active. After unload, 407 MB stays active in the CLI and about 170 MB in the app. This happens with or without Murmur's prefix cache, and it does not grow with use. The size matches the model's quantized embedding table, so part of the weights is retained inside mlx-swift-lm. That is an upstream issue to report or patch before the 120 MB target can be met.
 - **Second display:** untested; there is only one display here.
