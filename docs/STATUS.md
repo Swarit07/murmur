@@ -137,3 +137,8 @@ Release to text p50 **623 ms**, p95 **1,111 ms** (targets 800 ms and 1.5 s), fro
   - Self-test 21/21, 136 unit tests.
   - Soak: 10 self-test runs back to back, 210/210 checks, no crash.
   - Command Mode no longer mistakes a code editor's whole-line copy for a selection.
+- **Command Mode quality bench** (`murmur-bench command-test`, 16 instructions): Qwen3.5 4B **32/32**, p50 299 ms. It caught and fixed an injection that was partly obeyed.
+- **End to end on your recordings:** 27/30 corrections, 0 fact changes, C7 4/4. No accuracy regression.
+- **Idle unload:** built, then turned **off by default** after `reload-test` found ~400 MB leaked per model reload inside mlx-swift-lm. A follow-up task was flagged.
+- **Flow Bar state tests** against the token values (spec section 8).
+- **Milestone tags** pushed (`m0-passed` … `m5-passed`). The latest build is in /Applications for the fresh-account test.

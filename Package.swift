@@ -86,6 +86,7 @@ let package = Package(
         .testTarget(name: "StoreTests", dependencies: ["Core", "Store"], swiftSettings: strict),
         .testTarget(name: "CleanupTests", dependencies: ["Core", "Cleanup"], swiftSettings: strict),
         .testTarget(name: "InsertionTests", dependencies: ["Core", "Context", "Insertion"], swiftSettings: strict),
+        .testTarget(name: "UITests", dependencies: ["UI"], swiftSettings: strict),
     ]
 )
 
