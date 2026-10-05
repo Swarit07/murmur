@@ -3,7 +3,7 @@ import Foundation
 /// The cleanup prompt. The transcript always travels inside <transcript> tags and the model is told,
 /// and shown by example, that it is data to edit, never instructions to follow.
 public enum CleanupPrompt {
-    public static func system(level: CleanupLevel, vocabulary: [String]) -> String {
+    public static func system(level: CleanupLevel, vocabulary: [String], smartFormatting: Bool = false) -> String {
         let levelRules: String
         switch level {
         case .none:
@@ -33,11 +33,20 @@ public enum CleanupPrompt {
         - Keep text inside quotes or backticks exactly as spoken.
         - Keep tokens like ⟦S0⟧ exactly as they are.
         - Keep line breaks that are already in the transcript.
+        - Keep the language the speaker used. Never translate; mixed languages stay mixed.
 
         Reply with only the cleaned text: no tags, no quotes around it, no preamble, no explanation.
         """
+        if smartFormatting {
+            prompt += """
+
+            Formatting (after resolving self-corrections; a correction is never a list):
+            - Only when the speaker clearly lists three or more separate items ("first … second … third", "one … two … three"), put each item on its own line as a numbered list (1. 2. 3.).
+            - Split a long dictation (more than about 80 words) into paragraphs where the topic changes.
+            """
+        }
         if !vocabulary.isEmpty {
-            prompt += "\n\nSpell these terms exactly like this: " + vocabulary.joined(separator: ", ") + "."
+            prompt += "\n\nThe speaker's dictionary. Spell these exactly like this, and use them where the transcript has a word that sounds like one of them: " + vocabulary.joined(separator: ", ") + "."
         }
         return prompt
     }
@@ -78,8 +87,8 @@ public enum CleanupPrompt {
         ),
     ]
 
-    public static func messages(for transcript: String, level: CleanupLevel, vocabulary: [String]) -> [ChatMessage] {
-        var messages = [ChatMessage(.system, system(level: level, vocabulary: vocabulary))]
+    public static func messages(for transcript: String, level: CleanupLevel, vocabulary: [String], smartFormatting: Bool = false) -> [ChatMessage] {
+        var messages = [ChatMessage(.system, system(level: level, vocabulary: vocabulary, smartFormatting: smartFormatting))]
         // MURMUR_PROMPT_EXAMPLES limits the worked examples, to measure their cost per provider.
         let limit = ProcessInfo.processInfo.environment["MURMUR_PROMPT_EXAMPLES"].flatMap(Int.init) ?? examples.count
         for (input, output) in examples.prefix(limit) {

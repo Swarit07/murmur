@@ -22,16 +22,28 @@ public actor MLXCleanupProvider: CleanupProvider {
         "gemma3-1b": "mlx-community/gemma-3-1b-it-qat-4bit",
     ]
 
+    /// Draft models for speculative decoding. The draft must share the main model's tokenizer, and both
+    /// caches must be trimmable, so this works for the Qwen3 family but not Qwen3.5's hybrid layers.
+    public static let drafts: [String: String] = [
+        "qwen3-4b-2507": "mlx-community/Qwen3-0.6B-4bit",
+    ]
+
     public nonisolated let id: String
     let repo: String
+    let draftRepo: String?
     let usePrefixCache: Bool
     var container: ModelContainer?
     let prefix = PrefixCache()
+    let draftPrefix = PrefixCache()
+    let draft = DraftBox()
 
     /// `name` is a short name from `models` or a full Hugging Face repo id.
+    /// A name ending in `+draft` turns on speculative decoding with that model's draft.
     public init(name: String, usePrefixCache: Bool = ProcessInfo.processInfo.environment["MURMUR_MLX_NO_PREFIX_CACHE"] == nil) {
         self.id = "mlx:\(name)"
-        self.repo = Self.models[name] ?? name
+        let base = name.hasSuffix("+draft") ? String(name.dropLast(6)) : name
+        self.repo = Self.models[base] ?? base
+        self.draftRepo = name.hasSuffix("+draft") ? Self.drafts[base] : nil
         self.usePrefixCache = usePrefixCache
     }
 
@@ -39,6 +51,9 @@ public actor MLXCleanupProvider: CleanupProvider {
         guard container == nil else { return }
         let configuration = ModelConfiguration(id: repo, extraEOSTokens: ["<|im_end|>", "<end_of_turn>"])
         container = try await #huggingFaceLoadModelContainer(configuration: configuration)
+        if let draftRepo {
+            draft.context = try await #huggingFaceLoadModel(configuration: ModelConfiguration(id: draftRepo, extraEOSTokens: ["<|im_end|>"]))
+        }
         // Build the prefix cache for the default prompt and compile the Metal kernels.
         _ = try await complete(CleanupPrompt.messages(for: "Say OK.", level: .light, vocabulary: []), maxTokens: 2)
     }
@@ -49,6 +64,8 @@ public actor MLXCleanupProvider: CleanupProvider {
         let key = messages.dropLast().map(\.content).joined(separator: "\u{1F}")
         let parameters = GenerateParameters(maxTokens: maxTokens, temperature: 0)
         let prefix = self.prefix
+        let draftPrefix = self.draftPrefix
+        let draft = self.draft
         let usePrefixCache = self.usePrefixCache
         return try await container.perform(values: Request(rendered: rendered, key: key)) { context, request in
             let extra: [String: any Sendable] = ["enable_thinking": false]
@@ -79,23 +96,72 @@ public actor MLXCleanupProvider: CleanupProvider {
 
             let input = LMInput(tokens: MLXArray(Array(full[start...])))
             var output = ""
-            for await event in try generate(input: input, cache: cache, parameters: parameters, context: context) {
+            // The generator runs in its own task. On a timeout the caller cancels us; we cancel the
+            // generator and wait for it to stop before giving the model back, so no two GPU jobs overlap
+            // (an overlap crashed Metal in testing).
+            let stream: AsyncStream<Generation>
+            let producer: Task<Void, Never>
+            if let draftModel = draft.context?.model {
+                // The draft cache must cover the same prefix as the main cache.
+                var draftCache: [KVCache]
+                if start > 0, let (tokens, cached) = draftPrefix.get(request.key), tokens.count == start {
+                    draftCache = cached.map { $0.copy() }
+                } else {
+                    let built = try draftModel.newCache(parameters: parameters)
+                    if start > 0 {
+                        let text = LMInput.Text(tokens: MLXArray(Array(full[0..<start])))
+                        _ = draftModel(text[text: .newAxis], cache: built, state: nil)
+                        eval(built.flatMap(\.state))
+                        draftPrefix.set(request.key, Array(full[0..<start]), built)
+                    }
+                    draftCache = built.map { $0.copy() }
+                }
+                let iterator = try SpeculativeTokenIterator(
+                    input: input, mainModel: context.model, draftModel: draftModel, mainCache: cache, draftCache: draftCache,
+                    mainState: nil, parameters: parameters,
+                    numDraftTokens: ProcessInfo.processInfo.environment["MURMUR_DRAFT_TOKENS"].flatMap(Int.init) ?? 4)
+                (stream, producer) = generateTask(
+                    promptTokenCount: input.text.tokens.size, modelConfiguration: context.configuration,
+                    tokenizer: context.tokenizer, iterator: iterator)
+            } else {
+                let iterator = try TokenIterator(input: input, model: context.model, cache: cache, parameters: parameters)
+                (stream, producer) = generateTask(
+                    promptTokenCount: input.text.tokens.size, modelConfiguration: context.configuration,
+                    tokenizer: context.tokenizer, iterator: iterator)
+            }
+            for await event in stream {
                 if case .chunk(let piece) = event { output += piece }
                 if Task.isCancelled { break }
             }
+            producer.cancel()
+            await producer.value
             return output
         }
     }
 
+    /// Builds the prefix cache for these instructions with a one-token generation.
+    public func prewarm(_ messages: [ChatMessage]) async {
+        _ = try? await complete(messages, maxTokens: 1)
+    }
+
     public func unload() async {
+        // Waits for any call still holding the model, so nothing runs on the GPU after this returns.
+        _ = await container?.perform { _ in 0 }
         container = nil
+        draft.context = nil
         prefix.clear()
+        draftPrefix.clear()
     }
 
     struct Request: Sendable {
         let rendered: [[String: any Sendable]]
         let key: String
     }
+}
+
+/// The draft model for speculative decoding. Only touched inside `ModelContainer.perform`.
+final class DraftBox: @unchecked Sendable {
+    var context: ModelContext?
 }
 
 /// Prefix KV caches keyed by the system prompt and examples. Only read and written inside

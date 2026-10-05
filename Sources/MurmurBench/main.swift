@@ -13,7 +13,7 @@ struct MurmurBench: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "murmur-bench",
         abstract: "Milestone 0 bake-off: record the corpus, run engines and cleanup models, write the report.",
-        subcommands: [RecordCorpus.self, Run.self, EnginePass.self, CleanupPass.self, StallTest.self, E2E.self, Report.self, Status.self, VocabTest.self],
+        subcommands: [RecordCorpus.self, Run.self, EnginePass.self, CleanupPass.self, StallTest.self, E2E.self, Report.self, Status.self, VocabTest.self, LongTest.self, GuardTest.self, PunctuationTest.self],
         defaultSubcommand: Status.self
     )
 }
@@ -246,6 +246,9 @@ struct CleanupPass: AsyncParsableCommand {
     @Option(help: "Time limit in milliseconds.")
     var limit: Int = 800
 
+    @Flag(help: "Turn Smart Formatting on, as the app does by default.")
+    var smartFormatting = false
+
     static let sets = ["correction", "levels", "numbers", "names", "plain", "quiet"]
 
     func run() async throws {
@@ -253,7 +256,8 @@ struct CleanupPass: AsyncParsableCommand {
         let provider = try CleanupCatalog.make(provider)
         let providerId = provider?.id ?? "rules"
         var result = CleanupPassResult(provider: providerId, source: source, build: ResultFiles.buildConfiguration)
-        let out = paths.resultsURL.appendingPathComponent("cleanup-\(ResultFiles.safeName(providerId))-\(ResultFiles.safeName(source)).json")
+        let out = paths.resultsURL.appendingPathComponent("cleanup-\(ResultFiles.safeName(providerId))-\(ResultFiles.safeName(source))\(smartFormatting ? "-formatting" : "").json")
+        if smartFormatting { result.source += " (Smart Formatting on)" }
 
         // Inputs.
         var inputs: [(CorpusClip, String)] = []
@@ -289,7 +293,7 @@ struct CleanupPass: AsyncParsableCommand {
         for (clip, text) in inputs {
             let levels: [CleanupLevel] = clip.set == "levels" ? [.light, .medium] : [.light]
             for level in levels {
-                let o = await runner.run(text, request: CleanupRequest(level: level))
+                let o = await runner.run(text, request: CleanupRequest(level: level, smartFormatting: smartFormatting))
                 result.clips.append(.init(
                     id: clip.id, set: clip.set, level: level.rawValue, input: text, rulesText: o.rulesText,
                     modelText: o.modelText, final: o.text, fallback: o.fallback?.rawValue, flags: o.flags.map(\.description),
@@ -305,11 +309,12 @@ struct CleanupPass: AsyncParsableCommand {
         var i = 0
         while result.runs.count < runs, !inputs.isEmpty {
             let (clip, text) = inputs[i % inputs.count]
-            let o = await runner.run(text, request: CleanupRequest(level: .light))
+            let o = await runner.run(text, request: CleanupRequest(level: .light, smartFormatting: smartFormatting))
             result.runs.append(.init(id: clip.id, rulesMs: o.rulesMs, llmMs: o.llmMs, totalMs: o.rulesMs + (o.llmMs ?? 0), fallback: o.fallback?.rawValue))
             i += 1
         }
         result.peakFootprint = ProcessMemory.snapshot()?.peakFootprint
+        await provider?.unload()
         try ResultFiles.write(result, to: out)
         let llm = result.runs.compactMap(\.llmMs)
         print("\(providerId) on \(source): p50 \(Stats.percentile(llm, 50).map(Format.ms) ?? "-") · p95 \(Stats.percentile(llm, 95).map(Format.ms) ?? "-") → \(out.path)")
@@ -465,6 +470,175 @@ struct VocabTest: AsyncParsableCommand {
         let summary: [String: Double] = ["occurrences": Double(rows.count), "missedBare": Double(missedBare.count), "fixed": Double(fixed.count), "broken": Double(broke.count),
                                          "bareP50": Stats.percentile(bareMs, 50) ?? 0, "biasedP50": Stats.percentile(Array(biasedMs.dropFirst()), 50) ?? 0]
         try ResultFiles.write(summary, to: paths.resultsURL.appendingPathComponent("vocab-test-\(ResultFiles.safeName(engine.id)).json"))
+    }
+}
+
+// MARK: - long-test
+
+struct LongTest: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "long-test",
+        abstract: "Cleanup on long dictations: joins three consecutive transcripts (60–80 words, like a 20 s dictation) and times each provider against the 800 ms limit."
+    )
+    @OptionGroup var paths: CommonPaths
+    @Option var source: String = "parakeet-ultra"
+    @Option(help: "Comma-separated cleanup providers.")
+    var providers: String = "mlx:qwen3.5-4b,mlx:qwen3-4b-2507,mlx:qwen3-4b-2507+draft,mlx:smollm3-3b"
+
+    func run() async throws {
+        guard let engine = ResultFiles.read(EnginePassResult.self, from: paths.resultsURL.appendingPathComponent("engine-\(ResultFiles.safeName(source)).json")) else {
+            throw ValidationError("Run the engine pass for \(source) first.")
+        }
+        let texts = engine.clips.filter { ["levels", "plain"].contains($0.set) }.compactMap(\.text)
+        var inputs: [String] = []
+        var i = 0
+        while i + 2 < texts.count { inputs.append(texts[i...(i + 2)].joined(separator: " ")); i += 3 }
+        let words = inputs.map { $0.split(separator: " ").count }
+        print("\(inputs.count) long inputs, \(words.min() ?? 0)–\(words.max() ?? 0) words")
+        for id in providers.split(separator: ",").map(String.init) {
+            guard let provider = try CleanupCatalog.make(id) else { continue }
+            try await provider.load()
+            let runner = CleanupRunner(provider: provider)
+            var ms: [Double] = [], timeouts = 0, guards = 0
+            for input in inputs {
+                let o = await runner.run(input, request: CleanupRequest(level: .light))
+                ms.append(o.llmMs ?? 0)
+                if o.fallback == .timeout { timeouts += 1 }
+                if o.fallback == .guardFlagged { guards += 1 }
+            }
+            // Also time without the limit, to see how long the model really needs.
+            let unlimited = CleanupRunner(provider: provider, timeLimit: .seconds(10))
+            var full: [Double] = []
+            for input in inputs.prefix(10) { full.append(await unlimited.run(input, request: CleanupRequest(level: .light)).llmMs ?? 0) }
+            print(String(format: "%-26@ p50 %@  p95 %@  over 800 ms %d/%d  guard %d  | unlimited p50 %@ max %@", id as NSString,
+                         Format.ms(Stats.percentile(ms, 50) ?? 0), Format.ms(Stats.percentile(ms, 95) ?? 0), timeouts, inputs.count, guards,
+                         Format.ms(Stats.percentile(full, 50) ?? 0), Format.ms(full.max() ?? 0)))
+            await provider.unload()
+        }
+    }
+}
+
+// MARK: - guard-test
+
+/// C5 gate: every injected change to a fact is blocked. Takes each corpus sentence through the rules
+/// stage, uses that as an honest model output (must pass), then injects changes the model must never make.
+struct GuardTest: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "guard-test", abstract: "Inject number, URL, email, name and negation changes into model output and check the guard blocks every one.")
+    @OptionGroup var paths: CommonPaths
+
+    func run() async throws {
+        let corpus = try Corpus.load(from: paths.corpusURL)
+        let rules = RulesCleaner()
+        let guardChecker = GuardChecker()
+        var falsePositives: [String] = []
+        var results: [String: (blocked: Int, total: Int)] = [:]
+        var misses: [String] = []
+        func record(_ kind: String, _ input: String, _ output: String) {
+            let blocked = !guardChecker.check(input: input, output: output).isEmpty
+            results[kind, default: (0, 0)].total += 1
+            if blocked { results[kind]!.blocked += 1 } else { misses.append("[\(kind)] \(input)  →  \(output)") }
+        }
+        let names = ["Jordan", "Taylor", "Elena", "Marcus", "Priya", "Sam"]
+        for clip in corpus.clips where !clip.isSilence {
+            let input = rules.apply(clip.reference).text
+            if !guardChecker.check(input: input, output: input).isEmpty { falsePositives.append(input) }
+            // Injected values never already appear in the sentence, so a change cannot happen to equal
+            // the speaker's own correction ("at 2, actually 3" -> "at 3, actually 3" means the same).
+            let present = Set(input.matches(of: /\d+/).compactMap { Int(input[$0.range]) })
+            func freshNumber(_ n: Int) -> Int { var v = n + 7; while present.contains(v) { v += 7 }; return v }
+            func appending(_ phrase: String) -> String {
+                if let last = input.last, ".?!".contains(last) { return String(input.dropLast()) + phrase + String(last) }
+                return input + phrase
+            }
+            // 1. Change each number (digits).
+            for match in input.matches(of: /\d+/) {
+                let n = Int(input[match.range]) ?? 0
+                record("number changed", input, input.replacingCharacters(in: match.range, with: String(freshNumber(n))))
+            }
+            // 2. Add a number.
+            record("number added", input, appending(" by \(freshNumber(4)) pm"))
+            // 3. Change a URL or email.
+            for url in GuardChecker.urlsForTesting(input) {
+                record("url changed", input, input.replacingOccurrences(of: url, with: url.replacingOccurrences(of: ".", with: "-", options: [], range: url.range(of: "."))), )
+            }
+            // 4. Swap or add a name.
+            let unused = names.filter { input.range(of: $0, options: .caseInsensitive) == nil }
+            if let name = GuardChecker.namesForTesting(input).first, let original = input.range(of: name, options: .caseInsensitive), let other = unused.first {
+                record("name swapped", input, input.replacingCharacters(in: original, with: other))
+            }
+            if let other = unused.last { record("name added", input, appending(" and \(other)")) }
+            // 5. Drop a negation, or add one.
+            if let neg = input.range(of: #"\b(not|never|don't|doesn't|can't|isn't|wasn't|won't)\b"#, options: [.regularExpression, .caseInsensitive]) {
+                let word = input[neg].lowercased()
+                let positive = ["not": "", "never": "always", "don't": "do", "doesn't": "does", "can't": "can", "isn't": "is", "wasn't": "was", "won't": "will"][word] ?? ""
+                record("negation flipped", input, input.replacingCharacters(in: neg, with: positive).replacingOccurrences(of: "  ", with: " "))
+            } else if let verb = input.range(of: #"\b(is|will|should|can|was)\b"#, options: .regularExpression) {
+                record("negation added", input, input.replacingCharacters(in: verb, with: input[verb] + " not"))
+            }
+        }
+        var total = (0, 0)
+        for (kind, r) in results.sorted(by: { $0.key < $1.key }) {
+            print(String(format: "%-18@ %3d / %3d blocked", kind as NSString, r.blocked, r.total))
+            total.0 += r.blocked; total.1 += r.total
+        }
+        print("All injected changes: \(total.0) / \(total.1) blocked. Honest outputs wrongly blocked: \(falsePositives.count).")
+        for m in misses.prefix(20) { print("  missed: \(m)") }
+        for f in falsePositives.prefix(5) { print("  false positive: \(f)") }
+        try ResultFiles.write(["blocked": Double(total.0), "total": Double(total.1), "falsePositives": Double(falsePositives.count)],
+                              to: paths.resultsURL.appendingPathComponent("guard-test.json"))
+    }
+}
+
+// MARK: - punctuation-test
+
+/// C4: spoken punctuation and layout, 10 synthetic-voice clips per command, through the engine and the
+/// rules stage (the model is not needed; rules own these).
+struct PunctuationTest: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "punctuation-test", abstract: "C4: say 'comma', 'question mark', 'new line', 'new paragraph' in 10 synthetic clips each and check the marks appear.")
+    @OptionGroup var paths: CommonPaths
+    @Option var engine: String = "parakeet-ultra"
+
+    static let sentences: [(command: String, spoken: String, mark: String)] = {
+        let comma = ["send it to Sam comma Priya and Marcus", "first the docs comma then the code", "yes comma I can do that", "on Monday comma we ship", "well comma that changes things",
+                     "after lunch comma call me", "if it rains comma we stay in", "honestly comma it's fine", "red comma green and blue", "today comma not tomorrow"]
+        let question = ["can you send the report question mark", "is the build green question mark", "what time is the meeting question mark", "did Sam reply question mark", "are we still on for Friday question mark",
+                        "who owns this ticket question mark", "where should we meet question mark", "how long will it take question mark", "should I ship it question mark", "why did the test fail question mark"]
+        let newLine = ["dear Sam new line thanks for the notes", "item one new line item two", "hello new line see you soon", "best new line Priya", "line one new line line two",
+                       "todo new line buy milk", "regards new line Marcus", "subject new line the launch", "first new line second", "hi team new line quick update"]
+        let paragraph = ["that covers the plan new paragraph next the budget", "thanks again new paragraph best wishes", "the release is ready new paragraph please test it", "intro done new paragraph now the details", "we agreed new paragraph next steps follow",
+                         "summary first new paragraph then the notes", "part one ends new paragraph part two begins", "that is all new paragraph cheers", "context first new paragraph the ask", "background done new paragraph the proposal"]
+        return comma.map { ("comma", $0, ",") } + question.map { ("question mark", $0, "?") } + newLine.map { ("new line", $0, "\n") } + paragraph.map { ("new paragraph", $0, "\n\n") }
+    }()
+
+    func run() async throws {
+        let engine = try EngineCatalog.make(engine)
+        try await engine.load()
+        let rules = RulesCleaner()
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("murmur-punct")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let voices = ["Samantha", "Daniel", "Karen", "Moira", "Tessa"]
+        var passed: [String: Int] = [:], counts: [String: Int] = [:]
+        for (i, s) in Self.sentences.enumerated() {
+            let aiff = dir.appendingPathComponent("\(i).aiff")
+            let say = Process()
+            say.executableURL = URL(fileURLWithPath: "/usr/bin/say")
+            say.arguments = ["-v", voices[i % voices.count], "-o", aiff.path, s.spoken]
+            try say.run(); say.waitUntilExit()
+            let samples = try WAV.read(aiff)
+            let raw = try await engine.transcribe(samples, options: TranscribeOptions(language: "en"))
+            let out = rules.apply(raw).text
+            let ok: Bool
+            switch s.mark {
+            case "\n\n": ok = out.contains("\n\n")
+            case "\n": ok = out.contains("\n") && !out.contains("\n\n")
+            default: ok = out.contains(s.mark) && !out.lowercased().contains(s.command)
+            }
+            counts[s.command, default: 0] += 1
+            if ok { passed[s.command, default: 0] += 1 } else { print("  ✗ [\(s.command)] heard: \(raw.debugDescription) → \(out.debugDescription)") }
+        }
+        for command in ["comma", "question mark", "new line", "new paragraph"] {
+            print("\(command): \(passed[command] ?? 0) / \(counts[command] ?? 0)")
+        }
     }
 }
 

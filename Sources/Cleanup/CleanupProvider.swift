@@ -14,10 +14,13 @@ public struct CleanupRequest: Sendable {
     public var level: CleanupLevel
     /// Terms the user cares about, given to the model so it keeps their spelling.
     public var vocabulary: [String]
+    /// C3: numbered lists from spoken lists, paragraphs for long dictations.
+    public var smartFormatting: Bool
 
-    public init(level: CleanupLevel = .light, vocabulary: [String] = []) {
+    public init(level: CleanupLevel = .light, vocabulary: [String] = [], smartFormatting: Bool = false) {
         self.level = level
         self.vocabulary = vocabulary
+        self.smartFormatting = smartFormatting
     }
 }
 
@@ -39,6 +42,12 @@ public protocol CleanupProvider: Sendable {
     /// Returns the model's cleaned text. Must honour task cancellation promptly.
     func complete(_ messages: [ChatMessage], maxTokens: Int) async throws -> String
     func unload() async
+    /// Prepares for these instructions (builds the cached prompt prefix) so the next real call is fast.
+    func prewarm(_ messages: [ChatMessage]) async
+}
+
+public extension CleanupProvider {
+    func prewarm(_ messages: [ChatMessage]) async {}
 }
 
 public enum CleanupError: Error, CustomStringConvertible {

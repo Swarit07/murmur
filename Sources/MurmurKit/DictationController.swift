@@ -106,6 +106,10 @@ public final class DictationController {
 
     var session: Session?
     var processing: Task<Void, Never>?
+    /// The dictionary and snippets (S1, S3), reloaded when they change.
+    var rules = RulesCleaner()
+    var vocabulary: [String] = []
+    var aliases: [String: [String]] = [:]
     /// Why the last start request did not start a recording (diagnostics for the focus test).
     public private(set) var lastBeginRefusal: String?
     /// The last cancelled or failed dictation's audio, for Undo and Retry on the Flow Bar.
@@ -127,6 +131,10 @@ public final class DictationController {
 
     /// Loads the models and starts listening for the shortcut. Safe to call again after permissions change.
     public func start() {
+        reloadVocabulary()
+        NotificationCenter.default.addObserver(forName: HistoryStore.vocabularyDidChange, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.reloadVocabulary() }
+        }
         reloadModels()
         startKeyTap()
         purgeOldAudio()
@@ -158,12 +166,47 @@ public final class DictationController {
 
     public var isListening: Bool { tap?.isRunning ?? false }
 
+    /// Builds the rules stage, the engine bias and the cleanup vocabulary from the dictionary and snippets.
+    /// A plain word maps to itself, which fixes its capitalization ("kubernetes" -> "Kubernetes").
+    func reloadVocabulary() {
+        let entries = (try? store.dictionary()) ?? []
+        let snippets = (try? store.snippets()) ?? []
+        var mappings: [DictionaryEntry] = []
+        var aliases: [String: [String]] = [:]
+        for entry in entries {
+            let heard = entry.heardAs.isEmpty ? [entry.replacement] : entry.heardAs
+            for h in heard { mappings.append(DictionaryEntry(term: h, replacement: entry.replacement)) }
+            if !entry.heardAs.contains(entry.replacement) { mappings.append(DictionaryEntry(term: entry.replacement, replacement: entry.replacement)) }
+            let others = heard.filter { $0.caseInsensitiveCompare(entry.replacement) != .orderedSame }
+            if !others.isEmpty { aliases[entry.replacement] = others }
+        }
+        rules = RulesCleaner(dictionary: mappings, snippets: snippets.map { Snippet(cue: $0.cue, expansion: $0.expansion) })
+        vocabulary = Array(Set(entries.map(\.replacement))).sorted()
+        self.aliases = aliases
+        log.notice("vocabulary: \(entries.count) dictionary entries, \(snippets.count) snippets")
+        prewarmCleanup()
+    }
+
+    /// Builds the cleanup model's cached instructions for the current dictionary and settings.
+    func prewarmCleanup() {
+        guard settings.transformsEnabled, let provider = cleanupProvider else { return }
+        let request = currentCleanupRequest
+        Task { await CleanupRunner(rules: rules, provider: provider).prewarm(request) }
+    }
+
+    var currentCleanupRequest: CleanupRequest {
+        CleanupRequest(
+            level: CleanupLevel(rawValue: settings.cleanupLevel) ?? .light, vocabulary: vocabulary,
+            smartFormatting: settings.smartFormatting)
+    }
+
     func settingsChanged(_ key: String?) {
         switch key {
         case "engine", "cleanupProvider": reloadModels()
         case "keyboardLayout":
             recognizer = HotkeyRecognizer(configuration: settings.keyboardLayout == "other" ? .otherKeyboard : .appleKeyboard)
         case "microphoneUID": recorder.setDevice(uid: settings.microphoneUID)
+        case "cleanupLevel", "smartFormatting", "transformsEnabled": prewarmCleanup()
         default: break
         }
     }
@@ -176,6 +219,7 @@ public final class DictationController {
         loadingTask?.cancel()
         if engine == nil { status.phase = .loading }
         let groqKey: @Sendable () -> String? = { Keychain.get("groq") ?? ProcessInfo.processInfo.environment["GROQ_API_KEY"] }
+        let openRouterKey: @Sendable () -> String? = { Keychain.get("openrouter") ?? ProcessInfo.processInfo.environment["OPENROUTER_API_KEY"] }
         loadingTask = Task { [weak self] in
             var problems: [String] = []
             if wantEngine != self?.engineId {
@@ -190,7 +234,7 @@ public final class DictationController {
             }
             if wantCleanup != self?.cleanupId {
                 do {
-                    let p = try CleanupCatalog.make(wantCleanup, groqKey: groqKey)
+                    let p = try CleanupCatalog.make(wantCleanup, groqKey: groqKey, openRouterKey: openRouterKey)
                     try await p?.load()
                     self?.cleanupProvider = p
                     self?.cleanupId = wantCleanup
@@ -202,6 +246,7 @@ public final class DictationController {
                 }
             }
             guard let self else { return }
+            self.prewarmCleanup()
             if self.status.phase == .loading { self.status.phase = self.engine == nil ? .error : .idle }
             if !problems.isEmpty { self.status.message = problems.joined(separator: "\n") }
         }
@@ -332,7 +377,8 @@ public final class DictationController {
         let raw: String
         do {
             let t0 = Clock.now()
-            raw = try await engine.transcribe(samples, options: TranscribeOptions(language: "en"))
+            raw = try await engine.transcribe(samples, options: TranscribeOptions(
+                language: settings.engineLanguage, vocabulary: vocabulary, aliases: aliases))
             timings.transcribeMs = Clock.ms(since: t0)
         } catch {
             guard isCurrent(token) else { return }
@@ -355,8 +401,10 @@ public final class DictationController {
         state.send(.transcribed(trimmed))
 
         // Clean up: rules, model with the 800 ms limit, guard; rule-cleaned text as the fallback.
-        let level = CleanupLevel(rawValue: settings.cleanupLevel) ?? .light
-        let outcome = await CleanupRunner(provider: cleanupProvider).run(trimmed, request: CleanupRequest(level: level))
+        // C1: the Transforms switch turns every AI edit off; the rules stage still runs.
+        let provider = settings.transformsEnabled ? cleanupProvider : nil
+        let request = currentCleanupRequest
+        let outcome = await CleanupRunner(rules: rules, provider: provider).run(trimmed, request: request)
         timings.rulesMs = outcome.rulesMs
         timings.llmMs = outcome.llmMs
         guard isCurrent(token) else { return }

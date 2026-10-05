@@ -80,3 +80,16 @@ Newest last. Each entry: date, decision, reason.
 - **Fourth sound: a "done" chime when text lands,** at the owner's request. Original synthesis only: per spec rule 1, Wispr's sound files are never copied or sampled. The owner can record the reference app; Claude measures pitch, length and envelope and puts those numbers into the sound tokens, and the sound stays synthesized.
 - **Sounds are two-note tones with overtones:** a short pitch glide (`soundGlide`), brightness and "bellness" (how far the overtones drift from exact harmonics toward a bell's) as tokens. Debug › Play sounds plays each one for tuning.
 - **2026-10-05 · Correction: milestones go strictly in order.** The owner clarified that only the M1 day-of-use report was skipped. Every other gate runs before the next milestone starts, so Milestone 3 waits for the M2 focus test.
+
+## 2026-10-05 · Milestone 3 (cleanup, dictionary, snippets)
+
+- **Dictionary entries are "write" plus optional "heard as" spellings.** The rules stage maps every heard-as spelling (and the word itself, which fixes capitals) to the written form; the written forms bias the engine and go to the cleanup model.
+- **Parakeet biasing uses FluidAudio's separate CTC 110M encoder** (Approach 2 in its docs, stable), loaded on first use. Threshold sweeps changed nothing for the hard misses, so FluidAudio's defaults stay.
+- **The guard trusts the dictionary:** a dictionary term in the output is never an injected name, and it may replace a look-alike fragment ("V" → "Vite", "Pri" → "Priya": prefix or edit distance ≤ a third of the term). An unrelated name is still blocked.
+- **Corrections relax only what was said before the cue.** Numbers, URLs, names and negations spoken before the last cue (cue words included) may be dropped; everything after the cue must survive. Found by the guard-injection test, where a filler "I mean" let the model drop a later "not".
+- **Smart Formatting is on by default.** List markers count as layout (numbers 1…N may replace spoken ordinals), and the prompt says a correction is never a list (it had read "two engineers, I mean three" as a list).
+- **Prompt now carries "never translate" (C8)** and, when the dictionary is not empty, the dictionary with "use them where the transcript has a word that sounds like one of them".
+- **Hosted cleanup is one OpenAI-compatible provider:** Groq (default `openai/gpt-oss-20b`, `reasoning_effort: low`, `include_reasoning: false`, +256 tokens for reasoning) and OpenRouter. Keys live in the Keychain.
+- **Speculative decoding is an option, not the default** (`mlx:qwen3-4b-2507+draft`, 4 draft tokens; 6 and 8 were slower). It needs trimmable caches, so not Qwen3.5.
+- **Cleanup is prewarmed with the exact instructions in use** at launch and whenever the dictionary, level, formatting or Transforms change.
+- **An MLX call never returns while its generator still runs:** on cancel it cancels the generator task and awaits it, because an overlap crashed Metal. `unload()` waits for in-flight calls.

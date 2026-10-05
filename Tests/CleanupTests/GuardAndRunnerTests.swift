@@ -54,6 +54,14 @@ struct GuardCheckerTests {
         #expect(GuardChecker(minRatio: 0.55).check(input: "Ask Marcus about it.", output: "Ask Priya about it.", vocabulary: ["Priya"]).map(\.kind).contains("name"))
     }
 
+    /// C3: list numbers added by Smart Formatting are layout, but only when it is on.
+    @Test func listMarkersAllowedWithSmartFormatting() {
+        let input = "we need three things first milk second eggs third bread"
+        let output = "We need three things:\n1. Milk\n2. Eggs\n3. Bread"
+        #expect(!g.check(input: input, output: output, allowListMarkers: true).map(\.kind).contains("number"))
+        #expect(g.check(input: input, output: output).map(\.kind).contains("number"))
+    }
+
     @Test func nameRemovalCaughtWithoutCorrection() {
         #expect(kinds("loop in Priya and Marcus on this", "Loop in Priya on this.").contains("name"))
     }
@@ -103,9 +111,18 @@ struct GuardCheckerTests {
         ("Tell her I'll be there at six no, six thirty.", "Tell her I'll be there at six thirty."),
         ("Charge it to the company card. No, my personal card.", "Charge it to my personal card."),
         ("The file is in the DOX folder, no the assets folder.", "The file is in the assets folder."),
+        ("Ship the version 3.2 No wait version 3.3", "Ship version 3.3."),
     ])
     func transcriptStyleCorrectionsPass(input: String, output: String) {
         #expect(g.check(input: input, output: output).isEmpty)
+    }
+
+    /// Found by the guard-injection test: "I mean" as a filler must not let the model drop a later "not".
+    @Test func fillerCueDoesNotRelaxLaterFacts() {
+        let input = "I mean, honestly, it's fine, but I'd rather we not rename the repo right now."
+        #expect(kinds(input, "I mean, honestly, it's fine, but I'd rather we rename the repo right now.").contains("negation"))
+        #expect(kinds("Sorry, the meeting is at 3 with Priya.", "The meeting is at 4 with Priya.").contains("number"))
+        #expect(kinds("Sorry, loop in Priya and Marcus.", "Loop in Priya.").contains("name"))
     }
 
     @Test func leadingNoIsNotACorrection() {
@@ -207,6 +224,14 @@ struct CleanupRunnerTests {
         #expect(out.fallback == .timeout)
         #expect(out.text == "Let's meet at 3")
         #expect(elapsed < 1.0)
+    }
+
+    @Test func promptCarriesFormattingAndLanguageRules() {
+        let withFormatting = CleanupPrompt.system(level: .light, vocabulary: ["Vite"], smartFormatting: true)
+        #expect(withFormatting.contains("numbered list"))
+        #expect(withFormatting.contains("Never translate"))
+        #expect(withFormatting.contains("Vite"))
+        #expect(!CleanupPrompt.system(level: .light, vocabulary: []).contains("numbered list"))
     }
 
     @Test func promptWrapsTranscriptAsData() {

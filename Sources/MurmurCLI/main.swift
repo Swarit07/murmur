@@ -170,6 +170,12 @@ struct Clean: AsyncParsableCommand {
     @Option(help: "Time limit in milliseconds.")
     var limit: Int = 800
 
+    @Flag(help: "Smart Formatting: numbered lists and paragraphs.")
+    var formatting = false
+
+    @Option(help: "Comma-separated dictionary words.")
+    var vocab: String?
+
     func run() async throws {
         let provider = try CleanupCatalog.make(cleanup)
         if let provider {
@@ -179,12 +185,17 @@ struct Clean: AsyncParsableCommand {
             print("Loaded in \(Format.ms(Clock.ms(since: start)))")
         }
         let runner = CleanupRunner(provider: provider, timeLimit: .milliseconds(limit))
-        let out = await runner.run(text, request: CleanupRequest(level: CleanupLevel(rawValue: level) ?? .light))
+        let words = vocab.map { $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) } } ?? []
+        let request = CleanupRequest(level: CleanupLevel(rawValue: level) ?? .light, vocabulary: words, smartFormatting: formatting)
+        await runner.prewarm(request)
+        let out = await runner.run(text, request: request)
         print("rules  (\(Format.ms(out.rulesMs))): \(out.rulesText)")
         if let model = out.modelText { print("model  (\(out.llmMs.map(Format.ms) ?? "-")): \(model)") }
         if let fallback = out.fallback { print("fallback: \(fallback.rawValue)\(out.error.map { " (\($0))" } ?? "")") }
         for flag in out.flags { print("  guard: \(flag)") }
         print("final: \(out.text)")
+        // A timed-out generation may still be running; let it finish before the process exits.
+        await provider?.unload()
     }
 }
 

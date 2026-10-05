@@ -13,7 +13,7 @@ public final class AppSettings: @unchecked Sendable {
     }
 
     enum Key: String {
-        case engine, cleanupProvider, cleanupLevel, keyboardLayout, showInDock, soundsEnabled, microphoneUID, keepAudio, showFlowBar, debugMenu
+        case engine, cleanupProvider, cleanupLevel, keyboardLayout, showInDock, soundsEnabled, microphoneUID, keepAudio, showFlowBar, debugMenu, transformsEnabled, smartFormatting, languages
     }
 
     private func string(_ key: Key, _ fallback: String) -> String { defaults.string(forKey: key.rawValue) ?? fallback }
@@ -62,6 +62,28 @@ public final class AppSettings: @unchecked Sendable {
         get { defaults.string(forKey: Key.microphoneUID.rawValue) }
         set { set(newValue, .microphoneUID) }
     }
+
+    /// C1 master switch: off turns every AI edit off (rules still apply: spoken punctuation, dictionary,
+    /// snippets).
+    public var transformsEnabled: Bool {
+        get { defaults.object(forKey: Key.transformsEnabled.rawValue) as? Bool ?? true }
+        set { set(newValue, .transformsEnabled) }
+    }
+
+    /// C3 Smart Formatting: spoken lists become numbered lists, long dictations get paragraphs.
+    public var smartFormatting: Bool {
+        get { defaults.object(forKey: Key.smartFormatting.rawValue) as? Bool ?? true }
+        set { set(newValue, .smartFormatting) }
+    }
+
+    /// T3: ISO 639-1 codes the user speaks. Empty means automatic detection.
+    public var languages: [String] {
+        get { defaults.stringArray(forKey: Key.languages.rawValue) ?? [] }
+        set { set(newValue, .languages) }
+    }
+
+    /// The language to pass to the engine: the one chosen language, or nil for automatic.
+    public var engineLanguage: String? { languages.count == 1 ? languages[0] : nil }
 
     /// Show the idle Flow Bar at all times (A5, System). Off: it appears only while dictating.
     public var showFlowBar: Bool {

@@ -46,7 +46,9 @@ public actor ParakeetEngine: SpeechEngine {
         var state = TdtDecoderState.make(decoderLayers: await manager.decoderLayerCount)
         // Parakeet needs at least one second of audio; pad short clips with silence.
         let padded = samples.count < 16_000 ? samples + [Float](repeating: 0, count: 16_000 - samples.count) : samples
-        let result = try await manager.transcribe(padded, decoderState: &state)
+        // A single chosen language filters out tokens from other scripts (v3-family models only).
+        let language = options.language.flatMap { Language(rawValue: $0) }
+        let result = try await manager.transcribe(padded, decoderState: &state, language: language)
         var text = result.text
         if !options.vocabulary.isEmpty, let timings = result.tokenTimings, !timings.isEmpty,
            let session = try? await boostingSession(options) {

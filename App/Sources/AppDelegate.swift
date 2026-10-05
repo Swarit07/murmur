@@ -141,6 +141,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         menu.addItem(.separator())
         menu.addItem(shortcutsMenu())
+        menu.addItem(item("Dictionary…", #selector(showDictionary)))
+        menu.addItem(item("Snippets…", #selector(showSnippets)))
         menu.addItem(item("Settings…", #selector(showSettings), key: ","))
         menu.addItem(item("Check permissions…", #selector(showPermissions)))
         if settings.debugMenu { menu.addItem(debugMenu()) }
@@ -281,6 +283,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc func showHistory() { windows.showHistory(store: store) }
     @objc func showSettings() { windows.showSettings(settings: settings) }
+    @objc func showDictionary() { windows.showDictionary(store: store) }
+    @objc func showSnippets() { windows.showSnippets(store: store) }
     @objc func showPermissions() {
         windows.showPermissions { [weak self] in self?.controller.startKeyTap() }
     }

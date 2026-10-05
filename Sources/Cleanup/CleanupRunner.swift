@@ -41,6 +41,14 @@ public struct CleanupRunner: Sendable {
         self.timeLimit = timeLimit
     }
 
+    /// Warms the provider for this request's instructions (dictionary, level, formatting), so the first
+    /// dictation after a change does not pay for reading them.
+    public func prewarm(_ request: CleanupRequest) async {
+        guard let provider, request.level != .none else { return }
+        await provider.prewarm(CleanupPrompt.messages(
+            for: "OK", level: request.level, vocabulary: request.vocabulary, smartFormatting: request.smartFormatting))
+    }
+
     public func run(_ transcript: String, request: CleanupRequest = CleanupRequest()) async -> CleanupOutcome {
         if request.level == .none {
             return CleanupOutcome(text: transcript, rulesText: transcript, modelText: nil, fallback: nil, flags: [], error: nil, rulesMs: 0, llmMs: nil)
@@ -51,7 +59,8 @@ public struct CleanupRunner: Sendable {
             return CleanupOutcome(text: rulesText, rulesText: rulesText, modelText: nil, fallback: nil, flags: [], error: nil, rulesMs: rulesMs, llmMs: nil)
         }
 
-        let messages = CleanupPrompt.messages(for: ruled.text, level: request.level, vocabulary: request.vocabulary)
+        let messages = CleanupPrompt.messages(
+            for: ruled.text, level: request.level, vocabulary: request.vocabulary, smartFormatting: request.smartFormatting)
         let maxTokens = CleanupPrompt.maxTokens(for: ruled.text)
         let (result, llmMs) = await Signposts.measure(.llm) {
             await Self.withTimeLimit(timeLimit) {
@@ -68,7 +77,7 @@ public struct CleanupRunner: Sendable {
             let cleaned = CleanupPrompt.strip(raw)
             let flags = guardChecker.check(
                 input: ruled.text, output: cleaned, placeholders: Array(ruled.placeholders.keys),
-                allowReorder: request.level == .medium, vocabulary: request.vocabulary)
+                allowReorder: request.level == .medium, vocabulary: request.vocabulary, allowListMarkers: request.smartFormatting)
             if !flags.isEmpty {
                 return CleanupOutcome(text: rulesText, rulesText: rulesText, modelText: cleaned, fallback: .guardFlagged, flags: flags, error: nil, rulesMs: rulesMs, llmMs: llmMs)
             }

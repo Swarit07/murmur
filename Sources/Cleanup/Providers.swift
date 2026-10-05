@@ -172,7 +172,7 @@ public actor AppleFoundationCleanupProvider: CleanupProvider {
     }
 
     /// Prewarms a session for these messages' instructions, so the first real call is warm too.
-    public func prewarm(_ messages: [ChatMessage]) {
+    public func prewarm(_ messages: [ChatMessage]) async {
         #if canImport(FoundationModels)
         if #available(macOS 26.0, *) { prepareSpare(Self.split(messages).0) }
         #endif

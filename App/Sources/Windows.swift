@@ -31,7 +31,15 @@ final class WindowManager {
     }
 
     func showSettings(settings: AppSettings) {
-        show("settings", title: "Murmur Settings", size: NSSize(width: 520, height: 520)) { SettingsView(settings: settings) }
+        show("settings", title: "Murmur Settings", size: NSSize(width: 540, height: 720)) { SettingsView(settings: settings) }
+    }
+
+    func showDictionary(store: HistoryStore) {
+        show("dictionary", title: "Murmur Dictionary", size: NSSize(width: 620, height: 460)) { DictionaryView(store: store) }
+    }
+
+    func showSnippets(store: HistoryStore) {
+        show("snippets", title: "Murmur Snippets", size: NSSize(width: 620, height: 460)) { SnippetsView(store: store) }
     }
 
     func showTokens() {
@@ -59,13 +67,24 @@ struct HistoryView: View {
                 TableColumn("App") { r in Text(r.appName ?? r.appBundleId ?? "—") }
                     .width(min: 80, ideal: 110, max: 160)
                 TableColumn("Text") { r in
-                    Text(r.bestText ?? "(no text)").lineLimit(2).foregroundStyle(r.bestText == nil ? .secondary : .primary)
+                    HStack(alignment: .top, spacing: 4) {
+                        if r.useRaw { Image(systemName: "arrow.uturn.backward").foregroundStyle(.secondary).help("AI edit undone: showing your original words") }
+                        Text(r.bestText ?? "(no text)").lineLimit(2).foregroundStyle(r.bestText == nil ? .secondary : .primary)
+                    }
                 }
                 TableColumn("Status") { r in Text(label(r.status)).foregroundStyle(r.status == .inserted ? Color.secondary : Color.orange) }
                     .width(min: 80, ideal: 100, max: 130)
             }
             .contextMenu(forSelectionType: DictationRecord.ID.self) { ids in
                 Button("Copy") { copy(ids.first) }
+                if let r = records.first(where: { $0.id == ids.first }), r.cleanText != nil, r.rawText != nil, r.cleanText != r.rawText {
+                    // C10: swap between the raw transcript and the AI edit without re-running the model.
+                    Button(r.useRaw ? "Redo AI edit (use cleaned text)" : "Undo AI edit (use original words)") {
+                        _ = try? store.update(id: r.id) { $0.useRaw.toggle() }
+                    }
+                    Button("Copy original words") { copyText(r.rawText) }
+                    Button("Copy cleaned text") { copyText(r.cleanText) }
+                }
             } primaryAction: { ids in
                 copy(ids.first)
             }
@@ -83,8 +102,10 @@ struct HistoryView: View {
 
     func reload() { records = (try? store.recent(limit: 500, search: search)) ?? [] }
 
-    func copy(_ id: DictationRecord.ID?) {
-        guard let text = records.first(where: { $0.id == id })?.bestText else { return }
+    func copy(_ id: DictationRecord.ID?) { copyText(records.first(where: { $0.id == id })?.bestText) }
+
+    func copyText(_ text: String?) {
+        guard let text else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
     }
@@ -113,6 +134,10 @@ struct SettingsView: View {
     @State private var showInDock = AppSettings.shared.showInDock
     @State private var keepAudio = AppSettings.shared.keepAudio
     @State private var showFlowBar = AppSettings.shared.showFlowBar
+    @State private var transforms = AppSettings.shared.transformsEnabled
+    @State private var smartFormatting = AppSettings.shared.smartFormatting
+    @State private var openRouterKey = ""
+    @State private var openRouterSaved = Keychain.get("openrouter") != nil
     @State private var debugMenu = AppSettings.shared.debugMenu
     @State private var groqKey = ""
     @State private var groqSaved = Keychain.get("groq") != nil
@@ -125,7 +150,8 @@ struct SettingsView: View {
 
     static let cleanupNames: [String: String] = [
         "mlx:qwen3.5-4b": "Qwen3.5 4B (recommended)", "mlx:smollm3-3b": "SmolLM3 3B (less memory)", "mlx:qwen3-4b-2507": "Qwen3 4B 2507",
-        "mlx:qwen3.5-2b": "Qwen3.5 2B", "apple-foundation": "Apple on-device", "groq": "Groq (cloud, needs key)", "rules": "Rules only (no AI)",
+        "mlx:qwen3.5-2b": "Qwen3.5 2B", "apple-foundation": "Apple on-device", "groq": "Groq (cloud, needs key)",
+        "openrouter": "OpenRouter (cloud, needs key)", "rules": "Rules only (no AI)",
     ]
 
     var body: some View {
@@ -136,7 +162,13 @@ struct SettingsView: View {
                 }
                 .onChange(of: engine) { settings.engine = engine }
             }
+            Section("Languages") {
+                LanguagePicker(settings: settings)
+            }
             Section("Cleanup") {
+                Toggle("AI edits (Transforms)", isOn: $transforms).onChange(of: transforms) { settings.transformsEnabled = transforms }
+                Text("Off: Murmur still removes fillers and applies spoken punctuation, your dictionary and snippets, but no AI model edits the text.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Picker("Model", selection: $cleanup) {
                     ForEach(Self.cleanupNames.keys.sorted(), id: \.self) { Text(Self.cleanupNames[$0] ?? $0).tag($0) }
                 }
@@ -148,6 +180,7 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.segmented)
                 .onChange(of: level) { settings.cleanupLevel = level }
+                Toggle("Smart Formatting (numbered lists, paragraphs)", isOn: $smartFormatting).onChange(of: smartFormatting) { settings.smartFormatting = smartFormatting }
             }
             Section("App") {
                 Toggle("Show Flow Bar at all times", isOn: $showFlowBar).onChange(of: showFlowBar) { settings.showFlowBar = showFlowBar }
@@ -168,7 +201,18 @@ struct SettingsView: View {
                         Button("Remove") { Keychain.set(nil, for: "groq"); groqSaved = false }
                     }
                 }
-                Text("Audio and text leave this Mac only when you pick a Groq option above.").font(.caption).foregroundStyle(.secondary)
+                HStack {
+                    SecureField(openRouterSaved ? "OpenRouter API key saved in Keychain" : "OpenRouter API key", text: $openRouterKey)
+                    Button("Save") {
+                        Keychain.set(openRouterKey, for: "openrouter")
+                        openRouterSaved = !openRouterKey.isEmpty
+                        openRouterKey = ""
+                    }
+                    if openRouterSaved {
+                        Button("Remove") { Keychain.set(nil, for: "openrouter"); openRouterSaved = false }
+                    }
+                }
+                Text("Audio and text leave this Mac only when you pick a Groq or OpenRouter option above.").font(.caption).foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)

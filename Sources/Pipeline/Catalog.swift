@@ -34,7 +34,7 @@ public enum CleanupCatalog {
             if id.hasPrefix("groq:") { return OpenAICompatibleCleanupProvider.groq(model: String(id.dropFirst(5)), key: groq) }
             if id.hasPrefix("openrouter:") { return OpenAICompatibleCleanupProvider.openRouter(model: String(id.dropFirst(11)), key: openRouter) }
             let name = id.hasPrefix("mlx:") ? String(id.dropFirst(4)) : id
-            if id.hasPrefix("mlx:") || mlxNames.contains(name) {
+            if id.hasPrefix("mlx:") || mlxNames.contains(name) || mlxNames.contains(name.replacingOccurrences(of: "+draft", with: "")) {
                 #if canImport(CleanupMLX)
                 return MLXCleanupProvider(name: name)
                 #else

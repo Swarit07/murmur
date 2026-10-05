@@ -74,6 +74,14 @@ public struct GuardChecker: Sendable {
         pattern: #"(?i)\b(actually|i mean|no wait|wait no|sorry|scratch that|make that|or rather|rather|correction|instead|oops|let me rephrase|change that to|no no)\b|(?<=\w)[,.]?\s+(no|wait)\s*[,.]|(?<=\w)[,.]\s+(no|wait)\s+(the|a|an|my|your|our|their|his|her|to|at|on|in|make|use|send|add)\b"#
     )
 
+    /// Splits at the last self-correction cue: the text up to and including it (what a correction may
+    /// drop, cue words included) and the text after it (what the speaker settled on). No cue: ("", text).
+    static func correctionSplit(_ text: String) -> (droppable: String, kept: String) {
+        let range = NSRange(text.startIndex..., in: text)
+        guard let last = correctionCuePattern.matches(in: text, range: range).last, let r = Range(last.range, in: text) else { return ("", text) }
+        return (String(text[..<r.upperBound]), String(text[r.upperBound...]))
+    }
+
     /// Character offset of the first self-correction cue, if any.
     static func correctionCueRange(_ text: String) -> Range<String.Index>? {
         let range = NSRange(text.startIndex..., in: text)
@@ -99,10 +107,19 @@ public struct GuardChecker: Sendable {
     /// `vocabulary` is the user's dictionary: a dictionary term in the output is never an "added name",
     /// because the model may legitimately fix "V" to "Vite" when Vite is in the dictionary.
     public func check(
-        input: String, output: String, placeholders: [String] = [], allowReorder: Bool = false, vocabulary: [String] = []
+        input: String, output: String, placeholders: [String] = [], allowReorder: Bool = false, vocabulary: [String] = [],
+        allowListMarkers: Bool = false
     ) -> [GuardFlag] {
         var flags: [GuardFlag] = []
-        let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        var trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Smart Formatting numbers spoken lists ("1. ", "2. " at line starts); those are layout, not facts,
+        // and they replace the spoken ordinals ("first", "second"), so numbers 1…N may disappear.
+        var listItems = 0
+        if allowListMarkers {
+            let marker = #"(?m)^\s*\d{1,2}[.)]\s+"#
+            listItems = (try? NSRegularExpression(pattern: marker))?.numberOfMatches(in: trimmed, range: NSRange(trimmed.startIndex..., in: trimmed)) ?? 0
+            trimmed = trimmed.replacingOccurrences(of: marker, with: "", options: .regularExpression)
+        }
         if trimmed.isEmpty && !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return [.empty]
         }
@@ -113,15 +130,22 @@ public struct GuardChecker: Sendable {
         }
 
         let corrected = Self.hasCorrectionCue(input)
+        // A correction may drop only facts spoken before its cue ("at 2, actually 3" drops the 2).
+        // A filler like "I mean" at the start corrects nothing, so it relaxes nothing.
+        let (correctedPart, keptPart) = Self.correctionSplit(input)
+        let droppable = Self.numbers(correctedPart)
 
         // Numbers, compared in digit form so "three" -> "3" is not a change.
         let numIn = Self.numbers(input), numOut = Self.numbers(trimmed)
         for n in numOut.subtracting(numIn) { flags.append(.numberAdded(n)) }
-        if !corrected { for n in numIn.subtracting(numOut) { flags.append(.numberRemoved(n)) } }
+        for n in numIn.subtracting(numOut) where !(listItems > 0 && (Int(n).map { 1...listItems ~= $0 } ?? false)) && !droppable.contains(n) {
+            flags.append(.numberRemoved(n))
+        }
 
         let urlIn = Self.urls(input), urlOut = Self.urls(trimmed)
         for u in urlOut.subtracting(urlIn) { flags.append(.urlAdded(u)) }
-        if !corrected { for u in urlIn.subtracting(urlOut) { flags.append(.urlRemoved(u)) } }
+        let droppableURLs = Self.urls(correctedPart)
+        for u in urlIn.subtracting(urlOut) where !droppableURLs.contains(u) { flags.append(.urlRemoved(u)) }
 
         // Names: capitalized words that are not sentence-initial. Compared lowercased, and a name in the
         // output is fine if the same word appears anywhere in the input in any case.
@@ -129,18 +153,21 @@ public struct GuardChecker: Sendable {
         let allowed = Set(vocabulary.flatMap { Self.words($0).map { $0.lowercased() } })
         let namesIn = Self.names(input), namesOut = Self.names(trimmed)
         for n in namesOut where !wordsIn.contains(n) && !allowed.contains(n) { flags.append(.nameAdded(n)) }
-        if !corrected {
+        do {
+            let droppableNames = Set(Self.words(correctedPart).map { $0.lowercased() })
             let wordsOut = Set(Self.words(trimmed).map { $0.lowercased() })
             // Dictionary terms the model put in that were not in the input: each may replace a word that
             // looks like it ("V" -> "Vite", "Pri" -> "Priya"), which is a fix, not a removal.
             let restored = allowed.subtracting(wordsIn).filter { wordsOut.contains($0) }
-            for n in namesIn where !wordsOut.contains(n) && !restored.contains(where: { Self.resembles(n, $0) }) {
+            for n in namesIn where !wordsOut.contains(n) && !droppableNames.contains(n) && !restored.contains(where: { Self.resembles(n, $0) }) {
                 flags.append(.nameRemoved(n))
             }
         }
 
+        // Negations after the last cue are part of what the speaker meant and must all survive.
         let negIn = Self.negationCount(input), negOut = Self.negationCount(trimmed)
-        if corrected ? negOut > negIn : negOut != negIn {
+        let negKept = Self.negationCount(keptPart)
+        if negOut > negIn || negOut < negKept || (!corrected && negOut != negIn) {
             flags.append(.negationChanged(from: negIn, to: negOut))
         }
 
@@ -168,6 +195,10 @@ public struct GuardChecker: Sendable {
     }
 
     // MARK: - Extraction
+
+    /// For the guard test in the bench.
+    public static func urlsForTesting(_ text: String) -> [String] { Array(urls(text)).sorted() }
+    public static func namesForTesting(_ text: String) -> [String] { Array(names(text)).sorted() }
 
     /// A mis-heard fragment and the dictionary term it stands for: a prefix either way, or a close spelling.
     static func resembles(_ heard: String, _ term: String) -> Bool {
