@@ -110,6 +110,27 @@ public enum FocusContext {
         )
     }
 
+    /// The address of the web page that contains `element`, for browsers and web views: walks up to
+    /// the nearest web area and reads its URL. Nil outside web content.
+    public static func webAddress(of element: AXUIElement?) -> URL? {
+        var current = element
+        for _ in 0..<40 {
+            guard let node = current else { return nil }
+            if string(node, kAXRoleAttribute) == "AXWebArea" {
+                var value: CFTypeRef?
+                if AXUIElementCopyAttributeValue(node, "AXURL" as CFString, &value) == .success, let value {
+                    if CFGetTypeID(value) == CFURLGetTypeID() { return (value as! URL) }
+                    if let s = value as? String { return URL(string: s) }
+                }
+            }
+            var parent: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(node, kAXParentAttribute as CFString, &parent) == .success,
+                  let parent, CFGetTypeID(parent) == AXUIElementGetTypeID() else { return nil }
+            current = (parent as! AXUIElement)
+        }
+        return nil
+    }
+
     static func string(_ element: AXUIElement, _ attribute: String) -> String? {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else { return nil }

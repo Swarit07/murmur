@@ -13,6 +13,8 @@ final class SelfTest {
     let settings = AppSettings.shared
     let dir = MurmurPaths.appSupport.appendingPathComponent("selftest")
     private var report: [String] = []
+    /// The owner's styles, restored after the style cases.
+    private(set) var savedStyles: [String: String] = [:]
     private var passed = 0
     private var total = 0
 
@@ -59,9 +61,22 @@ final class SelfTest {
                 let w = Self.words(text)
                 return w.contains("um") || w.contains("uh") ? "filler words left in" : nil
             },
+            Case(name: "Style Formal. (Other)", phrase: "Hey, are you free for lunch tomorrow? Let's do twelve if that works.",
+                 setup: { $0.settings.transformsEnabled = true; $0.settings.styles = $0.savedStyles.merging(["other": "formal"]) { $1 } }) { text in
+                text.hasSuffix(".") && text.first?.isUppercase == true ? nil : "expected a capital and a final period"
+            },
+            Case(name: "Style Casual (Other)", phrase: "Hey, are you free for lunch tomorrow? Let's do twelve if that works.",
+                 setup: { $0.settings.transformsEnabled = true; $0.settings.styles = $0.savedStyles.merging(["other": "casual"]) { $1 } }) { text in
+                if text.hasSuffix(".") { return "final period kept" }
+                return text.hasPrefix("Hey,") ? "greeting comma kept" : nil
+            },
+            Case(name: "Style Excited! (Other)", phrase: "Hey, are you free for lunch tomorrow? Let's do twelve if that works.",
+                 setup: { $0.settings.transformsEnabled = true; $0.settings.styles = $0.savedStyles.merging(["other": "excited"]) { $1 } }) { text in
+                text.hasSuffix("!") ? nil : "no exclamation mark at the end"
+            },
             Case(name: "Numbered list (Smart Formatting)",
                  phrase: "My three goals for today are, first, ship the app, second, write the docs, and third, take a break.",
-                 setup: { $0.settings.transformsEnabled = true; $0.settings.smartFormatting = true }) { text in
+                 setup: { $0.settings.styles = $0.savedStyles; $0.settings.transformsEnabled = true; $0.settings.smartFormatting = true }) { text in
                 let lines = text.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
                 let numbered = ["1.", "2.", "3."].filter { n in lines.contains { $0.hasPrefix(n) } }
                 return numbered.count == 3 ? Self.missing(["ship", "docs", "break"], in: text) : "not a numbered list"
@@ -73,6 +88,7 @@ final class SelfTest {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let startedAt = Date()
         let saved = (transforms: settings.transformsEnabled, smart: settings.smartFormatting, sounds: settings.soundsEnabled)
+        savedStyles = settings.styles
         let clipboard = Self.saveClipboard()
         let sentinel = "murmur-self-test-\(UUID().uuidString.prefix(8))"
         NSPasteboard.general.clearContents()
@@ -157,6 +173,7 @@ final class SelfTest {
         settings.transformsEnabled = saved.transforms
         settings.smartFormatting = saved.smart
         settings.soundsEnabled = saved.sounds
+        settings.styles = savedStyles
         Self.restoreClipboard(clipboard)
 
         let summary = "Self-test: \(passed) of \(total) passed"

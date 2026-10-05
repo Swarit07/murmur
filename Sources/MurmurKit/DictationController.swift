@@ -448,12 +448,14 @@ public final class DictationController {
         timings.llmMs = outcome.llmMs
         log.notice("cleanup: \(outcome.fallback?.rawValue ?? (provider == nil ? "rules" : "model"), privacy: .public) after \(Format.ms(outcome.llmMs ?? 0), privacy: .public)\(outcome.flags.isEmpty ? "" : " flags " + outcome.flags.map(\.kind).joined(separator: ","), privacy: .public)")
         guard isCurrent(token) else { return }
-        _ = try? history.update(id: id) { $0.cleanText = outcome.text; $0.timings = timings }
-        guard state.send(.cleaned(outcome.text)) != nil else { return }
+        // S4: the style of the category the target app belongs to. None pastes the raw words.
+        let finalText = request.level == .none ? outcome.text : style(for: started.focus).apply(to: outcome.text)
+        _ = try? history.update(id: id) { $0.cleanText = finalText; $0.timings = timings }
+        guard state.send(.cleaned(finalText)) != nil else { return }
 
         // Insert through the focus guard and the clipboard transaction.
         let current = FocusContext.snapshot()
-        let text = SmartSpacing.adjust(outcome.text, before: SmartSpacing.characterBeforeCursor(of: current.element))
+        let text = SmartSpacing.adjust(finalText, before: SmartSpacing.characterBeforeCursor(of: current.element))
         let insertStart = Clock.now()
         let pasted = PasteClock()
         let result = await insertion.insert(text, expected: started.focus, current: current) { pasted.mark() }
@@ -461,7 +463,7 @@ public final class DictationController {
             timings.insertMs = Clock.ms(from: insertStart, to: at)
             timings.totalMs = Clock.ms(from: releasedAt, to: at)
         }
-        status.lastTranscript = outcome.text
+        status.lastTranscript = finalText
 
         switch result {
         case .inserted:
@@ -479,10 +481,16 @@ public final class DictationController {
                 $0.errorCode = failure.rawValue
                 $0.timings = timings
             }
-            state.send(.insertionFailed(kind, text: outcome.text))
+            state.send(.insertionFailed(kind, text: finalText))
             endSession(.dismiss)
             fail(Self.message(for: failure, app: started.focus.appName), kind: kind == .noTextBox ? .noTextBox : .pasteError)
         }
+    }
+
+    /// S4: the style chosen for the category of the app (or web page) that had focus.
+    func style(for focus: FocusSnapshot) -> WritingStyle {
+        let category = AppCategory.of(bundleId: focus.bundleId, url: FocusContext.webAddress(of: focus.element))
+        return WritingStyle(rawValue: settings.styles[category.rawValue] ?? "") ?? .formal
     }
 
     static func message(for failure: InsertionFailure, app: String?) -> String {
