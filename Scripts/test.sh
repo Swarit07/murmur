@@ -7,7 +7,9 @@ cd "$(dirname "$0")/.."
 PLUGINS="$(xcode-select -p)/usr/lib/swift/host/plugins/testing"
 case "$(xcode-select -p)" in
   */CommandLineTools)
+    Scripts/check-tokens.sh || exit 1
     MURMUR_NO_MLX=1 exec swift test --scratch-path .build-test -Xswiftc -plugin-path -Xswiftc "$PLUGINS" "$@" ;;
   *)
+    Scripts/check-tokens.sh || exit 1
     MURMUR_NO_MLX=1 exec swift test --scratch-path .build-test "$@" ;;
 esac

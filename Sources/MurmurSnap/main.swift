@@ -61,6 +61,7 @@ enum Snap {
         let app = NSApplication.shared
         app.setActivationPolicy(.prohibited)
         app.finishLaunching()
+        if !FontRegistry.registerBundledFonts() { print("murmur-snap: bundled fonts did not register; using system fonts") }
 
         guard let store = try? HistoryStore(url: nil) else { fatalError("in-memory store") }
         DemoData.seed(store)

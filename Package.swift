@@ -58,7 +58,8 @@ let package = Package(
             dependencies: ["Core", "Audio", "SpeechEngines", "Cleanup", "Context", "Insertion"] + mlxTargets,
             swiftSettings: strict
         ),
-        .target(name: "UI", dependencies: ["Core"], swiftSettings: strict),
+        // Design tokens, theme, components and the Flow Bar. Bundles Source Sans 3 and Newsreader (SIL OFL).
+        .target(name: "UI", dependencies: ["Core"], resources: [.copy("Resources/Fonts")], swiftSettings: strict),
 
         // App-level orchestration the menu-bar app links: the dictation controller and its wiring.
         .target(

@@ -14,7 +14,7 @@ public final class UIDebug {
 
     /// Forces light or dark for every Murmur window (the Flow Bar looks the same in both).
     public var appearance: AppearanceOverride = .system {
-        didSet { NSApp?.appearance = appearance == .system ? nil : NSAppearance(named: appearance == .dark ? .darkAqua : .aqua) }
+        didSet { AppearanceController.refresh() }
     }
 
     /// nil follows the system setting.

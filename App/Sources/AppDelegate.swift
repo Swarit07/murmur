@@ -38,6 +38,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var lastPermissions = PermissionSnapshot.current()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Bundled fonts first, so every window opens in Murmur's type (system fonts if this fails).
+        FontRegistry.registerBundledFonts()
+        AppearanceController.apply(AppSettings.shared.appearance)
         NSApp.setActivationPolicy(settings.showInDock ? .regular : .accessory)
         installMainMenu()
         do {
@@ -85,6 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 if key == "showInDock" {
                     NSApp.setActivationPolicy(AppSettings.shared.showInDock ? .regular : .accessory)
                 }
+                if key == "appearance" { AppearanceController.apply(AppSettings.shared.appearance) }
             }
         }
 
