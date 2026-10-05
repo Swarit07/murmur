@@ -750,12 +750,15 @@ struct ReloadTest: AsyncParsableCommand {
     )
     @Option var provider: String = "mlx:qwen3.5-4b"
     @Option var cycles: Int = 3
+    @Flag(help: "Load and unload only (set MURMUR_MLX_NO_WARMUP=1 to skip the warm-up generation too).") var loadOnly = false
 
     func run() async throws {
         for i in 1...cycles {
             guard let p = try CleanupCatalog.make(provider) else { return }
             try await p.load()
-            _ = await CleanupRunner(provider: p, timeLimit: .seconds(5)).run("um so this is cycle number \(i)", request: CleanupRequest())
+            if !loadOnly {
+                _ = await CleanupRunner(provider: p, timeLimit: .seconds(5)).run("um so this is cycle number \(i)", request: CleanupRequest())
+            }
             await p.unload()
             #if canImport(CleanupMLX)
             print("cycle \(i) unloaded: \(MLXCleanupProvider.memoryReport())")

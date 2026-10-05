@@ -57,7 +57,9 @@ public actor MLXCleanupProvider: CleanupProvider {
         }
         Self.log.notice("loaded weights: MLX active \(Memory.activeMemory / 1_048_576, privacy: .public) MB")
         // Build the prefix cache for the default prompt and compile the Metal kernels.
-        _ = try await complete(CleanupPrompt.messages(for: "Say OK.", level: .light, vocabulary: []), maxTokens: 2)
+        if ProcessInfo.processInfo.environment["MURMUR_MLX_NO_WARMUP"] == nil {
+            _ = try await complete(CleanupPrompt.messages(for: "Say OK.", level: .light, vocabulary: []), maxTokens: 2)
+        }
         Self.log.notice("warmed: MLX active \(Memory.activeMemory / 1_048_576, privacy: .public) MB, cache \(Memory.cacheMemory / 1_048_576, privacy: .public) MB")
     }
 
