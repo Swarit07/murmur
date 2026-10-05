@@ -160,6 +160,7 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 | C4 real-voice clips | Optional | Owner | Synthetic-voice results recorded; comma is the weak spot |
 | Gemma 3 1B | Excluded | Claude | Never stops generating |
 | Speculative decoding | Not default | Claude | Only ~12% faster on long inputs |
+| Prompt-lookup decoding (`MURMUR_PROMPT_LOOKUP=1`) | Off by default | Claude | 1.6× faster on long dictations, but MLX's multi-token passes round differently, so ~4% of outputs change; see [cleanup-speed](cleanup-speed.md) |
 | Idle unload by default (section 7) | On by default | Claude | Was off while each model reload leaked ~400 MB; fixed, and the footprint stays flat over 10 reloads. Switch in System › Advanced |
 
 ## Performance (section 7)
