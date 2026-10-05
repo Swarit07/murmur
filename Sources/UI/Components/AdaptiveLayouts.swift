@@ -33,12 +33,32 @@ public struct AdaptivePair: Layout {
         var size: CGSize
     }
 
-    func plan(_ proposal: ProposedViewSize, _ subviews: Subviews) -> Plan {
+    /// Plans by proposed width and the second view's ideal size, kept for one layout pass, so placing
+    /// the views doesn't measure them all again.
+    public struct Cache {
+        var ideal: CGSize?
+        var plans: [CGFloat: Plan] = [:]
+    }
+
+    public func makeCache(subviews: Subviews) -> Cache { Cache() }
+
+    public func updateCache(_ cache: inout Cache, subviews: Subviews) { cache = Cache() }
+
+    func plan(_ proposal: ProposedViewSize, _ subviews: Subviews, _ cache: inout Cache) -> Plan {
+        let key = proposal.width ?? -1
+        if let cached = cache.plans[key] { return cached }
+        let plan = makePlan(proposal, subviews, &cache)
+        cache.plans[key] = plan
+        return plan
+    }
+
+    func makePlan(_ proposal: ProposedViewSize, _ subviews: Subviews, _ cache: inout Cache) -> Plan {
         guard subviews.count == 2 else {
             let size = subviews.first?.sizeThatFits(proposal) ?? .zero
             return Plan(sideBySide: true, first: size, second: .zero, size: size)
         }
-        let ideal = subviews[1].sizeThatFits(.unspecified)
+        let ideal = cache.ideal ?? subviews[1].sizeThatFits(.unspecified)
+        cache.ideal = ideal
         let width = proposal.width ?? (subviews[0].sizeThatFits(.unspecified).width + spacing + ideal.width)
         let leading = width - ideal.width - spacing
         if leading >= minLeading {
@@ -52,12 +72,12 @@ public struct AdaptivePair: Layout {
         return Plan(sideBySide: false, first: first, second: second, size: CGSize(width: width, height: first.height + stackedSpacing + second.height))
     }
 
-    public func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        plan(proposal, subviews).size
+    public func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) -> CGSize {
+        plan(proposal, subviews, &cache).size
     }
 
-    public func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let p = plan(ProposedViewSize(width: bounds.width, height: nil), subviews)
+    public func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) {
+        let p = plan(ProposedViewSize(width: bounds.width, height: nil), subviews, &cache)
         guard subviews.count == 2 else {
             subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
             return

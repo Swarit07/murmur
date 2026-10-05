@@ -137,6 +137,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 app.flowBar.model.force(FlowBarState.gallery.first { $0.name == name })
             }
         }
+        // Performance QA: opens the preview Hub, switches to a page (object: page name) and saves a frame
+        // every 50 ms for a second, to measure how long the page takes to appear in the real app.
+        DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.swaritsheel.Murmur.debug.pageSwitch"), object: nil, queue: .main) { note in
+            let only = (note.object as? String).flatMap(HubPage.init(rawValue:))
+            MainActor.assumeIsolated {
+                guard let app = Self.shared, app.settings.debugMenu else { return }
+                app.measurePageSwitches(only: only)
+            }
+        }
+        DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.swaritsheel.Murmur.debug.pageFrames"), object: nil, queue: .main) { note in
+            let name = note.object as? String ?? "general"
+            MainActor.assumeIsolated {
+                guard let app = Self.shared, app.settings.debugMenu, let page = HubPage(rawValue: name) else { return }
+                app.capturePageFrames(page)
+            }
+        }
         // Design review (U8): shows the status item and dropdown in a state ("recording", "processing",
         // "error", "loading", or the current one), opens the dropdown for a few seconds, then restores.
         DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.swaritsheel.Murmur.debug.menu"), object: nil, queue: .main) { note in
@@ -303,6 +319,63 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         button.image = MenuBarGlyph.image(state, phase: MotionTokens.dotsPeriod / 4, dark: dark)
         button.setAccessibilityLabel(label)
         button.toolTip = status.message ?? label
+    }
+
+    /// Performance QA: switches the preview Hub between pages while a display link timestamps every frame,
+    /// and writes the longest frame gap per switch (a hitch) to snapshots/page-switch.txt. Nothing is captured,
+    /// so the measurement doesn't slow the app down.
+    func measurePageSwitches(only: HubPage? = nil) {
+        Task { @MainActor in
+            guard let demoStore = try? HistoryStore(url: nil) else { return }
+            DemoData.seed(demoStore)
+            let demo = HubModel(controller: controller, store: demoStore)
+            windows.show("hub-preview", title: "Murmur (preview)", size: HubGeometry.defaultWindow, chrome: .unified) { HubView(model: demo) }
+            guard let window = windows.window("hub-preview"), let view = window.contentView else { return }
+            let recorder = FrameRecorder()
+            let link = view.displayLink(target: recorder, selector: #selector(FrameRecorder.tick(_:)))
+            link.add(to: .main, forMode: .common)
+            var lines = ["Page switch timing (preview Hub, \(Int(HubGeometry.defaultWindow.width)) × \(Int(HubGeometry.defaultWindow.height))): longest gap between frames after the switch, and frames drawn in the first 400 ms"]
+            for page in only.map({ Array(repeating: $0, count: 8) }) ?? HubPage.allCases + [.home] {
+                demo.go(page == .home ? .dictionary : .home)
+                try? await Task.sleep(for: .milliseconds(700))
+                recorder.times.removeAll()
+                let start = CACurrentMediaTime()
+                demo.go(page)
+                try? await Task.sleep(for: .milliseconds(600))
+                let times = [start] + recorder.times.filter { $0 >= start }
+                let gaps = zip(times.dropFirst(), times).map { ($0 - $1) * 1000 }
+                let first400 = recorder.times.filter { $0 >= start && $0 < start + 0.4 }.count
+                lines.append(String(format: "%@: longest gap %.0f ms, %d frames in 400 ms", page.rawValue, gaps.max() ?? 0, first400))
+            }
+            link.invalidate()
+            windows.close("hub-preview")
+            try? lines.joined(separator: "\n").write(to: MurmurPaths.appSupport.appendingPathComponent("snapshots/page-switch.txt"), atomically: true, encoding: .utf8)
+        }
+    }
+
+    func capturePageFrames(_ page: HubPage) {
+        let dir = MurmurPaths.appSupport.appendingPathComponent("snapshots/frames-\(page.rawValue)")
+        try? FileManager.default.removeItem(at: dir)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        Task { @MainActor in
+            guard let demoStore = try? HistoryStore(url: nil) else { return }
+            DemoData.seed(demoStore)
+            let demo = HubModel(controller: controller, store: demoStore)
+            windows.show("hub-preview", title: "Murmur (preview)", size: HubGeometry.defaultWindow, chrome: .unified) { HubView(model: demo) }
+            guard let window = windows.window("hub-preview"), let view = window.contentView?.superview ?? window.contentView else { return }
+            demo.go(page == .home ? .dictionary : .home)
+            try? await Task.sleep(for: .milliseconds(800))
+            let start = Date()
+            demo.go(page)
+            for i in 0..<20 {
+                try? await Task.sleep(for: .milliseconds(50))
+                guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { continue }
+                view.cacheDisplay(in: view.bounds, to: rep)
+                let ms = Int(Date().timeIntervalSince(start) * 1000)
+                try? rep.representation(using: .png, properties: [:])?.write(to: dir.appendingPathComponent(String(format: "%02d-%04dms.png", i, ms)))
+            }
+            windows.close("hub-preview")
+        }
     }
 
     /// Design review: writes this process's open menu windows to PNGs in the data folder. (The status item
@@ -770,4 +843,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         windows.show("onboarding", title: "Set up Murmur", size: OnboardingGeometry.step, chrome: .transparent) { OnboardingView(model: model) }
     }
+}
+
+/// Collects display-link timestamps for `measurePageSwitches`.
+@MainActor
+final class FrameRecorder: NSObject {
+    var times: [CFTimeInterval] = []
+    @objc func tick(_ link: CADisplayLink) { times.append(link.timestamp) }
 }

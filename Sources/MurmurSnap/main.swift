@@ -15,6 +15,9 @@ let arguments = Array(CommandLine.arguments.dropFirst())
 let large = arguments.contains("--large")
 let reduceMotion = arguments.contains("--reduce-motion")
 let increaseContrast = arguments.contains("--contrast")
+/// `--empty` renders with no History, words or snippets; `--stress` with long and odd content (QA).
+let emptyData = arguments.contains("--empty")
+let stressData = arguments.contains("--stress")
 let compare = arguments.contains("--compare")
 let outValue = arguments.firstIndex(of: "--out").flatMap { $0 + 1 < arguments.count ? arguments[$0 + 1] : nil }
 /// `--size 880x560` renders the Hub at that window size (default: the board's 1180 × 740).
@@ -23,7 +26,7 @@ let hubSize: CGSize = {
     let parts = sizeValue?.split(separator: "x").compactMap { Double($0) } ?? []
     return parts.count == 2 ? CGSize(width: parts[0], height: parts[1]) : HubGeometry.defaultWindow
 }()
-let setName = (arguments.first { !$0.hasPrefix("-") && $0 != outValue && $0 != sizeValue } ?? "after") + (large ? "-large" : "") + (reduceMotion ? "-reduced" : "") + (increaseContrast ? "-contrast" : "") + (sizeValue.map { "-" + $0 } ?? "")
+let setName = (arguments.first { !$0.hasPrefix("-") && $0 != outValue && $0 != sizeValue } ?? "after") + (large ? "-large" : "") + (reduceMotion ? "-reduced" : "") + (increaseContrast ? "-contrast" : "") + (sizeValue.map { "-" + $0 } ?? "") + (emptyData ? "-empty" : "") + (stressData ? "-stress" : "")
 let outRoot: URL = {
     if let i = arguments.firstIndex(of: "--out"), i + 1 < arguments.count { return URL(fileURLWithPath: arguments[i + 1]) }
     return URL(fileURLWithPath: "Artifacts/ui")
@@ -72,6 +75,37 @@ enum Snap {
 
     /// `--compare`: crops each board in Design/reference to the matching region and writes side-by-side
     /// sheets to Artifacts/ui/compare (Tools/compare.py does the image work).
+    /// `--timing`: how long each Hub page takes from `go(page)` until its panel has content (QA).
+    static func measurePageTiming(_ window: NSWindow, hub: HubModel) {
+        guard let view = window.contentView else { return }
+        func panelHasContent() -> Bool {
+            guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return false }
+            view.cacheDisplay(in: view.bounds, to: rep)
+            var values: [CGFloat] = []
+            let w = rep.pixelsWide, h = rep.pixelsHigh
+            for y in stride(from: h / 5, to: h * 4 / 5, by: 6) {
+                for x in stride(from: w * 35 / 100, to: w * 90 / 100, by: 6) {
+                    values.append(rep.colorAt(x: x, y: y)?.brightnessComponent ?? 0)
+                }
+            }
+            let mean = values.reduce(0, +) / CGFloat(values.count)
+            let variance = values.reduce(0) { $0 + ($1 - mean) * ($1 - mean) } / CGFloat(values.count)
+            return variance > 0.0005
+        }
+        for page in HubPage.allCases + [HubPage.home] {
+            hub.go(page == .home ? .dictionary : .home)
+            pump(0.6)
+            let start = Date()
+            hub.go(page)
+            var ms = -1.0
+            while Date().timeIntervalSince(start) < 3 {
+                pump(0.01)
+                if panelHasContent() { ms = Date().timeIntervalSince(start) * 1000; break }
+            }
+            print(String(format: "page timing: %@ %@", "\(page)", ms < 0 ? "never (3 s)" : String(format: "%.0f ms", ms)))
+        }
+    }
+
     static func runCompare() {
         let process = Process()
         let venv = URL(fileURLWithPath: "Tools/.venv/bin/python")
@@ -96,7 +130,7 @@ enum Snap {
         if increaseContrast { UIDebug.shared.increaseContrast = true }
 
         guard let store = try? HistoryStore(url: nil) else { fatalError("in-memory store") }
-        DemoData.seed(store)
+        if stressData { DemoData.seedStress(store) } else if !emptyData { DemoData.seed(store) }
         let settings = AppSettings(defaults: UserDefaults(suiteName: "com.swaritsheel.Murmur.snapshots") ?? .standard)
         let controller = DictationController(settings: settings, store: store, sounds: nil)
         let hub = HubModel(controller: controller, store: store)
@@ -110,6 +144,24 @@ enum Snap {
             let window = WindowManager.makeWindow(id: "snap-hub", title: "Murmur", size: hubSize, chrome: .unified) { HubView(model: hub) }
             window.appearance = NSAppearance(named: look)
             prepare(window)
+            if let i = arguments.firstIndex(of: "--toggle"), i + 1 < arguments.count, let page = HubPage(rawValue: arguments[i + 1]) {
+                // Profiling aid: switch to `page` and back ten times, no captures.
+                if arguments.contains("--frames") {
+                    hub.go(.home); pump(0.8)
+                    hub.go(page)
+                    for i in 0..<12 {
+                        pump(0.15)
+                        capture(window.contentView!, to: outRoot.appendingPathComponent(String(format: "frame-%02d.png", i)), mayBeBlank: true)
+                    }
+                    exit(0)
+                }
+                for _ in 0..<10 { hub.go(page); pump(1.0); hub.go(.home); pump(0.5) }
+                exit(0)
+            }
+            if arguments.contains("--timing") {
+                measurePageTiming(window, hub: hub)
+                exit(0)
+            }
             for page in HubPage.allCases {
                 hub.go(page)
                 pump(0.5)
@@ -147,6 +199,22 @@ enum Snap {
                 model.force(entry)
                 pump(0.6)
                 capture(host, to: dir.appendingPathComponent("flowbar-\(entry.name).png"), mayBeBlank: entry.state == .hidden, fine: true)
+            }
+            if stressData {
+                // Long messages and a long microphone name must truncate or wrap inside the card.
+                model.microphoneName = "Scarlett 18i20 USB Audio Interface (3rd Gen), Input 1+2 Stereo"
+                let long = "The microphone is unavailable (Scarlett 18i20 USB Audio Interface 3rd Gen). Check it is connected, then Retry."
+                let extras: [(String, FlowBarState)] = [
+                    ("stress-no-audio", .notice(FlowBarNotice(kind: .noAudio, message: ""))),
+                    ("stress-mic-error", .notice(FlowBarNotice(kind: .micError, message: long))),
+                    ("stress-info", .notice(FlowBarNotice(kind: .info, message: long + " " + long))),
+                    ("stress-paste-error", .notice(FlowBarNotice(kind: .pasteError, message: long))),
+                ]
+                for (name, state) in extras {
+                    model.force(FlowBarGalleryEntry(name, state))
+                    pump(0.6)
+                    capture(host, to: dir.appendingPathComponent("flowbar-\(name).png"), fine: true)
+                }
             }
             model.force(nil)
             bar.close()
