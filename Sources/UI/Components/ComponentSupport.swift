@@ -10,7 +10,9 @@ extension EnvironmentValues {
     @Entry public var forcedInteraction: InteractionState? = nil
 }
 
-/// The one place focus is drawn: a 2 pt `focus-ring` outside the shape with a 2 pt gap (§4).
+/// The one place focus is drawn: a 2 pt `focus-ring` outside the shape with a 2 pt gap (§4). Controls
+/// take keyboard focus with `.focusable(_, interactions: .activate)`, so on macOS they join the key loop
+/// when "Keyboard navigation" is on, as system buttons do, and a mouse user never sees a stray ring.
 public struct FocusRing: ViewModifier {
     @Environment(\.theme) private var theme
     let visible: Bool
@@ -83,10 +85,13 @@ public struct SerifTitle: View {
     public var body: some View {
         let scale = theme.textScale
         let font = TypeTokens.nsFont(style, scale: scale)
+        let leading = style.lineHeight * scale - (font.ascender - font.descender + font.leading)
         (Text(lead).font(Font(font)) + Text(italic).font(theme.font(style.italicized)) + Text(trail).font(Font(font)))
             .tracking(style.tracking * font.pointSize)
             .foregroundStyle(theme.colors.textPrimary.color)
-            .lineSpacing(max(0, style.lineHeight * scale - (font.ascender - font.descender + font.leading)))
+            .lineSpacing(max(0, leading))
+            // CSS line boxes: half the leading above, half below (see TextStyleModifier).
+            .padding(.vertical, leading / 2)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityAddTraits(.isHeader)
             .accessibilityLabel(lead + italic + trail)

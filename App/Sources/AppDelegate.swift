@@ -420,9 +420,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let demoStore = try? HistoryStore(url: nil) else { return }
             DemoData.seed(demoStore)
             let demo = HubModel(controller: controller, store: demoStore)
-            windows.show("hub-preview", title: "Murmur (preview)", size: NSSize(width: 920, height: 620), chrome: .unified) { HubView(model: demo) }
+            windows.show("hub-preview", title: "Murmur (preview)", size: HubGeometry.defaultWindow, chrome: .unified) { HubView(model: demo) }
             guard let window = windows.window("hub-preview") else { return }
-            let sizes: [(String, NSSize)] = [("small", NSSize(width: 760, height: 480)), ("default", NSSize(width: 920, height: 620)), ("tall", NSSize(width: 920, height: 1250))]
+            let sizes: [(String, NSSize)] = [("small", HubGeometry.minimumWindow), ("default", HubGeometry.defaultWindow), ("tall", NSSize(width: HubGeometry.defaultWindow.width, height: 1250))]
             let looks: [(String, NSAppearance.Name)] = [("dark", .darkAqua), ("light", .aqua)]
             for (lookName, look) in looks {
                 window.appearance = NSAppearance(named: look)
@@ -441,33 +441,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
             }
             window.appearance = nil
-            window.setContentSize(NSSize(width: 920, height: 620))
+            window.setContentSize(HubGeometry.defaultWindow)
 
-            // Clicks under the transparent title bar must reach the page header and the sidebar.
+            // Clicks under the transparent title bar must reach the panel's top bar and the sidebar, and the
+            // empty parts of both must drag the window.
             var checks: [String] = []
-            demo.go(.dictionary)
-            demo.go(.snippets)
+            demo.go(.home)
             try? await Task.sleep(for: .milliseconds(300))
             let height = window.contentView?.bounds.height ?? 0
-            let back = NSPoint(x: 214 + 1 + 12 + 13, y: height - HubView.headerHeight / 2)
-            let hit = window.contentView?.superview?.hitTest(back)
-            checks.append("hit test at Back: \(hit.map { String(describing: type(of: $0)) } ?? "nothing")")
-            for (label, point) in [("empty header", NSPoint(x: 640, y: height - HubView.headerHeight / 2)), ("sidebar top", NSPoint(x: 150, y: height - 20))] {
+            let g = HubGeometry.self
+            for (label, point) in [("panel top bar", NSPoint(x: 700, y: height - (g.panelInset + g.topBarHeight / 2))),
+                                   ("sidebar top", NSPoint(x: 150, y: height - g.sidebarPaddingTop))] {
                 let view = window.contentView?.superview?.hitTest(point)
                 let drags = view is WindowDragArea.DragView || view?.mouseDownCanMoveWindow == true
                 checks.append("Drag from \(label): \(drags ? "PASS" : "FAIL") (\(view.map { String(describing: type(of: $0)) } ?? "nothing"))")
             }
-            await Self.click(window, at: back)
-            checks.append("Back button: \(demo.page == .dictionary ? "PASS" : "FAIL (page \(demo.page.rawValue))")")
-            await Self.click(window, at: NSPoint(x: 60, y: height - (HubView.headerHeight + 2 + 34 + 3 * 30 + 15)))
+            // The Style row: below the lights zone, the brand mark block and three rows.
+            let styleRowY = g.sidebarPaddingTop + g.trafficLightsZone + g.sidebarItemGap + g.brandMarkHeight + g.brandMarkInset * 2
+                + g.sidebarItemGap + 3 * (g.sidebarItemHeight + g.sidebarItemGap) + g.sidebarItemHeight / 2
+            await Self.click(window, at: NSPoint(x: 60, y: height - styleRowY))
             checks.append("Sidebar Style row: \(demo.page == .style ? "PASS" : "FAIL (page \(demo.page.rawValue))")")
+            await Self.key(window, "[", keyCode: 33, modifiers: .command)
+            checks.append("Back with ⌘[: \(demo.page == .home ? "PASS" : "FAIL (page \(demo.page.rawValue))")")
+            await Self.key(window, "]", keyCode: 30, modifiers: .command)
+            checks.append("Forward with ⌘]: \(demo.page == .style ? "PASS" : "FAIL (page \(demo.page.rawValue))")")
+            demo.go(.home)
+            await Self.key(window, String(UnicodeScalar(NSDownArrowFunctionKey)!), keyCode: 125, modifiers: [.option, .numericPad, .function])
+            checks.append("Next page with ⌥↓: \(demo.page == .dictionary ? "PASS" : "FAIL (page \(demo.page.rawValue))")")
+            await Self.key(window, String(UnicodeScalar(NSUpArrowFunctionKey)!), keyCode: 126, modifiers: [.option, .numericPad, .function])
+            checks.append("Previous page with ⌥↑: \(demo.page == .home ? "PASS" : "FAIL (page \(demo.page.rawValue))")")
             try? checks.joined(separator: "\n").write(to: dir.appendingPathComponent("checks.txt"), atomically: true, encoding: .utf8)
 
             // Empty states.
             if let emptyStore = try? HistoryStore(url: nil) {
                 let empty = HubModel(controller: controller, store: emptyStore)
                 window.contentViewController = NSHostingController(rootView: HubView(model: empty))
-                window.setContentSize(NSSize(width: 920, height: 620))
+                window.setContentSize(HubGeometry.defaultWindow)
                 var sheet: [NSBitmapImageRep] = []
                 for page in [HubPage.home, .dictionary, .snippets] {
                     empty.go(page)
@@ -523,6 +532,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Posts a left click to one of Murmur's windows through the normal event queue (the cursor does
     /// not move), then waits for it to be handled.
+    /// A key press with modifiers, posted to the window (keyboard navigation checks).
+    static func key(_ window: NSWindow, _ characters: String, keyCode: UInt16, modifiers: NSEvent.ModifierFlags) async {
+        for type in [NSEvent.EventType.keyDown, .keyUp] {
+            if let event = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: modifiers, timestamp: ProcessInfo.processInfo.systemUptime,
+                                            windowNumber: window.windowNumber, context: nil, characters: characters,
+                                            charactersIgnoringModifiers: characters, isARepeat: false, keyCode: keyCode) {
+                NSApp.postEvent(event, atStart: false)
+            }
+            try? await Task.sleep(for: .milliseconds(60))
+        }
+        try? await Task.sleep(for: .milliseconds(300))
+    }
+
     static func click(_ window: NSWindow, at point: NSPoint) async {
         for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
             if let event = NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
@@ -610,7 +632,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func showHub(_ page: HubPage) {
         hub.go(page)
-        windows.show("hub", title: "Murmur", size: NSSize(width: 920, height: 620), chrome: .unified) { HubView(model: hub) }
+        hub.onRunOnboarding = { [weak self] in self?.showOnboarding() }
+        windows.show("hub", title: "Murmur", size: HubGeometry.defaultWindow, chrome: .unified) { HubView(model: hub) }
     }
 
     func showOnboarding() {

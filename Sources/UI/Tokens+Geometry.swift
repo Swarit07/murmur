@@ -67,7 +67,8 @@ public enum HubGeometry {
     public static let sidebarPaddingTop: CGFloat = 14 // source: board
     public static let sidebarPaddingSide: CGFloat = 12 // source: board
     public static let sidebarItemGap: CGFloat = 2 // source: board
-    public static let trafficLightsZone: CGFloat = 16 // source: board
+    /// The traffic lights' row: 16 pt high plus 2 pt padding above and below (the board's CSS box).
+    public static let trafficLightsZone: CGFloat = 20 // source: board
     public static let brandMarkHeight: CGFloat = 22 // source: board
     public static let brandMarkInset: CGFloat = 22 // source: board (top and bottom)
     public static let brandMarkLeft: CGFloat = 10 // source: board
@@ -135,6 +136,9 @@ public enum HubGeometry {
     public static let featurePadding: CGFloat = 28 // source: board
     public static let featureGap: CGFloat = 32 // source: board
     public static let featureSamplesWidth: CGFloat = 320 // source: board
+    public static let featureSamplesGap: CGFloat = 8 // source: board
+    public static let featureTextGap: CGFloat = 12 // source: board (title, paragraph, buttons; buttons add 8)
+    public static let featureParagraphWidth: CGFloat = 400 // source: board
     public static let samplePadding = CGSize(width: 12, height: 10) // source: board
     public static let paperToastPadding = CGSize(width: 14, height: 10) // source: board
     public static let paperToastIcon: CGFloat = 16 // source: board

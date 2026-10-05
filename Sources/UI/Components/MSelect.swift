@@ -38,7 +38,7 @@ public struct MSelect<Value: Hashable>: View {
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
-        .focusable(isEnabled)
+        .focusable(isEnabled, interactions: .activate)
         .focused($focused)
         .focusEffectDisabled()
         .onHover { hovering = $0 }
@@ -71,7 +71,7 @@ public struct MNavigateSelect: View {
             MSelectFace(text: value, icon: nil, trailing: .chevronRight, mono: false, state: state)
         }
         .buttonStyle(.plain)
-        .focusable(isEnabled)
+        .focusable(isEnabled, interactions: .activate)
         .focused($focused)
         .focusEffectDisabled()
         .onHover { hovering = $0 }

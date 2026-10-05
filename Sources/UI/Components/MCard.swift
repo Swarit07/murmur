@@ -16,7 +16,8 @@ public struct MCard<Content: View>: View {
     public var body: some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         content
-            .padding(padding)
+            // The 1 pt border sits outside the padding, as a CSS border does.
+            .padding(padding + Stroke.hairline)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(shape.fill(theme.colors.bgPanel.color))
             .overlay(shape.strokeBorder(theme.colors.borderHairline.color, lineWidth: Stroke.hairline))
@@ -70,7 +71,7 @@ public struct MSelectableCard<Content: View>: View {
                 .contentShape(shape)
         }
         .buttonStyle(.plain)
-        .focusable(isEnabled)
+        .focusable(isEnabled, interactions: .activate)
         .focused($focused)
         .focusEffectDisabled()
         .onHover { hovering = $0 }

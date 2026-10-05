@@ -39,7 +39,7 @@ public struct MToggle: View {
         .contentShape(shape)
         .onTapGesture { if isEnabled { isOn.toggle() } }
         .animation(theme.motion.spring(MotionTokens.toggleKnob), value: isOn)
-        .focusable(isEnabled)
+        .focusable(isEnabled, interactions: .activate)
         .focused($focused)
         .focusEffectDisabled()
         .onKeyPress(.space) { isOn.toggle(); return .handled }

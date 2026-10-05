@@ -205,3 +205,67 @@ One report per milestone (UI_REDESIGN.md §10), newest last. If a session ends m
 - **Test mic and Switch microphone both open Settings,** where the microphone picker and the level meter live, rather than an onboarding sheet.
 - **Command Mode looks the same as dictation on the bar.** v2 has no separate treatment, and clay is reserved for the live mic; VoiceOver says "Command Mode".
 - **The forced (debug) listening state draws the motion reference's default level of 0.6,** not its demo `speech()` signal, which the brief says never to ship.
+
+## U4: Hub shell and Home
+
+**Changed**
+- **`Sources/HubUI/HubShell.swift` (new):**
+  - `HubView` and `HubShell`: the ivory window, the 232 pt sidebar, and the paper panel inset 8 pt with radius 12 and a 1 pt edge. Content sits inside the edge.
+  - The page switch is a 160 ms fade with a 6 pt rise.
+  - **Sidebar:** the traffic lights' zone, the brand mark, Home, Dictionary, Snippets, Style, then Settings, Help & setup and the status card (Ready / Listening… / Working… / Loading, the key cap, the microphone).
+  - **Home's 48 pt top bar:**
+    - search opens a field above History;
+    - the bell shows a dot when there are alerts and opens a popover of system alerts: missing Microphone, Accessibility or Input Monitoring, and the last error, each with its fix.
+  - **Help & setup sheet:** shortcuts, permission rows, "Run setup again" (wired to onboarding), the version.
+  - **Keyboard:** ⌥↑ / ⌥↓ and ⌘[ / ⌘] are kept; Esc closes the popover and the sheet.
+  - **Pages not yet rebuilt (U5, U6)** render inside the panel. Settings shows its four tabs as an `MSegmented` over the old pages until U6.
+- **`Sources/HubUI/HomePage.swift` (new):**
+  - **Header:** the date caption, "Welcome back, *first name*" from `NSFullUserName()`, and the stat strip (day streak, words and wpm over 7 days, each hidden when it can't be computed).
+  - **Feature card:** the user's own style applied to three sample lines; Set up styles opens Style; Not now hides the card for good (stored).
+  - **History:** grouped by day in `MListContainer`s, with Cleaned | Raw.
+    - **Rows:** time, app tile (Messages-like / work chat / mail / code / note by bundle id), transcript, "App · N w".
+    - **Hover:** Copy, Play audio, Retry or Recover, and a "raw" chip that peeks at the spoken words.
+    - **Silent rows:** "Audio was silent" with an info tooltip.
+    - **Kept from before:** the context menu (copy, play, retry, undo or redo the AI edit, copy original words), ↑↓ / j k selection, and Return copies.
+- **`Sources/HubUI/Hub.swift`:**
+  - `HubModel` gains the text scale (Text size setting), search, bell, help, alerts, `onRunOnboarding` and `hotkeyLabel`.
+  - The old shell, sidebar, status card, Home and history row are removed.
+- **Shared plumbing (affects every component):**
+  - `TextStyleModifier` gives each line the full CSS line box (half the leading above and below); `SerifTitle` does the same.
+  - `MCard` and `MListContainer` put their 1 pt border outside the content, as a CSS border does.
+  - Together these move Home from 3–12 pt off the board to within 1.5 pt.
+- **`Sources/HubUI/DemoData.swift`:** the boards' fixture rows, dictionary and snippets (snapshots only).
+- **Snapshots and checks:**
+  - `murmur-snap` renders the Hub at 1180 × 740 with the status card ready.
+  - The app's snapshot self-check (`debug.snapshot`) now checks dragging, the sidebar click and keyboard navigation in the v2 layout.
+  - `Tools/measure_hub.py` measures Home against the board.
+
+**Done when**
+- **Home at 1180 × 740 matches `hub-home.png` within ±2 pt on the §3.4 numbers: pass.** Worst difference 1.5 pt (`Tools/measure_hub.py`):
+
+  | Measured | Result |
+  | --- | --- |
+  | brand mark top, height, left | 0 |
+  | Home row top, height | 0 |
+  | panel left, top, right inset | 0 |
+  | title top, left | 0 |
+  | feature card top | −0.5 |
+  | feature card left, right | 0 |
+  | feature card height | −1.0 |
+  | first History row | −1.5 |
+
+  The side by side is `Artifacts/ui/compare/hub-home.png`, committed as `Artifacts/ui/sheets/hub-home-compare.png`.
+- **Light and dark render: pass.** `Artifacts/ui/after/{light,dark}/hub-home.png`.
+- **Option+Up/Down and Cmd+[ / Cmd+] still work: pass.** The in-app check posts the real key events: ⌘[ PASS, ⌘] PASS, ⌥↓ PASS, ⌥↑ PASS. Sidebar click PASS; window drag from the panel's top bar and the sidebar top PASS.
+- **No stock `NavigationSplitView` or `List` in the Hub shell or Home: pass.** Dictionary, Snippets, Style and Settings still use `Table` and `Form` inside the new shell until U5 and U6.
+
+**Tokens not in the brief** (all board values from `Hub-Home.dc.html`)
+- **Geometry:** `trafficLightsZone` is now 20 (16 plus 2 pt CSS padding above and below); `featureSamplesGap` 8, `featureTextGap` 12, `featureParagraphWidth` 400.
+- **Type:** `sampleCompact` (Newsreader 15/20) and `tagTight` (Geist Mono 10/13) for the feature card's sample lines.
+
+**Judgment calls**
+- **History rows offer Copy, Play audio, Retry and the raw chip.** The board's "Paste again" would insert text into another app from the Hub, which is new dictation behavior, so it's left out.
+- **Times follow the user's locale** ("9:41 AM"); the board's "9:41" drops AM/PM.
+- **The stat strip counts the last 7 days, from the 1,000 most recent dictations.**
+- **Feature-card samples use the user's chosen style per category.** The text is neutral, not the board's "Priya" fixture.
+- **Paper toasts aren't needed on Home yet;** they arrive with Dictionary saves in U5.

@@ -92,12 +92,14 @@ enum Snap {
         let settings = AppSettings(defaults: UserDefaults(suiteName: "com.swaritsheel.Murmur.snapshots") ?? .standard)
         let controller = DictationController(settings: settings, store: store, sounds: nil)
         let hub = HubModel(controller: controller, store: store)
+        // The boards show a ready app; the controller is never started here.
+        hub.status?.phase = .idle
 
         for (lookName, look) in looks {
             let dir = outRoot.appendingPathComponent(lookName)
 
-            // Hub: every page at the reference window size.
-            let window = WindowManager.makeWindow(id: "snap-hub", title: "Murmur", size: NSSize(width: 1280, height: 700), chrome: .unified) { HubView(model: hub) }
+            // Hub: every page at the board's window size (1180 × 740).
+            let window = WindowManager.makeWindow(id: "snap-hub", title: "Murmur", size: HubGeometry.defaultWindow, chrome: .unified) { HubView(model: hub) }
             window.appearance = NSAppearance(named: look)
             prepare(window)
             for page in HubPage.allCases {

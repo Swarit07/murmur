@@ -99,6 +99,8 @@ public struct MListContainer<Content: View>: View {
     public var body: some View {
         let shape = RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
         VStack(spacing: 0) { content }
+            // Rows sit inside the 1 pt border, as in a CSS box.
+            .padding(Stroke.hairline)
             .background(shape.fill(theme.colors.bgPanel.color))
             .clipShape(shape)
             .overlay(shape.strokeBorder(theme.colors.edgeList.color, lineWidth: Stroke.hairline))

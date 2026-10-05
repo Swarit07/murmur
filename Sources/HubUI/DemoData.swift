@@ -1,36 +1,47 @@
 import Foundation
 import MurmurKit
 
-/// Demo content for design snapshots and the gallery: a few days of History in every state,
-/// dictionary words and snippets. Never written to the owner's store.
+/// Demo content for design snapshots and the gallery (UI_REDESIGN.md v2 §9: the boards' names, rows,
+/// dictionary and snippets are fixture data for snapshots only). Never written to the owner's store.
 public enum DemoData {
-    /// Demo content for design snapshots: a few days of History in every state, dictionary words, snippets.
     public static func seed(_ store: HistoryStore) {
-        let now = Date()
-        let rows: [(Double, String, String?, DictationRecord.Status, Bool)] = [
-            (0.1, "Can you send me the slides before the 3 pm sync? I want to add the Q3 numbers.", "Slack", .inserted, false),
-            (0.6, "Thanks for the quick turnaround, this looks great. Let's ship it on Friday.", "Mail", .inserted, false),
-            (1.2, "Refactor the history store so every write is its own transaction, then add a migration test for the useRaw column and run the full suite before merging. Also double-check the retry path for rows that were left in the recorded state after a crash, because those should come back as Recover, not Retry, and the button label should say so.", "Cursor", .inserted, false),
-            (2.0, "Remind me to call Siobhan about the venue.", "Notes", .pasteFailed, false),
-            (3.5, "um so I think we should uh move the launch to Friday", "Messages", .inserted, true),
-            (26, "Here are the three things we agreed on: the pricing page, the onboarding email, and the changelog.", "Notion", .inserted, false),
-            (27, "Book a table for four at 7:30.", "Messages", .inserted, false),
-            (75, "The build is green again after the Metal fix.", "Terminal", .inserted, false),
-            (76, "", "Safari", .transcriptionFailed, false),
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        func at(_ dayOffset: Int, _ hour: Int, _ minute: Int) -> Date {
+            calendar.date(byAdding: DateComponents(day: dayOffset, hour: hour, minute: minute), to: today) ?? today
+        }
+        // (time, app, bundle id, raw words, cleaned text, status)
+        let rows: [(Date, String, String, String?, String?, DictationRecord.Status)] = [
+            (at(0, 9, 41), "Mail", "com.apple.mail", "hi priya thanks for the notes uh let's ship friday and keep the beta list small",
+             "Hi Priya, thanks for the notes. Let’s ship Friday and keep the beta list small.", .inserted),
+            (at(0, 9, 32), "Messages", "com.apple.MobileSMS", "um running like ten min late save me a seat", "running 10 min late, save me a seat?", .inserted),
+            (at(0, 9, 20), "Code", "com.microsoft.VSCode", "rename fetch user to load profile and add a null check before the paste fallback",
+             "Rename fetchUser to loadProfile and add a null check before the paste fallback.", .inserted),
+            (at(0, 9, 5), "Notes", "com.apple.Notes", "", "", .inserted),
+            (at(-1, 17, 12), "Slack", "com.tinyspeck.slackmacgap", "build's ready for review feedback by friday", "Build’s ready for review. Feedback by Friday?", .inserted),
+            (at(-1, 15, 48), "Notes", "com.apple.Notes", "remind me to call mom on sunday at noon", "Remind me to call Mom on Sunday at noon.", .pasteFailed),
+            (at(-1, 11, 3), "Safari", "com.apple.Safari", nil, nil, .transcriptionFailed),
         ]
-        for (hoursAgo, text, app, status, useRaw) in rows {
-            var r = DictationRecord(startedAt: now.addingTimeInterval(-hoursAgo * 3600), durationMs: Double(max(text.split(separator: " ").count, 4)) * 420,
-                                    appBundleId: nil, appName: app, mode: "hold", engine: "parakeet-ultra", cleanup: "mlx:qwen3.5-4b",
-                                    rawText: text.isEmpty ? nil : text, cleanText: text.isEmpty ? nil : (useRaw ? "I think we should move the launch to Friday." : text),
-                                    status: status)
-            r.useRaw = useRaw
+        for (date, app, bundle, raw, clean, status) in rows {
+            let words = (clean ?? raw ?? "").split(separator: " ").count
+            let r = DictationRecord(startedAt: date, durationMs: Double(max(words, 4)) * 420, appBundleId: bundle, appName: app,
+                                    mode: "hold", engine: "parakeet-ultra", cleanup: "mlx:qwen3.5-4b", rawText: raw, cleanText: clean, status: status)
             try? store.insert(r)
         }
-        for (heard, word, suggested) in [("Chivan", "Siobhan", false), ("Q three", "Q3", false), ("Murmur", "Murmur", false), ("GRDB", "GRDB", false), ("Para keet", "Parakeet", true)] {
-            try? store.save(DictionaryRecord(term: heard, replacement: word, source: suggested ? .suggested : .manual))
+        let words: [(heard: String, word: String, learned: Bool)] = [
+            ("Priya", "Priya", false), ("swift you eye", "SwiftUI", false), ("WhisperKit", "WhisperKit", true), ("Parakeet", "Parakeet", true),
+            ("cube control", "kubectl", false), ("Newsreader", "Newsreader", false), ("chwen", "Qwen", true),
+        ]
+        for w in words {
+            try? store.save(DictionaryRecord(term: w.heard, replacement: w.word, source: w.learned ? .suggested : .manual))
         }
-        try? store.save(SnippetRecord(cue: "my email", expansion: "hello@example.com"))
-        try? store.save(SnippetRecord(cue: "sign off", expansion: "Thanks,\nAlex"))
-        try? store.save(SnippetRecord(cue: "calendar link", expansion: "https://cal.example.com/alex/30min"))
+        let snippets: [(String, String)] = [
+            ("sign off", "Thanks,\nSwarit"), ("my calendar", "Here’s a link to grab time with me: [YOUR LINK]"),
+            ("standup", "Yesterday:\nToday:\nBlockers: none"), ("repo link", "Murmur is open source: [GITHUB_URL]"),
+            ("thanks for waiting", "Thanks for your patience. I’ll get back to you by end of day."), ("my address", "[YOUR ADDRESS]"),
+        ]
+        for (cue, expansion) in snippets {
+            try? store.save(SnippetRecord(cue: cue, expansion: expansion))
+        }
     }
 }

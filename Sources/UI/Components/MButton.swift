@@ -34,7 +34,7 @@ public struct MButton: View {
         Button(action: action) { EmptyView() }
             .buttonStyle(MButtonStyle(title: title, icon: icon, kind: kind, size: size, fullWidth: fullWidth, theme: theme,
                                       hovering: hovering, focused: focused, enabled: isEnabled, forced: forced))
-            .focusable(isEnabled)
+            .focusable(isEnabled, interactions: .activate)
             .focused($focused)
             .focusEffectDisabled()
             .onHover { hovering = $0 }
@@ -145,7 +145,7 @@ public struct MIconButton: View {
         Button(action: action) { EmptyView() }
             .buttonStyle(MIconButtonStyle(icon: icon, size: size, selected: selected, theme: theme, hovering: hovering, focused: focused,
                                           enabled: isEnabled, forced: forced))
-            .focusable(isEnabled)
+            .focusable(isEnabled, interactions: .activate)
             .focused($focused)
             .focusEffectDisabled()
             .onHover { hovering = $0 }

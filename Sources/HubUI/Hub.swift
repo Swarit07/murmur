@@ -54,11 +54,57 @@ public final class HubModel {
     var forwardStack: [HubPage] = []
     /// The controller's latest status, for the sidebar's status card.
     public var status: DictationStatus?
+    /// Text size setting (Hub only, §3.3).
+    public var textScale: Double = TypeTokens.scaleDefault
+    /// The search field above History, opened from the panel's top bar.
+    var searchOpen = false
+    /// The bell popover and the Help & setup sheet.
+    var bellOpen = false
+    var helpOpen = false
+    /// System alerts for the bell: missing permissions and the last error.
+    var alerts: [HubAlert] = []
+    /// Re-runs onboarding (set by the app).
+    public var onRunOnboarding: (() -> Void)?
 
     public init(controller: DictationController, store: HistoryStore) {
         self.controller = controller
         self.store = store
         status = controller.status
+        textScale = settings.textSize == "large" ? TypeTokens.scaleLarge : TypeTokens.scaleDefault
+        NotificationCenter.default.addObserver(forName: AppSettings.didChange, object: nil, queue: .main) { [weak self] note in
+            let key = note.object as? String
+            MainActor.assumeIsolated {
+                guard let self, key == "textSize" else { return }
+                self.textScale = self.settings.textSize == "large" ? TypeTokens.scaleLarge : TypeTokens.scaleDefault
+            }
+        }
+        refreshAlerts()
+    }
+
+    /// Rebuilds the bell's alerts (on appear and whenever the Hub becomes key; no polling).
+    func refreshAlerts() {
+        let p = PermissionSnapshot.current()
+        var out: [HubAlert] = []
+        if !p.microphone { out.append(HubAlert(id: "mic", title: "Microphone access is off", detail: "Murmur can't hear you until it's on.", pane: "Privacy_Microphone")) }
+        if !p.accessibility { out.append(HubAlert(id: "ax", title: "Accessibility is off", detail: "Murmur can't type into other apps.", pane: "Privacy_Accessibility")) }
+        if !p.inputMonitoring { out.append(HubAlert(id: "im", title: "Input Monitoring is off", detail: "Murmur can't see the shortcut key.", pane: "Privacy_ListenEvent")) }
+        if status?.phase == .error, let message = status?.message {
+            out.append(HubAlert(id: "error", title: "Last dictation needs attention", detail: message, pane: nil))
+        }
+        if out != alerts { alerts = out }
+    }
+
+    /// The push-to-talk key as the status card and copy show it ("fn", "⌃ Ctrl").
+    var hotkeyLabel: String {
+        let shortcut = DictationController.shortcutConfiguration(settings).pushToTalk
+        guard case .modifiers(let mods) = shortcut, mods.count == 1, let key = mods.first else { return shortcut.displayName }
+        return switch key {
+        case .fn: "fn"
+        case .control: "\(key.symbol) Ctrl"
+        case .option: "\(key.symbol) Option"
+        case .command: "\(key.symbol) Cmd"
+        case .shift: "\(key.symbol) Shift"
+        }
     }
 
     public func go(_ page: HubPage) {
@@ -68,13 +114,13 @@ public final class HubModel {
         self.page = page
     }
 
-    func back() {
+    public func back() {
         guard let previous = backStack.popLast() else { return }
         forwardStack.append(page)
         page = previous
     }
 
-    func forward() {
+    public func forward() {
         guard let next = forwardStack.popLast() else { return }
         backStack.append(page)
         page = next
@@ -87,433 +133,12 @@ public final class HubModel {
         go(all[(i + delta + all.count) % all.count])
     }
 
+    var settingsSelected: Bool { HubPage.settings.contains(page) }
+
     /// The microphone level, 0…1, read at display rate during the mic test.
     var micLevel: Double {
         guard let dbfs = controller.micLevel.read() else { return 0 }
         return min(1, max(0, (Double(dbfs) + 60) / 50))
-    }
-}
-
-/// The Hub: a full-height translucent sidebar and a page with its own header row, laid out by hand
-/// under a transparent title bar. No SwiftUI toolbar or split view, so nothing in the title bar can
-/// overlap the page content (it clipped the first section heading once).
-public struct HubView: View {
-    @Bindable var model: HubModel
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// Height of the unified title bar; the traffic lights sit centered in it.
-    public static let headerHeight: CGFloat = 52
-
-    public init(model: HubModel) {
-        self.model = model
-    }
-
-    public var body: some View {
-        HStack(spacing: 0) {
-            HubSidebar(model: model)
-                .frame(width: 214)
-            Divider()
-            VStack(spacing: 0) {
-                HStack(spacing: 2) {
-                    navButton("chevron.left", help: "Back (⌘[)", enabled: !model.backStack.isEmpty) { model.back() }
-                        .keyboardShortcut("[", modifiers: .command)
-                    navButton("chevron.right", help: "Forward (⌘])", enabled: !model.forwardStack.isEmpty) { model.forward() }
-                        .keyboardShortcut("]", modifiers: .command)
-                    Text(model.page.title)
-                        .font(.title3.weight(.semibold))
-                        .lineLimit(1)
-                        .padding(.leading, 8)
-                        .accessibilityAddTraits(.isHeader)
-                    Spacer()
-                }
-                .padding(.horizontal, 12)
-                .frame(height: Self.headerHeight)
-                .background(WindowDragArea())
-                .background(Color(nsColor: .windowBackgroundColor))
-                .zIndex(1)
-                Divider().zIndex(1)
-                Group {
-                    switch model.page {
-                    case .home: HomePage(model: model)
-                    case .dictionary: DictionaryView(store: model.store)
-                    case .snippets: SnippetsView(store: model.store)
-                    case .style: StylePage(model: model)
-                    case .general: GeneralPage(model: model)
-                    case .system: SystemPage(model: model)
-                    case .experimental: ExperimentalPage(model: model)
-                    case .privacy: PrivacyPage(model: model)
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .id(model.page)
-                .transition(.opacity)
-            }
-            .background(Color(nsColor: .windowBackgroundColor))
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.12), value: model.page)
-        }
-        .ignoresSafeArea(.container, edges: .top)
-        .frame(minWidth: 760, minHeight: 480)
-        .background {
-            // Option+Up / Option+Down between pages.
-            Button("") { model.step(-1) }.keyboardShortcut(.upArrow, modifiers: .option).opacity(0).frame(width: 0, height: 0)
-            Button("") { model.step(1) }.keyboardShortcut(.downArrow, modifiers: .option).opacity(0).frame(width: 0, height: 0)
-        }
-    }
-
-    func navButton(_ symbol: String, help: String, enabled: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol).font(.system(size: 13, weight: .semibold)).frame(width: 26, height: 26).contentShape(Rectangle())
-        }
-        .buttonStyle(.borderless)
-        .disabled(!enabled)
-        .help(help)
-    }
-}
-
-struct HubSidebar: View {
-    let model: HubModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 8) {
-                LegacyBrandMark(size: 22)
-                Text("Murmur").font(.headline)
-            }
-            .padding(.horizontal, 10)
-            .padding(.bottom, 12)
-            ForEach(HubPage.main) { row($0) }
-            Text("Settings")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 10)
-                .padding(.top, 16)
-                .padding(.bottom, 4)
-            ForEach(HubPage.settings) { row($0) }
-            Spacer(minLength: 12)
-            StatusCard(model: model)
-        }
-        .padding(.horizontal, 10)
-        .padding(.top, HubView.headerHeight + 2)
-        .padding(.bottom, 12)
-        .frame(maxHeight: .infinity, alignment: .top)
-        .overlay(alignment: .top) { WindowDragArea().frame(height: HubView.headerHeight) }
-        .background(VisualEffect(material: .sidebar))
-    }
-
-    func row(_ page: HubPage) -> some View {
-        SidebarRow(page: page, selected: model.page == page) { model.go(page) }
-    }
-}
-
-struct SidebarRow: View {
-    let page: HubPage
-    let selected: Bool
-    let action: () -> Void
-    @State private var hovering = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 9) {
-                Image(systemName: page.symbol)
-                    .font(.system(size: 13, weight: .medium))
-                    .frame(width: 18)
-                    .foregroundStyle(selected ? Color.accentColor : Color.secondary)
-                Text(page.title).fontWeight(selected ? .semibold : .regular).lineLimit(1)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.primary.opacity(selected ? 0.09 : hovering ? 0.045 : 0)))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
-        .accessibilityAddTraits(selected ? .isSelected : [])
-    }
-}
-
-/// The sidebar's footer: whether Murmur is ready, and the shortcut to use.
-struct StatusCard: View {
-    let model: HubModel
-
-    var body: some View {
-        let (title, color) = describe(model.status?.phase ?? .loading)
-        HStack(spacing: 9) {
-            Circle().fill(color).frame(width: 8, height: 8)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(.callout.weight(.medium)).lineLimit(1)
-                Text("Hold \(DictationController.shortcutConfiguration(model.settings).pushToTalk.displayName) to dictate")
-                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.primary.opacity(0.05)))
-        .help(model.status?.message ?? title)
-        .accessibilityElement(children: .combine)
-    }
-
-    func describe(_ phase: DictationStatus.Phase) -> (String, Color) {
-        switch phase {
-        case .loading: ("Loading models…", .orange)
-        case .idle, .inserted: ("Ready", .green)
-        case .recording: ("Listening", .red)
-        case .processing: ("Working…", .blue)
-        case .error: ("Needs attention", .orange)
-        }
-    }
-}
-
-// MARK: - Home (History, A4)
-
-struct HomePage: View {
-    let model: HubModel
-    @State private var all: [DictationRecord] = []
-    @State private var records: [DictationRecord] = []
-    @State private var search = ""
-    @State private var selection: DictationRecord.ID?
-    @State private var player: AVAudioPlayer?
-    @State private var busy: Set<String> = []
-    @FocusState private var listFocused: Bool
-
-    var body: some View {
-        VStack(spacing: 0) {
-            if all.isEmpty {
-                EmptyState(
-                    symbol: "waveform",
-                    title: "Your dictations will appear here",
-                    text: "Hold \(DictationController.shortcutConfiguration(model.settings).pushToTalk.displayName) in any app, speak, and let go. Everything you dictate is kept here, so nothing you say is lost.")
-            } else {
-                VStack(spacing: 12) {
-                    stats
-                    SearchField(prompt: "Search History", text: $search)
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
-                .padding(.bottom, 8)
-                if records.isEmpty {
-                    EmptyState(symbol: "magnifyingglass", title: "No matches", text: "Nothing in History contains “\(search)”.")
-                } else {
-                    list
-                }
-                Divider()
-                Text("\(records.count) \(records.count == 1 ? "dictation" : "dictations") · ↑↓ or j k to move · Return copies")
-                    .font(.caption).foregroundStyle(.secondary).padding(6)
-            }
-        }
-        .onChange(of: search) { reload() }
-        .onAppear { reload(); listFocused = true }
-        .onReceive(NotificationCenter.default.publisher(for: HistoryStore.didChange).receive(on: RunLoop.main)) { _ in reload() }
-    }
-
-    var stats: some View {
-        let today = Calendar.current.startOfDay(for: Date())
-        let week = Calendar.current.date(byAdding: .day, value: -6, to: today) ?? today
-        let done = all.filter { $0.status == .inserted }
-        let todayWords = done.filter { $0.startedAt >= today }.reduce(0) { $0 + Self.words($1.bestText) }
-        let weekRecords = done.filter { $0.startedAt >= week }
-        let weekWords = weekRecords.reduce(0) { $0 + Self.words($1.bestText) }
-        let minutes = weekRecords.reduce(0.0) { $0 + $1.durationMs } / 60_000
-        return HStack(spacing: 10) {
-            StatTile(symbol: "sun.max", label: "Words today", value: todayWords.formatted())
-            StatTile(symbol: "calendar", label: "Words this week", value: weekWords.formatted())
-            StatTile(symbol: "speedometer", label: "Speaking pace", value: minutes > 0.05 ? "\(Int((Double(weekWords) / minutes).rounded())) wpm" : "—")
-        }
-    }
-
-    var list: some View {
-        List(selection: $selection) {
-            ForEach(Self.days(records), id: \.0) { day, rows in
-                Text(Self.dayTitle(day))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(.top, day == Self.days(records).first?.0 ? 0 : 10)
-                    .listRowSeparator(.hidden)
-                    .selectionDisabled()
-                    .accessibilityAddTraits(.isHeader)
-                ForEach(rows) { r in
-                    HistoryRow(record: r, busy: busy.contains(r.id), canPlay: audioURL(r) != nil,
-                               play: { play(r) }, copy: { copy(r.bestText) }, retry: canRetry(r) ? { retry(r) } : nil)
-                        .tag(r.id)
-                        .contextMenu { rowMenu(r) }
-                }
-            }
-        }
-        .listStyle(.inset)
-        .scrollContentBackground(.hidden)
-        .focused($listFocused)
-        .onKeyPress(.return) { copy(selected?.bestText); return .handled }
-        .onKeyPress(characters: CharacterSet(charactersIn: "jk")) { press in
-            move(press.characters == "j" ? 1 : -1)
-            return .handled
-        }
-    }
-
-    static func words(_ text: String?) -> Int {
-        text?.split(whereSeparator: { $0.isWhitespace }).count ?? 0
-    }
-
-    /// Records grouped by calendar day, newest first (records arrive newest first).
-    static func days(_ records: [DictationRecord]) -> [(Date, [DictationRecord])] {
-        var out: [(Date, [DictationRecord])] = []
-        for r in records {
-            let day = Calendar.current.startOfDay(for: r.startedAt)
-            if out.last?.0 == day { out[out.count - 1].1.append(r) } else { out.append((day, [r])) }
-        }
-        return out
-    }
-
-    static func dayTitle(_ day: Date) -> String {
-        let calendar = Calendar.current
-        if calendar.isDateInToday(day) { return "Today" }
-        if calendar.isDateInYesterday(day) { return "Yesterday" }
-        if let days = calendar.dateComponents([.day], from: day, to: calendar.startOfDay(for: Date())).day, days < 7 {
-            return day.formatted(.dateTime.weekday(.wide))
-        }
-        let sameYear = calendar.component(.year, from: day) == calendar.component(.year, from: Date())
-        return sameYear ? day.formatted(.dateTime.month(.wide).day()) : day.formatted(.dateTime.month(.wide).day().year())
-    }
-
-    var selected: DictationRecord? { records.first { $0.id == selection } }
-
-    func reload() {
-        all = (try? model.store.recent(limit: 1000)) ?? []
-        records = search.isEmpty ? all : ((try? model.store.recent(limit: 1000, search: search)) ?? [])
-    }
-
-    func move(_ delta: Int) {
-        guard !records.isEmpty else { return }
-        let i = records.firstIndex { $0.id == selection } ?? (delta > 0 ? -1 : records.count)
-        selection = records[max(0, min(records.count - 1, i + delta))].id
-    }
-
-    func copy(_ text: String?) {
-        guard let text else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
-    }
-
-    func audioURL(_ r: DictationRecord) -> URL? {
-        guard let path = r.audioPath, FileManager.default.fileExists(atPath: path) else { return nil }
-        return URL(fileURLWithPath: path)
-    }
-
-    /// Retry or Recover needs audio under 14 days old; failed rows must also be 5 s or longer (A4).
-    func canRetry(_ r: DictationRecord) -> Bool {
-        guard audioURL(r) != nil, Date().timeIntervalSince(r.startedAt) < 14 * 86_400 else { return false }
-        switch r.status {
-        case .recorded, .transcribed: return true
-        case .transcriptionFailed, .pasteFailed, .noTextBox, .cancelled: return r.durationMs >= 5_000
-        case .inserted: return false
-        }
-    }
-
-    func play(_ r: DictationRecord) {
-        guard let url = audioURL(r) else { return }
-        player?.stop()
-        player = try? AVAudioPlayer(contentsOf: url)
-        player?.play()
-    }
-
-    func retry(_ r: DictationRecord) {
-        busy.insert(r.id)
-        Task {
-            _ = await model.controller.retry(recordId: r.id)
-            busy.remove(r.id)
-        }
-    }
-
-    @ViewBuilder func rowMenu(_ r: DictationRecord) -> some View {
-        Button("Copy") { copy(r.bestText) }
-        if audioURL(r) != nil { Button("Play audio") { play(r) } }
-        if canRetry(r) { Button(r.status == .recorded || r.status == .transcribed ? "Recover" : "Retry") { retry(r) } }
-        if r.cleanText != nil, r.rawText != nil, r.cleanText != r.rawText {
-            Divider()
-            Button(r.useRaw ? "Redo AI edit (use cleaned text)" : "Undo AI edit (use original words)") {
-                _ = try? model.store.update(id: r.id) { $0.useRaw.toggle() }
-            }
-            Button("Copy original words") { copy(r.rawText) }
-        }
-    }
-}
-
-struct HistoryRow: View {
-    let record: DictationRecord
-    let busy: Bool
-    let canPlay: Bool
-    let play: () -> Void
-    let copy: () -> Void
-    let retry: (() -> Void)?
-    @State private var hovering = false
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(record.startedAt, format: .dateTime.hour().minute())
-                .font(.callout).monospacedDigit().foregroundStyle(.secondary)
-                .frame(width: 66, alignment: .leading)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(record.bestText ?? statusLabel)
-                    .foregroundStyle(record.bestText == nil ? .secondary : .primary)
-                    .lineLimit(3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                HStack(spacing: 5) {
-                    if record.mode == "command" {
-                        Text("Command")
-                            .font(.caption2.weight(.semibold))
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1)
-                            .background(Capsule().fill(Color.accentColor.opacity(0.15)))
-                            .foregroundStyle(Color.accentColor)
-                        if let instruction = record.rawText { Text("“\(instruction)”").lineLimit(1) }
-                    }
-                    if let app = record.appName, !app.isEmpty { Text(app) }
-                    if record.useRaw {
-                        Text("·")
-                        Text("Original words (AI edit undone)").foregroundStyle(.orange)
-                    } else if record.status != .inserted, record.bestText != nil {
-                        Text("·")
-                        Text(statusLabel).foregroundStyle(.orange)
-                    }
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            }
-        }
-        .padding(.vertical, 4)
-        .overlay(alignment: .topTrailing) {
-            if busy {
-                ProgressView().controlSize(.small).padding(4)
-            } else if hovering {
-                HStack(spacing: 2) {
-                    if canPlay { iconButton("play.fill", help: "Play audio", action: play) }
-                    iconButton("doc.on.doc", help: "Copy", action: copy)
-                    if let retry { iconButton("arrow.clockwise", help: "Retry", action: retry) }
-                }
-                .padding(3)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
-            }
-        }
-        .onHover { hovering = $0 }
-    }
-
-    func iconButton(_ symbol: String, help: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) { Image(systemName: symbol).frame(width: 24, height: 22).contentShape(Rectangle()) }
-            .buttonStyle(.borderless)
-            .help(help)
-            .accessibilityLabel(help)
-    }
-
-    var statusLabel: String {
-        switch record.status {
-        case .recorded: "Interrupted before transcription"
-        case .transcribed: "Not cleaned up (interrupted)"
-        case .inserted: "Inserted"
-        case .cancelled: "Cancelled"
-        case .transcriptionFailed: "Transcription failed"
-        case .pasteFailed: "Not pasted: the text was on the clipboard"
-        case .noTextBox: "No text box"
-        }
     }
 }
 

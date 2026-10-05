@@ -38,7 +38,7 @@ public struct MSidebarItem: View {
             .contentShape(shape)
         }
         .buttonStyle(.plain)
-        .focusable(isEnabled)
+        .focusable(isEnabled, interactions: .activate)
         .focused($focused)
         .focusEffectDisabled()
         .onHover { hovering = $0 }

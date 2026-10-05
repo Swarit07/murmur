@@ -75,6 +75,31 @@ def flow_bar(snaps):
     print(f"compare: {OUT / 'flowbar.png'} ({len(pairs)} states)")
 
 
+# Hub boards: the window content sits at (65, 151) pt in every 1308 x 956 board, 1180 x 740 like our snapshot.
+HUB_WINDOW = (65, 151, 1180, 740)
+HUB_PAGES = [("hub-home", "hub-home.png"), ("hub-style", "hub-style.png"), ("hub-dictionary", "hub-dictionary.png"),
+             ("hub-snippets", "hub-snippets.png"), ("hub-general", "hub-settings.png")]
+
+
+def hub(snaps):
+    for name, board_file in HUB_PAGES:
+        ours_path = snaps / "light" / f"{name}.png"
+        if not ours_path.exists():
+            continue
+        x, y, w, h = HUB_WINDOW
+        board = Image.open(REF / board_file).convert("RGB").crop((x * S, y * S, (x + w) * S, (y + h) * S))
+        ours = Image.open(ours_path).convert("RGB").resize(board.size)
+        gap = 16
+        sheet = Image.new("RGB", (board.width * 2 + gap * 3, board.height + gap * 2), (128, 128, 128))
+        sheet.paste(board, (gap, gap))
+        sheet.paste(ours, (gap * 2 + board.width, gap))
+        OUT.mkdir(parents=True, exist_ok=True)
+        sheet.save(OUT / f"{name}.png")
+        board.save(OUT / f"{name}-board.png")
+        print(f"compare: {OUT / (name + '.png')}")
+
+
 if __name__ == "__main__":
     snaps = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "Artifacts/ui/after"
     flow_bar(snaps)
+    hub(snaps)

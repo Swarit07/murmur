@@ -55,7 +55,9 @@ public struct ThemeProvider<Content: View>: View {
     }
 }
 
-/// Applies a text style token: font, line height, tracking and case, at the theme's text scale.
+/// Applies a text style token: font, line height, tracking and case, at the theme's text scale. Line
+/// height works as in CSS (the boards are HTML): every line gets the full line box, half the extra
+/// leading above and half below, so one line of 13/18 text is 18 pt tall, not the font's natural height.
 public struct TextStyleModifier: ViewModifier {
     @Environment(\.theme) private var theme
     let style: TextStyleToken
@@ -63,10 +65,12 @@ public struct TextStyleModifier: ViewModifier {
     public func body(content: Content) -> some View {
         let font = TypeTokens.nsFont(style, scale: theme.textScale)
         let natural = font.ascender - font.descender + font.leading
-        let lineHeight = max(TypeTokens.minimumSize, style.lineHeight * theme.textScale)
+        let lineHeight = style.lineHeight * theme.textScale
+        let leading = lineHeight - natural
         content
             .font(Font(font))
-            .lineSpacing(max(0, lineHeight - natural))
+            .lineSpacing(max(0, leading))
+            .padding(.vertical, leading / 2)
             .tracking(style.tracking * font.pointSize)
             .textCase(style.uppercase ? .uppercase : nil)
     }

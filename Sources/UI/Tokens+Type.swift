@@ -67,6 +67,9 @@ public enum TypeTokens {
     public static let trigger = TextStyleToken(.serif, 400, size: 18, lineHeight: 24, italic: true) // source: board
     public static let quote = TextStyleToken(.serif, 400, size: 16, lineHeight: 22, italic: true) // source: board
     public static let sample = TextStyleToken(.serif, 400, size: 15, lineHeight: 21) // source: board
+    /// The Home feature card's sample lines (15/1.35 on the board) and their descriptors (normal line height).
+    public static let sampleCompact = TextStyleToken(.serif, 400, size: 15, lineHeight: 20) // source: board
+    public static let tagTight = TextStyleToken(.mono, 400, size: 10, lineHeight: 13) // source: board (Geist Mono's normal 1.3)
 
     // Interface (Geist)
     public static let body = TextStyleToken(.sans, 400, size: 14, lineHeight: 22) // source: board
@@ -94,7 +97,7 @@ public enum TypeTokens {
     /// Every style, for tests and the gallery.
     public static let all: [(String, TextStyleToken)] = [
         ("page-title", pageTitle), ("welcome-title", welcomeTitle), ("feature-title", featureTitle), ("step-title", stepTitle),
-        ("card-title", cardTitle), ("trigger", trigger), ("quote", quote), ("sample", sample), ("body", body), ("nav", nav),
+        ("card-title", cardTitle), ("trigger", trigger), ("quote", quote), ("sample", sample), ("sample-compact", sampleCompact), ("tag-tight", tagTight), ("body", body), ("nav", nav),
         ("button", button), ("label", label), ("control", control), ("control-sm", controlSmall), ("hint", hint), ("flow-sub", flowSub),
         ("caption", caption), ("meta", meta), ("keycap", keycap), ("keycap-inline", keycapInline), ("keycap-lg", keycapLarge), ("keycap-sm", keycapSmall),
         ("stat", stat), ("tag", tag), ("ring-digit", ringDigit),

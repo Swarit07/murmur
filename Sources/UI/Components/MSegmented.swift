@@ -61,7 +61,7 @@ public struct MSegmented<Value: Hashable>: View {
         .background(RoundedRectangle(cornerRadius: Radius.button, style: .continuous).fill(c.fillSelected.color))
         .animation(theme.motion.spring(MotionTokens.segmentedSelect), value: selection)
         .fixedSize()
-        .focusable(isEnabled)
+        .focusable(isEnabled, interactions: .activate)
         .focused($focused)
         .focusEffectDisabled()
         .focusRing(state == .focused, radius: Radius.button)
