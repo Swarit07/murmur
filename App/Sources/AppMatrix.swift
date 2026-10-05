@@ -250,8 +250,13 @@ final class AppMatrix {
             // One Undo, through the app's own Edit menu, whenever something was typed, even when the app
             // hides its text (so the scratch file closes unmodified, with no save prompt).
             _ = SelfTest.pressMenuItem(pid: opened.app.processIdentifier, startingWith: "Undo")
-            try? await Task.sleep(for: .milliseconds(600))
-            if (SelfTest.value(opened.field) ?? "").contains("quick brown") { failures.append("one Undo did not remove it") }
+            // Some apps (Firefox) apply the Undo a beat later: poll for up to 2 s before calling it a failure.
+            var undone = false
+            for _ in 0..<20 {
+                try? await Task.sleep(for: .milliseconds(100))
+                if !(SelfTest.value(opened.field) ?? "").contains("quick brown") { undone = true; break }
+            }
+            if !undone { failures.append("one Undo did not remove it") }
         }
         return failures
     }
