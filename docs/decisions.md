@@ -79,4 +79,4 @@ Newest last. Each entry: date, decision, reason.
 - **Reduce Motion (A8, Milestone 4) is honoured already** in the bar: springs become fades and the processing loop holds still.
 - **Fourth sound: a "done" chime when text lands,** at the owner's request. Original synthesis only: per spec rule 1, Wispr's sound files are never copied or sampled. The owner can record the reference app; Claude measures pitch, length and envelope and puts those numbers into the sound tokens, and the sound stays synthesized.
 - **Sounds are two-note tones with overtones:** a short pitch glide (`soundGlide`), brightness and "bellness" (how far the overtones drift from exact harmonics toward a bell's) as tokens. Debug › Play sounds plays each one for tuning.
-- **2026-10-05 · The owner started Milestone 3 before running the M2 focus test.** The test stays in Debug › Run focus test and will run before release.
+- **2026-10-05 · Correction: milestones go strictly in order.** The owner clarified that only the M1 day-of-use report was skipped. Every other gate runs before the next milestone starts, so Milestone 3 waits for the M2 focus test.
