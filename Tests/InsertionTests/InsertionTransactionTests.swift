@@ -59,7 +59,9 @@ final class FakeSender: PasteSending, @unchecked Sendable {
         self.succeeds = succeeds
         self.onPaste = onPaste
     }
-    func sendPaste(to pid: pid_t) -> Bool {
+    private(set) var onMainThread: [Bool] = []
+    @MainActor func sendPaste(to pid: pid_t) -> Bool {
+        onMainThread.append(Thread.isMainThread)
         calls += 1
         if succeeds { onPaste?() }
         return succeeds
@@ -96,6 +98,16 @@ struct InsertionTransactionTests {
         #expect(sender.calls == 1)
         // The transcript went on with the transient and concealed markers.
         #expect(board.writes.first?.1 == PasteboardMarkers.all)
+    }
+
+    /// Regression: Murmur.app aborted when the paste keystroke ran off the main thread (macOS asserts
+    /// that the keyboard-layout lookup happens on the main queue).
+    @Test func pasteRunsOnMainThread() async {
+        let sender = FakeSender()
+        let tx = InsertionTransaction(pasteboard: FakePasteboard(), sender: sender, restoreDelay: .milliseconds(10))
+        let result = await Task.detached { await tx.insert("Hi", expected: focus, current: focus) }.value
+        #expect(result == .inserted(restored: true))
+        #expect(sender.onMainThread == [true])
     }
 
     @Test func emptyClipboardStaysEmpty() async {

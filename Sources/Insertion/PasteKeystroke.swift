@@ -5,7 +5,8 @@ import Foundation
 
 public protocol PasteSending: Sendable {
     /// Posts Cmd+V (or an equivalent) to the frontmost app. Returns false if nothing could be sent.
-    func sendPaste(to pid: pid_t) -> Bool
+    /// Main thread only: the keyboard-layout lookup (Text Input Sources) asserts it on macOS 26 and later.
+    @MainActor func sendPaste(to pid: pid_t) -> Bool
 }
 
 /// Cmd+V resolved for the active keyboard layout, with the Edit > Paste menu item through
@@ -13,6 +14,7 @@ public protocol PasteSending: Sendable {
 public struct SystemPasteSender: PasteSending {
     public init() {}
 
+    @MainActor
     public func sendPaste(to pid: pid_t) -> Bool {
         if postCommandV() { return true }
         return pressPasteMenuItem(pid: pid)
@@ -20,6 +22,7 @@ public struct SystemPasteSender: PasteSending {
 
     /// Key code that types "v" under the current layout (Dvorak puts it elsewhere). Looked up each
     /// time so a layout switch needs no restart.
+    @MainActor
     public static func keyCodeForV() -> CGKeyCode {
         guard let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
               let raw = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData) else {
@@ -44,6 +47,7 @@ public struct SystemPasteSender: PasteSending {
         }
     }
 
+    @MainActor
     func postCommandV() -> Bool {
         guard AXIsProcessTrusted() else { return false }
         let source = CGEventSource(stateID: .combinedSessionState)
@@ -58,6 +62,7 @@ public struct SystemPasteSender: PasteSending {
     }
 
     /// Finds the menu item bound to Cmd+V in the app's menu bar and presses it.
+    @MainActor
     func pressPasteMenuItem(pid: pid_t) -> Bool {
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 0.5)
@@ -66,6 +71,7 @@ public struct SystemPasteSender: PasteSending {
         return findPaste(in: bar as! AXUIElement, depth: 0)
     }
 
+    @MainActor
     private func findPaste(in element: AXUIElement, depth: Int) -> Bool {
         guard depth < 4 else { return false }
         var children: CFTypeRef?

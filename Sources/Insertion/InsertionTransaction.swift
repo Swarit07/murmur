@@ -47,8 +47,10 @@ public struct InsertionTransaction: Sendable {
         self.requireEditable = requireEditable
     }
 
-    /// Runs the whole transaction. `onPasted` fires right after the keystroke is posted, before the
-    /// restore wait, so callers can stop the latency clock there.
+    /// Runs the whole transaction on the main actor: the paste keystroke needs the main thread, and
+    /// keeping the pasteboard steps there too keeps them in order. `onPasted` fires right after the
+    /// keystroke is posted, before the restore wait, so callers can stop the latency clock there.
+    @MainActor
     public func insert(
         _ text: String,
         expected: FocusSnapshot,
