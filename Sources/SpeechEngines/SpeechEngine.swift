@@ -44,7 +44,8 @@ public enum SpeechError: Error, CustomStringConvertible {
 public enum EngineCatalog {
     public static let ids = ["parakeet-v3", "parakeet-v2", "parakeet-ultra", "parakeet-phonon2", "whisper-turbo", "apple-speech", "groq-whisper"]
 
-    public static func make(_ id: String) throws -> any SpeechEngine {
+    /// `groqKey` supplies the cloud key; nil reads the `GROQ_API_KEY` environment variable.
+    public static func make(_ id: String, groqKey: (@Sendable () -> String?)? = nil) throws -> any SpeechEngine {
         switch id {
         case "parakeet-v3": ParakeetEngine(version: .v3)
         case "parakeet-v2": ParakeetEngine(version: .v2)
@@ -53,7 +54,7 @@ public enum EngineCatalog {
         case "whisper-turbo": WhisperKitEngine(model: "large-v3-v20240930_turbo")
         case "whisper-turbo-626mb": WhisperKitEngine(model: "large-v3-v20240930_626MB")
         case "apple-speech": AppleSpeechEngine()
-        case "groq-whisper": GroqWhisperEngine()
+        case "groq-whisper": groqKey.map { GroqWhisperEngine(key: $0) } ?? GroqWhisperEngine()
         default: throw SpeechError.unavailable("unknown engine \(id). Known: \(ids.joined(separator: ", "))")
         }
     }

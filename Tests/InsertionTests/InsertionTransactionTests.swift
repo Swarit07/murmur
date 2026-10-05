@@ -164,3 +164,24 @@ struct InsertionTransactionTests {
         #expect(Date().timeIntervalSince(start) >= 0.19)
     }
 }
+
+@Suite("Smart spacing")
+struct SmartSpacingTests {
+    @Test(arguments: [
+        ("Let's push.", Character("."), " Let's push."),
+        ("hello", Character("d"), " hello"),
+        ("Hello.", Character(" "), "Hello."),
+        ("Hello.", Character("\n"), "Hello."),
+        ("quoted", Character("\u{201C}"), "quoted"),
+        (", and more", Character("d"), ", and more"),
+        ("Hi", Character("("), "Hi"),
+    ])
+    func adjust(text: String, before: Character, expected: String) {
+        #expect(SmartSpacing.adjust(text, before: before) == expected)
+    }
+
+    @Test func unknownCursorAddsNothing() {
+        #expect(SmartSpacing.adjust("Hello.", before: nil) == "Hello.")
+        #expect(SmartSpacing.adjust("", before: "a") == "")
+    }
+}

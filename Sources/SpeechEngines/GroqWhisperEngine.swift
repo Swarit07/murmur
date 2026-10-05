@@ -8,15 +8,21 @@ public actor GroqWhisperEngine: SpeechEngine {
     public nonisolated let isLocal = false
     let model: String
     let session: URLSession
+    let keyProvider: @Sendable () -> String?
 
-    public init(model: String = "whisper-large-v3-turbo") {
+    /// `key` defaults to the `GROQ_API_KEY` environment variable; the app passes a Keychain lookup.
+    public init(
+        model: String = "whisper-large-v3-turbo",
+        key: @escaping @Sendable () -> String? = { ProcessInfo.processInfo.environment["GROQ_API_KEY"] }
+    ) {
         self.model = model
+        self.keyProvider = key
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 15
         self.session = URLSession(configuration: config)
     }
 
-    var key: String? { ProcessInfo.processInfo.environment["GROQ_API_KEY"].flatMap { $0.isEmpty ? nil : $0 } }
+    var key: String? { keyProvider().flatMap { $0.isEmpty ? nil : $0 } }
 
     public func load() async throws {
         guard key != nil else { throw SpeechError.missingKey("GROQ_API_KEY") }

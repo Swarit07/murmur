@@ -14,6 +14,7 @@ let package = Package(
     name: "murmur",
     platforms: [.macOS(.v14)],
     products: [
+        .library(name: "MurmurKit", targets: ["MurmurKit"]),
         .executable(name: "murmur-cli", targets: ["MurmurCLI"]),
         .executable(name: "murmur-bench", targets: ["MurmurBench"]),
     ],
@@ -25,6 +26,7 @@ let package = Package(
         .package(url: "https://github.com/huggingface/swift-huggingface.git", from: "0.12.0"),
         .package(url: "https://github.com/huggingface/swift-transformers.git", from: "1.3.4"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.8.2"),
+        .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.11.1"),
     ],
     targets: [
         // Pure Swift: state machine, shared models, timings, text metrics. No UI, no system services.
@@ -45,7 +47,7 @@ let package = Package(
         .target(name: "Cleanup", dependencies: ["Core"], swiftSettings: strict),
         .target(name: "Context", dependencies: ["Core"], swiftSettings: strict),
         .target(name: "Insertion", dependencies: ["Core", "Context"], swiftSettings: strict),
-        .target(name: "Store", dependencies: ["Core"], swiftSettings: strict),
+        .target(name: "Store", dependencies: ["Core", .product(name: "GRDB", package: "GRDB.swift")], swiftSettings: strict),
         // Wires engines, cleanup and insertion together; shared by the CLI, the bench and later the app.
         .target(
             name: "Pipeline",
@@ -54,6 +56,12 @@ let package = Package(
         ),
         .target(name: "UI", dependencies: ["Core"], swiftSettings: strict),
 
+        // App-level orchestration the menu-bar app links: the dictation controller and its wiring.
+        .target(
+            name: "MurmurKit",
+            dependencies: ["Core", "Hotkey", "Audio", "SpeechEngines", "Cleanup", "Context", "Insertion", "Store", "Pipeline"],
+            swiftSettings: strict
+        ),
         .executableTarget(
             name: "MurmurCLI",
             dependencies: [
@@ -72,6 +80,8 @@ let package = Package(
         ),
 
         .testTarget(name: "CoreTests", dependencies: ["Core"], swiftSettings: strict),
+        .testTarget(name: "HotkeyTests", dependencies: ["Hotkey"], swiftSettings: strict),
+        .testTarget(name: "StoreTests", dependencies: ["Core", "Store"], swiftSettings: strict),
         .testTarget(name: "CleanupTests", dependencies: ["Core", "Cleanup"], swiftSettings: strict),
         .testTarget(name: "InsertionTests", dependencies: ["Core", "Context", "Insertion"], swiftSettings: strict),
     ]

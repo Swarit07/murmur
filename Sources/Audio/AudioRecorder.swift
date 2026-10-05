@@ -18,7 +18,11 @@ public enum MicrophonePermission {
 /// Captures the default input device, converts to 16 kHz mono Float32 as buffers arrive, and reports
 /// levels for a waveform. The engine is prepared up front so `start` is as fast as the device allows.
 public final class AudioRecorder: @unchecked Sendable {
-    private let engine = AVAudioEngine()
+    private var engine = AVAudioEngine()
+    /// Core Audio UID of the input to use, or nil for the system default.
+    private var deviceUID: String?
+    private var needsRebuild = false
+    private var configObserver: NSObjectProtocol?
     private let lock = NSLock()
     private var samples: [Float] = []
     private var resampler: Resampler?
@@ -29,10 +33,48 @@ public final class AudioRecorder: @unchecked Sendable {
 
     public init(onLevel: (@Sendable (Float) -> Void)? = nil) {
         self.onLevel = onLevel
+        observeConfiguration()
+    }
+
+    deinit {
+        if let configObserver { NotificationCenter.default.removeObserver(configObserver) }
     }
 
     public var deviceName: String {
-        AVCaptureDevice.default(for: .audio)?.localizedName ?? "unknown"
+        if let deviceUID, let device = AudioDevices.inputs().first(where: { $0.uid == deviceUID }) { return device.name }
+        return AVCaptureDevice.default(for: .audio)?.localizedName ?? "unknown"
+    }
+
+    /// Chooses the input device; nil follows the system default. Takes effect at the next `start`.
+    public func setDevice(uid: String?) {
+        lock.withLock {
+            deviceUID = uid
+            needsRebuild = true
+        }
+    }
+
+    /// A device change or Bluetooth route switch reconfigures the engine; rebuild it before the next
+    /// recording instead of failing (D9).
+    private func observeConfiguration() {
+        if let configObserver { NotificationCenter.default.removeObserver(configObserver) }
+        configObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil
+        ) { [weak self] _ in
+            self?.lock.withLock { self?.needsRebuild = true }
+        }
+    }
+
+    private func rebuildIfNeeded() {
+        let (rebuild, uid) = lock.withLock { (needsRebuild, deviceUID) }
+        guard rebuild else { return }
+        engine.stop()
+        engine = AVAudioEngine()
+        observeConfiguration()
+        if let uid, var id = AudioDevices.deviceID(forUID: uid), let unit = engine.inputNode.audioUnit {
+            AudioUnitSetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0, &id, UInt32(MemoryLayout<AudioDeviceID>.size))
+        }
+        engine.prepare()
+        lock.withLock { needsRebuild = false }
     }
 
     /// Milliseconds from `start()` to the first audio buffer, once one has arrived.
@@ -48,6 +90,7 @@ public final class AudioRecorder: @unchecked Sendable {
     }
 
     public func start() throws {
+        rebuildIfNeeded()
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0, format.channelCount > 0 else { throw AudioError.noInputDevice }

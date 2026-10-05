@@ -1,0 +1,46 @@
+# Generates Murmur.xcodeproj: `cd App && xcodegen`. The project is generated, not committed.
+name: Murmur
+options:
+  bundleIdPrefix: com.swaritsheel
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+packages:
+  murmur:
+    path: ..
+targets:
+  Murmur:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+      - path: Resources
+        buildPhase: resources
+    dependencies:
+      - package: murmur
+        product: MurmurKit
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: Murmur
+        CFBundleName: Murmur
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        LSUIElement: true
+        LSMinimumSystemVersion: "14.0"
+        NSMicrophoneUsageDescription: Murmur records your voice while you hold the dictation shortcut and turns it into text on this Mac.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.swaritsheel.Murmur
+        PRODUCT_NAME: Murmur
+        SWIFT_VERSION: "6.0"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        # Every build is signed with the same Apple Development certificate, so macOS keeps the
+        # Accessibility and Input Monitoring grants across rebuilds (spec section 3).
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: Apple Development
+        DEVELOPMENT_TEAM: 65J23J52T8
+        PROVISIONING_PROFILE_SPECIFIER: ""
+        ENABLE_HARDENED_RUNTIME: NO
+        ENABLE_APP_SANDBOX: NO
+        DEAD_CODE_STRIPPING: YES

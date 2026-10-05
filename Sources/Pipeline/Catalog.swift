@@ -17,15 +17,16 @@ public enum CleanupCatalog {
         #endif
     }
 
-    /// `nil` means rules only.
-    public static func make(_ id: String) throws -> (any CleanupProvider)? {
+    /// `nil` means rules only. `groqKey` supplies the cloud key; nil reads `GROQ_API_KEY`.
+    public static func make(_ id: String, groqKey: (@Sendable () -> String?)? = nil) throws -> (any CleanupProvider)? {
+        let key = groqKey ?? { ProcessInfo.processInfo.environment["GROQ_API_KEY"] }
         switch id {
         case "rules", "none": return nil
         case "apple-foundation", "apple": return AppleFoundationCleanupProvider()
-        case "groq": return GroqCleanupProvider()
+        case "groq": return GroqCleanupProvider(key: key)
         case "stalled": return StalledCleanupProvider()
         default:
-            if id.hasPrefix("groq:") { return GroqCleanupProvider(model: String(id.dropFirst(5))) }
+            if id.hasPrefix("groq:") { return GroqCleanupProvider(model: String(id.dropFirst(5)), key: key) }
             let name = id.hasPrefix("mlx:") ? String(id.dropFirst(4)) : id
             if id.hasPrefix("mlx:") || mlxNames.contains(name) {
                 #if canImport(CleanupMLX)

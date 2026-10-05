@@ -9,9 +9,15 @@ public actor GroqCleanupProvider: CleanupProvider {
     public nonisolated let id: String
     let model: String
     let session: URLSession
+    let keyProvider: @Sendable () -> String?
 
-    public init(model: String = ProcessInfo.processInfo.environment["MURMUR_GROQ_CLEANUP_MODEL"] ?? "llama-3.1-8b-instant") {
+    /// `key` defaults to the `GROQ_API_KEY` environment variable; the app passes a Keychain lookup.
+    public init(
+        model: String = ProcessInfo.processInfo.environment["MURMUR_GROQ_CLEANUP_MODEL"] ?? "llama-3.1-8b-instant",
+        key: @escaping @Sendable () -> String? = { ProcessInfo.processInfo.environment["GROQ_API_KEY"] }
+    ) {
         self.model = model
+        self.keyProvider = key
         self.id = "groq:\(model)"
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 10
@@ -19,7 +25,7 @@ public actor GroqCleanupProvider: CleanupProvider {
         self.session = URLSession(configuration: config)
     }
 
-    var key: String? { ProcessInfo.processInfo.environment["GROQ_API_KEY"].flatMap { $0.isEmpty ? nil : $0 } }
+    var key: String? { keyProvider().flatMap { $0.isEmpty ? nil : $0 } }
 
     public func load() async throws {
         guard key != nil else { throw CleanupError.missingKey("GROQ_API_KEY") }

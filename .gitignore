@@ -7,3 +7,6 @@ DerivedData/
 corpus/audio/*.wav
 results/raw/
 .env
+App/Murmur.xcodeproj/
+App/Info.plist
+App/build/
