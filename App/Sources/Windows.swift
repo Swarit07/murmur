@@ -26,6 +26,8 @@ final class WindowManager {
         NSApp.activate()
     }
 
+    func window(_ id: String) -> NSWindow? { windows[id] }
+
     func close(_ id: String) {
         windows[id]?.close()
         windows[id] = nil

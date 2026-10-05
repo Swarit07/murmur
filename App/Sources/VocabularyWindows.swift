@@ -22,6 +22,12 @@ struct DictionaryView: View {
             }
             .textFieldStyle(.roundedBorder)
             .padding(10)
+            if entries.isEmpty {
+                EmptyState(
+                    symbol: "character.book.closed",
+                    title: "No words yet",
+                    text: "Add names, product names and jargon Murmur gets wrong. If it keeps hearing a word one way (“Chivan” for Siobhan), put that under Heard as.")
+            } else {
             Table(entries, selection: $selection) {
                 TableColumn("Write") { e in
                     EditableCell(text: e.replacement) { value in
@@ -45,6 +51,7 @@ struct DictionaryView: View {
                 Button("Delete") { ids.forEach { try? store.deleteDictionaryEntry(id: $0) } }
             }
             .onDeleteCommand { if let selection { try? store.deleteDictionaryEntry(id: selection) } }
+            }
             Text("Dictionary words guide the speech engine, fix spellings after transcription, and are given to the cleanup model.")
                 .font(.caption).foregroundStyle(.secondary).padding(8)
         }
@@ -83,6 +90,12 @@ struct SnippetsView: View {
             }
             .textFieldStyle(.roundedBorder)
             .padding(10)
+            if snippets.isEmpty {
+                EmptyState(
+                    symbol: "text.badge.plus",
+                    title: "No snippets yet",
+                    text: "Save text you type often, like an email sign-off or your address. Say the cue and Murmur inserts the text exactly as written.")
+            } else {
             Table(snippets, selection: $selection) {
                 TableColumn("Say") { s in
                     EditableCell(text: s.cue) { value in
@@ -104,6 +117,7 @@ struct SnippetsView: View {
                 Button("Delete") { ids.forEach { try? store.deleteSnippet(id: $0) } }
             }
             .onDeleteCommand { if let selection { try? store.deleteSnippet(id: selection) } }
+            }
             Text("Snippets are inserted exactly as written; cleanup never changes them.")
                 .font(.caption).foregroundStyle(.secondary).padding(8)
         }
@@ -156,14 +170,15 @@ struct LanguagePicker: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading) {
+        VStack(alignment: .leading, spacing: 10) {
             Toggle("Detect automatically", isOn: Binding(get: { chosen.isEmpty }, set: { if $0 { chosen = []; save() } }))
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), alignment: .leading)], alignment: .leading) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .leading), count: 4), alignment: .leading, spacing: 6) {
                 ForEach(Self.common, id: \.0) { code, name in
                     Toggle(name, isOn: Binding(get: { chosen.contains(code) }, set: { on in
                         if on { chosen.insert(code) } else { chosen.remove(code) }
                         save()
                     }))
+                    .toggleStyle(.checkbox)
                 }
             }
             Text(chosen.count == 1 ? "Transcribed as \(Self.common.first { $0.0 == chosen.first }?.1 ?? "") only." : "Murmur detects the language of each dictation. Choosing one language helps it avoid stray words from other languages.")
@@ -172,4 +187,21 @@ struct LanguagePicker: View {
     }
 
     func save() { settings.languages = chosen.sorted() }
+}
+
+/// What an empty page shows instead of an empty table.
+struct EmptyState: View {
+    let symbol: String
+    let title: String
+    let text: String
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: symbol).font(.system(size: 34)).foregroundStyle(.secondary)
+            Text(title).font(.headline)
+            Text(text).font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 380)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
+    }
 }

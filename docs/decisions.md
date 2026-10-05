@@ -108,3 +108,4 @@ Newest last. Each entry: date, decision, reason.
 - **Style page stores a style per category now;** applying styles to cleanup is S4, Milestone 5.
 - **Experimental toggles (Command Mode, Press Enter) are shown but disabled** until Milestone 5.
 - **`Scripts/install-app.sh --system` also copies to /Applications** for the fresh-account gate test.
+- **2026-10-05 · The owner deferred the M4 gate tests to the end** (onboarding in a fresh account; permission revocation) and asked for a full QA and UI-polish pass first, then work on the language model ("talk, communicate, accuracy"). QA tooling goes into the Debug menu: a snapshot sweep (all pages and onboarding steps, two sizes, light and dark, all Flow Bar states) and an in-app self-test that replays recorded clips through the real pipeline into TextEdit and reads the result back.

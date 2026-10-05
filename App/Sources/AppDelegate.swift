@@ -85,6 +85,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         // Lets a script start the focus test (Debug menu must be on): the gate can run hands-off.
+        // Design review: saves PNGs of the Hub pages and Flow Bar states to the data folder.
+        DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.swaritsheel.Murmur.debug.snapshot"), object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated {
+                guard let app = Self.shared, app.settings.debugMenu else { return }
+                app.saveSnapshots()
+            }
+        }
         DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.swaritsheel.Murmur.debug.runFocusTest"), object: nil, queue: .main) { _ in
             MainActor.assumeIsolated {
                 guard let app = Self.shared, app.settings.debugMenu else { return }
@@ -303,6 +310,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         sub.addItem(item("Run focus test (50 trials)", #selector(runFocusTestFromMenu)))
         sub.addItem(item("Open data folder", #selector(openDataFolder)))
         sub.addItem(item("Run onboarding again", #selector(showOnboardingFromMenu)))
+        sub.addItem(item("Save window snapshots", #selector(saveSnapshotsFromMenu)))
         parent.submenu = sub
         return parent
     }
@@ -324,6 +332,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func hideFlowBar() { flowBar.bar.hide(for: 3600) }
     @objc func showFlowBar() { flowBar.bar.unhide() }
     @objc func openDataFolder() { NSWorkspace.shared.open(MurmurPaths.appSupport) }
+    @objc func saveSnapshotsFromMenu() { saveSnapshots() }
+
+    /// Renders Murmur's own windows to PNG (no Screen Recording needed for our own views): every Hub page,
+    /// the onboarding window if open, and each Flow Bar state.
+    func saveSnapshots() {
+        let dir = MurmurPaths.appSupport.appendingPathComponent("snapshots")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        Task { @MainActor in
+            let returnTo = hub.page
+            showHub(hub.page)
+            for page in HubPage.main + HubPage.settings {
+                hub.go(page)
+                try? await Task.sleep(for: .milliseconds(450))
+                if let window = windows.window("hub") { Self.png(of: window, to: dir.appendingPathComponent("hub-\(page.rawValue).png")) }
+            }
+            hub.go(returnTo)
+            if let window = windows.window("onboarding") { Self.png(of: window, to: dir.appendingPathComponent("onboarding-current.png")) }
+            for (index, state) in Self.forcibleStates.enumerated() {
+                flowBar.model.forced = state
+                try? await Task.sleep(for: .milliseconds(500))
+                Self.png(of: flowBar.bar.panelForSnapshots, to: dir.appendingPathComponent(String(format: "bar-%02d.png", index)))
+            }
+            flowBar.model.forced = nil
+            NSWorkspace.shared.open(dir)
+        }
+    }
+
+    static func png(of window: NSWindow, to url: URL) {
+        guard let view = window.contentView?.superview ?? window.contentView,
+              let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
+        view.cacheDisplay(in: view.bounds, to: rep)
+        try? rep.representation(using: .png, properties: [:])?.write(to: url)
+    }
 
     @objc func runFocusTestFromMenu() { runFocusTest(delay: 5) }
 

@@ -221,6 +221,9 @@ public final class FlowBarController {
         model.hiddenUntil = nil
     }
 
+    /// The panel, for design snapshots.
+    public var panelForSnapshots: NSWindow { panel }
+
     /// The bar's center in screen coordinates, for the automated focus test.
     public var barCenter: NSPoint { NSPoint(x: barRect.midX, y: barRect.midY) }
 

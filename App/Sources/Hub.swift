@@ -90,49 +90,92 @@ final class HubModel {
     }
 }
 
+/// The Hub: a sidebar and a page with its own header. No SwiftUI toolbar or split view, so nothing in
+/// the window's title bar can overlap the page content (it clipped the first section heading).
 struct HubView: View {
     @Bindable var model: HubModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        NavigationSplitView {
-            List(selection: Binding(get: { model.page }, set: { if let p = $0 { model.go(p) } })) {
-                ForEach(HubPage.main) { page in Label(page.title, systemImage: page.symbol).tag(page) }
-                Section("Settings") {
-                    ForEach(HubPage.settings) { page in Label(page.title, systemImage: page.symbol).tag(page) }
+        HStack(spacing: 0) {
+            HubSidebar(model: model)
+                .frame(width: 200)
+            Divider()
+            VStack(spacing: 0) {
+                HStack(spacing: 6) {
+                    Button { model.back() } label: { Image(systemName: "chevron.left").frame(width: 22, height: 22) }
+                        .buttonStyle(.borderless).disabled(model.backStack.isEmpty).help("Back (⌘[)")
+                        .keyboardShortcut("[", modifiers: .command)
+                    Button { model.forward() } label: { Image(systemName: "chevron.right").frame(width: 22, height: 22) }
+                        .buttonStyle(.borderless).disabled(model.forwardStack.isEmpty).help("Forward (⌘])")
+                        .keyboardShortcut("]", modifiers: .command)
+                    Text(model.page.title).font(.title2.weight(.semibold)).padding(.leading, 4)
+                    Spacer()
                 }
-            }
-            .navigationSplitViewColumnWidth(min: 170, ideal: 190)
-        } detail: {
-            Group {
-                switch model.page {
-                case .home: HomePage(model: model)
-                case .dictionary: DictionaryView(store: model.store)
-                case .snippets: SnippetsView(store: model.store)
-                case .style: StylePage(model: model)
-                case .general: GeneralPage(model: model)
-                case .system: SystemPage(model: model)
-                case .experimental: ExperimentalPage()
-                case .privacy: PrivacyPage(model: model)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                Divider()
+                Group {
+                    switch model.page {
+                    case .home: HomePage(model: model)
+                    case .dictionary: DictionaryView(store: model.store)
+                    case .snippets: SnippetsView(store: model.store)
+                    case .style: StylePage(model: model)
+                    case .general: GeneralPage(model: model)
+                    case .system: SystemPage(model: model)
+                    case .experimental: ExperimentalPage()
+                    case .privacy: PrivacyPage(model: model)
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .id(model.page)
+                .transition(.opacity)
             }
-            .navigationTitle(model.page.title)
-            .transition(.opacity)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.12), value: model.page)
         }
-        .toolbar {
-            ToolbarItemGroup(placement: .navigation) {
-                Button { model.back() } label: { Image(systemName: "chevron.left") }
-                    .disabled(model.backStack.isEmpty).keyboardShortcut("[", modifiers: .command).help("Back (⌘[)")
-                Button { model.forward() } label: { Image(systemName: "chevron.right") }
-                    .disabled(model.forwardStack.isEmpty).keyboardShortcut("]", modifiers: .command).help("Forward (⌘])")
-            }
-        }
+        .frame(minWidth: 760, minHeight: 480)
         .background {
             // Option+Up / Option+Down between pages.
             Button("") { model.step(-1) }.keyboardShortcut(.upArrow, modifiers: .option).opacity(0).frame(width: 0, height: 0)
             Button("") { model.step(1) }.keyboardShortcut(.downArrow, modifiers: .option).opacity(0).frame(width: 0, height: 0)
         }
+    }
+}
+
+struct HubSidebar: View {
+    let model: HubModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(HubPage.main) { row($0) }
+            Text("Settings")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 10)
+                .padding(.top, 16)
+                .padding(.bottom, 4)
+            ForEach(HubPage.settings) { row($0) }
+            Spacer()
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 12)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(Color(nsColor: .underPageBackgroundColor).opacity(0.5))
+    }
+
+    func row(_ page: HubPage) -> some View {
+        let selected = model.page == page
+        return Button { model.go(page) } label: {
+            Label(page.title, systemImage: page.symbol)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(selected ? Color.accentColor : Color.clear))
+                .foregroundStyle(selected ? Color.white : Color.primary)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
@@ -486,7 +529,12 @@ struct CloudKeys: View {
 
     func keyRow(_ label: String, text: Binding<String>, saved: Binding<Bool>, account: String) -> some View {
         HStack {
-            SecureField(saved.wrappedValue ? "\(label) saved in Keychain" : label, text: text)
+            Text(label)
+            Spacer()
+            SecureField(saved.wrappedValue ? "Saved in Keychain" : "Paste key", text: text)
+                .textFieldStyle(.roundedBorder)
+                .labelsHidden()
+                .frame(width: 240)
             Button("Save") {
                 Keychain.set(text.wrappedValue, for: account)
                 saved.wrappedValue = !text.wrappedValue.isEmpty
