@@ -742,7 +742,7 @@ struct ExperimentalPage: View {
             Section {
                 Toggle(isOn: $commandMode) {
                     Text("Command Mode")
-                    Text("Hold \(HotkeyConfiguration.defaultCommand(appleKeyboard: model.settings.keyboardLayout != "other").displayName) and speak an instruction, like “make this friendlier” or “translate to Spanish”. With text selected, Murmur rewrites it in place, and one ⌘Z brings it back. With nothing selected, it writes a draft at the cursor.")
+                    Text("Hold \(HotkeyConfiguration.defaultCommand(appleKeyboard: model.settings.keyboardLayout != "other").displayName) (in either order) and speak an instruction, like “make this friendlier” or “translate to Spanish”. With text selected, Murmur rewrites it in place, and one ⌘Z brings it back. With nothing selected, it writes a draft at the cursor.")
                 }
                 .onChange(of: commandMode) { model.settings.commandMode = commandMode }
                 Toggle(isOn: Binding(get: { pressEnter }, set: { on in

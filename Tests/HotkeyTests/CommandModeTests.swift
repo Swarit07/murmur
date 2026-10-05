@@ -45,13 +45,23 @@ struct CommandModeTests {
         #expect(s.actions == [.startCommand, .cancel])
     }
 
-    @Test func lateControlDuringDictationDoesNotConvert() {
+    /// The owner's report: holding Fn, then pressing Control a moment later, must still be a command.
+    @Test func controlLongAfterFnStillConverts() {
         var s = Script(withCommand)
         s.mods([.fn], at: 0)
         s.mods([.fn, .control], at: 900)
-        s.mods([.fn], at: 1000)
-        s.mods([], at: 2000)
-        #expect(s.actions == [.startHold, .stopHold])
+        s.mods([.control], at: 2500)
+        s.mods([], at: 2600)
+        #expect(s.actions == [.startHold, .convertToCommand, .stopCommand])
+    }
+
+    @Test func eitherKeyReleasedFirstFinishesTheCommand() {
+        var s = Script(withCommand)
+        s.mods([.fn], at: 0)
+        s.mods([.fn, .control], at: 600)
+        s.mods([.fn], at: 2000)
+        s.mods([], at: 2100)
+        #expect(s.actions == [.startHold, .convertToCommand, .stopCommand])
     }
 
     @Test func offMeansFnControlIsJustAnotherChord() {

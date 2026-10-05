@@ -260,10 +260,10 @@ public struct HotkeyRecognizer: Sendable {
             lastTapUp = nil
             state = .commanding(since: time)
             return [.startCommand]
-        case (.commandDown, .holding(let since)):
-            // Control joined Fn right away: this press was the Command shortcut all along.
-            guard time &- since <= configuration.otherKeyWindowNs else { return [] }
-            state = .commanding(since: since)
+        case (.commandDown, .holding):
+            // Control joined a Fn hold, however long after: the order of the two keys does not matter.
+            // The command's own clock starts now, so the quick-tap and other-key windows apply to it.
+            state = .commanding(since: time)
             return [.convertToCommand]
         case (.commandDown, _):
             return []
