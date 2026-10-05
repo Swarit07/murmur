@@ -158,7 +158,13 @@ public final class FlowBarModel {
 
     public init() {}
 
+    /// True once the inserted check has had its moment. The controller's phase stays "inserted" until
+    /// the next dictation, so any later redraw (a forced notice clearing, the bar coming back from Hide
+    /// for an hour, onboarding's tip ending) must show idle, not a stale check that ignores clicks.
+    var insertedSettled = false
+
     func resolved(_ s: FlowBarState) -> FlowBarState {
+        let s = s == .inserted && insertedSettled ? .idle : s
         if let hiddenUntil, hiddenUntil > Date(), s == .idle { return .hidden }
         if s == .idle && !showAtAllTimes { return .hidden }
         return s
@@ -171,6 +177,7 @@ public final class FlowBarModel {
     private func stateChanged(from old: FlowBarState) {
         transientTask?.cancel()
         countdownTask?.cancel()
+        if state == .inserted && old != .inserted { insertedSettled = false }
         if case .listening = state {
             if listeningSince == nil { listeningSince = Date() }
         } else {
@@ -184,7 +191,8 @@ public final class FlowBarModel {
             transientTask = Task { [weak self] in
                 try? await Task.sleep(for: .seconds(tokens.checkDraw + tokens.insertedHold))
                 guard let self, !Task.isCancelled, self.state == .inserted else { return }
-                self.displayed = self.forced ?? self.resolved(.idle)
+                self.insertedSettled = true
+                self.refreshDisplayed()
             }
         case .notice(let notice):
             if let total = notice.countdown { startCountdown(total, notice: notice) }
@@ -318,7 +326,7 @@ public struct FlowBarGalleryEntry: Sendable {
     /// The idle pill after its fade.
     public let faded: Bool?
 
-    init(_ name: String, _ state: FlowBarState, hover: Bool = false, elapsed: TimeInterval? = nil, words: Int? = nil, faded: Bool? = nil) {
+    public init(_ name: String, _ state: FlowBarState, hover: Bool = false, elapsed: TimeInterval? = nil, words: Int? = nil, faded: Bool? = nil) {
         self.name = name
         self.state = state
         self.hover = hover
