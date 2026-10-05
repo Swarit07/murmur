@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Murmur · Flow Bar and menu bar</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#EAE0D3;color:#1F1E1D;font-family:Geist,system-ui,sans-serif;-webkit-font-smoothing:antialiased}a{color:#1F1E1D}a:hover{color:#B54C3C}</style>
+</helmet>
+
+<section style="width:1308px;box-sizing:border-box;padding:64px;display:flex;flex-direction:column;gap:48px;align-items:flex-start;background:#EAE0D3;color:#1F1E1D;font-family:Geist,system-ui,sans-serif">
+
+<div style="display:flex;align-items:center;gap:16px">
+  <img src="assets/murmur-logo.svg" alt="Murmur" style="height:36px;display:block">
+  <span style="font:500 12px 'Geist Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#8A857C">UI kit · Flow Bar &amp; menu bar</span>
+</div>
+
+<div data-screen-label="01 Flow Bar" style="width:1180px;background:#F6EEE4;border:1px solid rgba(31,30,29,.16);border-radius:24px;padding:48px;display:flex;flex-direction:column;gap:40px;box-sizing:border-box">
+  <div style="display:flex;align-items:baseline;gap:20px;flex-wrap:wrap">
+    <span style="font:500 12px 'Geist Mono',monospace;letter-spacing:.08em;color:#8A857C">01</span>
+    <h2 style="margin:0;font:400 44px/1 Newsreader,serif;letter-spacing:-.01em">Flow Bar</h2>
+    <p style="margin:0;font-size:14px;color:#8A857C;max-width:520px;text-wrap:pretty">A matte ink pill that sits 8pt above the Dock. Clay appears only while the mic is live. All states share one 36pt height; width animates with a 240ms spring.</p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px">
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="height:148px;border-radius:16px;background:#EDE3D6;border:1px solid rgba(31,30,29,.08);position:relative;display:flex;align-items:flex-end;justify-content:center;padding-bottom:30px;box-sizing:border-box">
+        <div style="width:52px;height:12px;border-radius:999px;background:#1F1E1D;box-shadow:inset 0 0 0 1px rgba(246,238,228,.12);display:flex;align-items:center;justify-content:center"><div style="width:20px;height:1.5px;border-radius:2px;background:rgba(246,238,228,.45)"></div></div>
+        <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:220px;height:10px;border-radius:6px;border:1px solid rgba(31,30,29,.14);border-bottom:none"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding:0 4px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:500;font-size:15px">Idle</span><span style="font:400 11px 'Geist Mono',monospace;color:#8A857C">52 × 12</span></div>
+        <span style="font-size:13px;color:#8A857C;text-wrap:pretty">Low-profile resting pill. Hover grows it to 28pt and shows “Hold [HOTKEY] to dictate”. Fades to 40% after 10s.</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="height:148px;border-radius:16px;background:#EDE3D6;border:1px solid rgba(31,30,29,.08);position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;padding-bottom:22px;box-sizing:border-box">
+        <div style="height:28px;padding:0 10px;border-radius:999px;background:#1F1E1D;color:#F6EEE4;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;white-space:nowrap">Hold <span style="min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:5px;box-shadow:inset 0 0 0 1px rgba(246,238,228,.3), inset 0 -1.5px 0 rgba(246,238,228,.2);font:500 10px 'Geist Mono',monospace;display:grid;place-items:center">[HOTKEY]</span> to dictate</div>
+        <div style="width:76px;height:28px;border-radius:999px;background:#1F1E1D;box-shadow:inset 0 0 0 1px rgba(246,238,228,.12);display:flex;align-items:center;justify-content:center">
+          <x-import component-from-global-scope="MurmurWave" from="./murmur-motion.js" w="44" h="12" color="rgba(246,238,228,0.6)" still="true" level="0.35" hint-size="44px,12px"></x-import>
+        </div>
+        <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:220px;height:10px;border-radius:6px;border:1px solid rgba(31,30,29,.14);border-bottom:none"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding:0 4px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:500;font-size:15px">Idle · hover</span><span style="font:400 11px 'Geist Mono',monospace;color:#8A857C">400ms delay</span></div>
+        <span style="font-size:13px;color:#8A857C;text-wrap:pretty">Grows to 76 × 28 with a still hairline wave. The tooltip names the user’s own shortcut; a click starts hands-free.</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="height:148px;border-radius:16px;background:#EDE3D6;border:1px solid rgba(31,30,29,.08);position:relative;display:flex;align-items:flex-end;justify-content:center;padding-bottom:22px;box-sizing:border-box">
+        <div style="height:36px;padding:0 16px;border-radius:999px;background:#1F1E1D;box-shadow:inset 0 0 0 1px rgba(246,238,228,.12);display:flex;align-items:center;gap:10px">
+          <span style="width:6px;height:6px;border-radius:6px;background:#D9705F"></span>
+          <x-import component-from-global-scope="MurmurWave" from="./murmur-motion.js" w="112" h="22" color="#D9705F" hint-size="112px,22px"></x-import>
+        </div>
+        <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:220px;height:10px;border-radius:6px;border:1px solid rgba(31,30,29,.14);border-bottom:none"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding:0 4px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:500;font-size:15px">Listening · hold-to-talk</span><span style="font:400 11px 'Geist Mono',monospace;color:#8A857C">hold [HOTKEY]</span></div>
+        <span style="font-size:13px;color:#8A857C;text-wrap:pretty">Expands from idle on key-down. The logo’s tail becomes the live waveform, amplitude follows input level at 60fps.</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="height:148px;border-radius:16px;background:#EDE3D6;border:1px solid rgba(31,30,29,.08);position:relative;display:flex;align-items:flex-end;justify-content:center;padding-bottom:22px;box-sizing:border-box">
+        <div style="height:36px;padding:0 6px;border-radius:999px;background:#1F1E1D;box-shadow:inset 0 0 0 1px rgba(246,238,228,.12);display:flex;align-items:center;gap:10px">
+          <div style="width:24px;height:24px;border-radius:24px;background:#34312E;display:grid;place-items:center;color:#F6EEE4"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></div>
+          <x-import component-from-global-scope="MurmurWave" from="./murmur-motion.js" w="96" h="22" color="#D9705F" hint-size="96px,22px"></x-import>
+          <span style="font:500 11px 'Geist Mono',monospace;color:rgba(246,238,228,.7)">0:07</span>
+          <div style="width:24px;height:24px;border-radius:24px;background:#D9705F;display:grid;place-items:center"><div style="width:8px;height:8px;border-radius:2px;background:#1F1E1D"></div></div>
+        </div>
+        <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:220px;height:10px;border-radius:6px;border:1px solid rgba(31,30,29,.14);border-bottom:none"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding:0 4px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:500;font-size:15px">Listening · hands-free</span><span style="font:400 11px 'Geist Mono',monospace;color:#8A857C">double-tap [HOTKEY]</span></div>
+        <span style="font-size:13px;color:#8A857C;text-wrap:pretty">Locked on. ✕ discards, ■ stops and transcribes. Timer appears after 3s; pill nudges at 5 min.</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="height:148px;border-radius:16px;background:#EDE3D6;border:1px solid rgba(31,30,29,.08);position:relative;display:flex;align-items:flex-end;justify-content:center;padding-bottom:22px;box-sizing:border-box">
+        <div style="height:36px;width:144px;border-radius:999px;background:#1F1E1D;box-shadow:inset 0 0 0 1px rgba(246,238,228,.12);display:flex;align-items:center;justify-content:center">
+          <x-import component-from-global-scope="MurmurDots" from="./murmur-motion.js" size="5" color="#F6EEE4" hint-size="40px,15px"></x-import>
+        </div>
+        <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:220px;height:10px;border-radius:6px;border:1px solid rgba(31,30,29,.14);border-bottom:none"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding:0 4px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:500;font-size:15px">Processing</span><span style="font:400 11px 'Geist Mono',monospace;color:#8A857C">key-up → ~400ms</span></div>
+        <span style="font-size:13px;color:#8A857C;text-wrap:pretty">Waveform collapses into five ivory dots that ripple left to right. Clay leaves: the mic is off.</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="height:148px;border-radius:16px;background:#EDE3D6;border:1px solid rgba(31,30,29,.08);position:relative;display:flex;align-items:flex-end;justify-content:center;padding-bottom:22px;box-sizing:border-box">
+        <div style="height:36px;padding:0 16px 0 12px;border-radius:999px;background:#1F1E1D;box-shadow:inset 0 0 0 1px rgba(246,238,228,.12);display:flex;align-items:center;gap:8px;color:#F6EEE4">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>
+          <span style="font-size:13px;font-weight:500">Inserted</span><span style="font-size:13px;color:rgba(246,238,228,.55)">24 words</span>
+        </div>
+        <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:220px;height:10px;border-radius:6px;border:1px solid rgba(31,30,29,.14);border-bottom:none"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding:0 4px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:500;font-size:15px">Inserted</span><span style="font:400 11px 'Geist Mono',monospace;color:#8A857C">1.2s, then idle</span></div>
+        <span style="font-size:13px;color:#8A857C;text-wrap:pretty">Check draws on (180ms stroke), holds, then the pill shrinks back to idle.</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="height:148px;border-radius:16px;background:#EDE3D6;border:1px solid rgba(31,30,29,.08);position:relative;display:flex;align-items:flex-end;justify-content:center;padding-bottom:22px;box-sizing:border-box">
+        <div style="padding:8px 8px 8px 12px;border-radius:16px;background:#1F1E1D;box-shadow:inset 0 0 0 1px rgba(246,238,228,.12);display:flex;align-items:center;gap:10px;color:#F6EEE4">
+          <x-import component-from-global-scope="MurmurRing" from="./murmur-motion.js" size="22" duration="5" hint-size="22px,22px"></x-import>
+          <span style="font-size:13px;font-weight:500;margin-right:4px">Cancelled</span>
+          <span style="height:26px;padding:0 10px;border-radius:8px;background:#F6EEE4;color:#1F1E1D;font-size:12px;font-weight:500;display:flex;align-items:center">Undo</span>
+          <span style="height:26px;padding:0 10px;border-radius:8px;box-shadow:inset 0 0 0 1px rgba(246,238,228,.22);font-size:12px;display:flex;align-items:center">Open History</span>
+        </div>
+        <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:220px;height:10px;border-radius:6px;border:1px solid rgba(31,30,29,.14);border-bottom:none"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding:0 4px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:500;font-size:15px">Cancelled toast</span><span style="font:400 11px 'Geist Mono',monospace;color:#8A857C">5s countdown</span></div>
+        <span style="font-size:13px;color:#8A857C;text-wrap:pretty">After ✕ or Esc. Ring drains over 5s; Undo transcribes the discarded audio. Audio is kept in History until then.</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="height:148px;border-radius:16px;background:#EDE3D6;border:1px solid rgba(31,30,29,.08);position:relative;display:flex;align-items:flex-end;justify-content:center;padding-bottom:22px;box-sizing:border-box">
+        <div style="padding:0 14px 0 12px;height:40px;border-radius:16px;background:#1F1E1D;box-shadow:inset 0 0 0 1px rgba(246,238,228,.12);display:flex;align-items:center;gap:10px;color:#F6EEE4">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3.5h6v3H9z"></path><path d="M8 5H6v15.5h12V5h-2"></path></svg>
+          <span style="font-size:13px">Copied to clipboard — press</span>
+          <span style="display:flex;gap:3px"><span style="min-width:20px;height:20px;padding:0 5px;box-sizing:border-box;border-radius:5px;box-shadow:inset 0 0 0 1px rgba(246,238,228,.3), inset 0 -1.5px 0 rgba(246,238,228,.2);font:500 11px 'Geist Mono',monospace;display:grid;place-items:center">⌘</span><span style="min-width:20px;height:20px;padding:0 5px;box-sizing:border-box;border-radius:5px;box-shadow:inset 0 0 0 1px rgba(246,238,228,.3), inset 0 -1.5px 0 rgba(246,238,228,.2);font:500 11px 'Geist Mono',monospace;display:grid;place-items:center">V</span></span>
+        </div>
+        <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:220px;height:10px;border-radius:6px;border:1px solid rgba(31,30,29,.14);border-bottom:none"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding:0 4px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:500;font-size:15px">Paste error</span><span style="font:400 11px 'Geist Mono',monospace;color:#8A857C">4s</span></div>
+        <span style="font-size:13px;color:#8A857C;text-wrap:pretty">The target app blocked synthetic paste. Text is safe on the clipboard; toast slides up 8pt and fades.</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="height:148px;border-radius:16px;background:#EDE3D6;border:1px solid rgba(31,30,29,.08);position:relative;display:flex;align-items:flex-end;justify-content:center;padding-bottom:22px;box-sizing:border-box">
+        <div style="padding:6px 6px 6px 12px;border-radius:16px;background:#1F1E1D;box-shadow:inset 0 0 0 1px rgba(246,238,228,.12);display:flex;align-items:center;gap:10px;color:#F6EEE4">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l9 16H3z"></path><path d="M12 10v4"></path><path d="M12 17v.5"></path></svg>
+          <div style="display:flex;flex-direction:column"><span style="font-size:13px;font-weight:500">Couldn’t transcribe that</span><span style="font-size:11px;color:rgba(246,238,228,.55)">Engine timed out · audio saved</span></div>
+          <span style="height:28px;padding:0 10px;border-radius:8px;background:#F6EEE4;color:#1F1E1D;font-size:12px;font-weight:500;display:flex;align-items:center;gap:6px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6"></path><path d="M20 4v5h-5"></path></svg>Retry</span>
+        </div>
+        <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:220px;height:10px;border-radius:6px;border:1px solid rgba(31,30,29,.14);border-bottom:none"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding:0 4px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:500;font-size:15px">Transcription error</span><span style="font:400 11px 'Geist Mono',monospace;color:#8A857C">sticky 8s</span></div>
+        <span style="font-size:13px;color:#8A857C;text-wrap:pretty">Gentle 2pt horizontal shake on entry, no red. Retry re-runs the same recording.</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="height:148px;border-radius:16px;background:#EDE3D6;border:1px solid rgba(31,30,29,.08);position:relative;display:flex;align-items:flex-end;justify-content:center;padding-bottom:22px;box-sizing:border-box">
+        <div style="padding:6px 6px 6px 12px;border-radius:16px;background:#1F1E1D;box-shadow:inset 0 0 0 1px rgba(246,238,228,.12);display:flex;align-items:center;gap:10px;color:#F6EEE4">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="2.5"></rect><path d="M8 10v4"></path></svg>
+          <div style="display:flex;flex-direction:column"><span style="font-size:13px;font-weight:500">No text box selected</span><span style="font-size:11px;color:rgba(246,238,228,.55)">Saved to History and clipboard</span></div>
+          <span style="height:28px;padding:0 10px;border-radius:8px;box-shadow:inset 0 0 0 1px rgba(246,238,228,.22);font-size:12px;display:flex;align-items:center">Dismiss</span>
+        </div>
+        <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:220px;height:10px;border-radius:6px;border:1px solid rgba(31,30,29,.14);border-bottom:none"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding:0 4px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:500;font-size:15px">No text box</span><span style="font:400 11px 'Geist Mono',monospace;color:#8A857C">until dismissed</span></div>
+        <span style="font-size:13px;color:#8A857C;text-wrap:pretty">Focus wasn’t in an editable field at key-up. Nothing is lost; the transcript waits in History.</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="height:148px;border-radius:16px;background:#EDE3D6;border:1px solid rgba(31,30,29,.08);position:relative;display:flex;align-items:flex-end;justify-content:center;padding-bottom:22px;box-sizing:border-box">
+        <div style="width:276px;padding:10px;border-radius:16px;background:#1F1E1D;box-shadow:inset 0 0 0 1px rgba(246,238,228,.12);display:flex;flex-direction:column;gap:10px;color:#F6EEE4;box-sizing:border-box">
+          <div style="display:flex;align-items:center;gap:10px;padding-left:2px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 9.5V6a3 3 0 0 0-5.6-1.5"></path><path d="M9 9v3a3 3 0 0 0 4.6 2.5"></path><path d="M5 11a7 7 0 0 0 11.5 5.4"></path><path d="M19 11a7 7 0 0 1-.6 2.8"></path><path d="M12 18v3"></path><path d="M4 4l16 16"></path></svg>
+            <div style="display:flex;flex-direction:column"><span style="font-size:13px;font-weight:500">We couldn’t hear you</span><span style="font-size:11px;color:rgba(246,238,228,.55)">No speech from MacBook Pro Microphone</span></div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <span style="height:26px;padding:0 10px;border-radius:8px;background:#F6EEE4;color:#1F1E1D;font-size:12px;font-weight:500;display:flex;align-items:center">Switch microphone</span>
+            <span style="height:26px;padding:0 10px;border-radius:8px;box-shadow:inset 0 0 0 1px rgba(246,238,228,.22);font-size:12px;display:flex;align-items:center">Test mic</span>
+          </div>
+        </div>
+        <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:220px;height:10px;border-radius:6px;border:1px solid rgba(31,30,29,.14);border-bottom:none"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding:0 4px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:500;font-size:15px">No audio</span><span style="font:400 11px 'Geist Mono',monospace;color:#8A857C">sticky 8s</span></div>
+        <span style="font-size:13px;color:#8A857C;text-wrap:pretty">The mic delivered silence. The fix is one click away; Test mic opens the level meter from onboarding.</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="height:148px;border-radius:16px;background:#EDE3D6;border:1px solid rgba(31,30,29,.08);position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:8px;padding-bottom:26px;box-sizing:border-box">
+        <div style="width:204px;background:#FBF7F1;border:1px solid rgba(31,30,29,.18);border-radius:10px;padding:4px;box-sizing:border-box;font-size:12px;box-shadow:0 10px 24px -12px rgba(31,30,29,.2)">
+          <div style="display:flex;justify-content:space-between;align-items:center;height:20px;padding:0 8px;border-radius:5px;background:#1F1E1D;color:#F6EEE4"><span>Start hands-free</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;height:20px;padding:0 8px;border-radius:5px"><span>Paste last transcript</span><span style="color:#8A857C">⌃⌥V</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;height:20px;padding:0 8px;border-radius:5px"><span>Hide for 1 hour</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;height:20px;padding:0 8px;border-radius:5px"><span>Settings…</span><span style="color:#8A857C">⌘,</span></div>
+        </div>
+        <div style="width:52px;height:12px;border-radius:999px;background:#1F1E1D;box-shadow:inset 0 0 0 1px rgba(246,238,228,.12);display:flex;align-items:center;justify-content:center;flex:none"><div style="width:20px;height:1.5px;border-radius:2px;background:rgba(246,238,228,.45)"></div></div>
+        <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:220px;height:10px;border-radius:6px;border:1px solid rgba(31,30,29,.14);border-bottom:none"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding:0 4px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:500;font-size:15px">Right-click menu</span><span style="font:400 11px 'Geist Mono',monospace;color:#8A857C">native menu</span></div>
+        <span style="font-size:13px;color:#8A857C;text-wrap:pretty">Quick actions without opening the Hub. Highlight is ink, same as the menu bar.</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:16px;align-self:stretch">
+    <span style="font:500 12px 'Geist Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#8A857C">On a dark desktop</span>
+    <div style="height:120px;border-radius:16px;background:#1F1E1D;display:flex;align-items:center;justify-content:space-around;padding:0 24px">
+      <div style="width:52px;height:12px;border-radius:999px;background:#2C2A27;box-shadow:inset 0 0 0 1px rgba(246,238,228,.18);display:flex;align-items:center;justify-content:center"><div style="width:20px;height:1.5px;border-radius:2px;background:rgba(246,238,228,.45)"></div></div>
+      <div style="height:36px;padding:0 16px;border-radius:999px;background:#2C2A27;box-shadow:inset 0 0 0 1px rgba(246,238,228,.18);display:flex;align-items:center;gap:10px">
+        <span style="width:6px;height:6px;border-radius:6px;background:#D9705F"></span>
+        <x-import component-from-global-scope="MurmurWave" from="./murmur-motion.js" w="112" h="22" color="#D9705F" hint-size="112px,22px"></x-import>
+      </div>
+      <div style="height:36px;width:144px;border-radius:999px;background:#2C2A27;box-shadow:inset 0 0 0 1px rgba(246,238,228,.18);display:flex;align-items:center;justify-content:center">
+        <x-import component-from-global-scope="MurmurDots" from="./murmur-motion.js" size="5" color="#F6EEE4" hint-size="40px,15px"></x-import>
+      </div>
+      <div style="height:36px;padding:0 16px 0 12px;border-radius:999px;background:#2C2A27;box-shadow:inset 0 0 0 1px rgba(246,238,228,.18);display:flex;align-items:center;gap:8px;color:#F6EEE4">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg>
+        <span style="font-size:13px;font-weight:500">Inserted</span><span style="font-size:13px;color:rgba(246,238,228,.55)">24 words</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div data-screen-label="02 Menu bar" style="width:1180px;background:#F6EEE4;border:1px solid rgba(31,30,29,.16);border-radius:24px;padding:48px;display:flex;flex-direction:column;gap:40px;box-sizing:border-box">
+  <div style="display:flex;align-items:baseline;gap:20px;flex-wrap:wrap">
+    <span style="font:500 12px 'Geist Mono',monospace;letter-spacing:.08em;color:#8A857C">02</span>
+    <h2 style="margin:0;font:400 44px/1 Newsreader,serif;letter-spacing:-.01em">Menu bar</h2>
+    <p style="margin:0;font-size:14px;color:#8A857C;max-width:520px;text-wrap:pretty">18pt template icon: the M with a single short wave. Monochrome so macOS can tint it; clay only while recording.</p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="height:30px;border-radius:8px;background:#FBF7F1;border:1px solid rgba(31,30,29,.12);display:flex;align-items:center;justify-content:flex-end;gap:16px;padding:0 12px;font-size:13px">
+        <div style="width:22px;height:22px;border-radius:5px;background:rgba(31,30,29,.08);display:grid;place-items:center"><div style="width:18px;height:18px;background:#1F1E1D;-webkit-mask:url(assets/menubar-template.svg) center/contain no-repeat;mask:url(assets/menubar-template.svg) center/contain no-repeat"></div></div>
+        <span style="font-weight:500">Mon 5 Oct  9:41</span>
+      </div>
+      <span style="font-size:13px"><b style="font-weight:500">Idle</b> <span style="color:#8A857C">· template, system-tinted</span></span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="height:30px;border-radius:8px;background:#FBF7F1;border:1px solid rgba(31,30,29,.12);display:flex;align-items:center;justify-content:flex-end;gap:16px;padding:0 12px;font-size:13px">
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:18px;height:18px;background:#B54C3C;-webkit-mask:url(assets/menubar-template.svg) center/contain no-repeat;mask:url(assets/menubar-template.svg) center/contain no-repeat"></div><span style="width:5px;height:5px;border-radius:5px;background:#B54C3C"></span></div>
+        <span style="font-weight:500">Mon 5 Oct  9:41</span>
+      </div>
+      <span style="font-size:13px"><b style="font-weight:500">Recording</b> <span style="color:#8A857C">· clay + live dot</span></span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="height:30px;border-radius:8px;background:#FBF7F1;border:1px solid rgba(31,30,29,.12);display:flex;align-items:center;justify-content:flex-end;gap:16px;padding:0 12px;font-size:13px">
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:18px;height:18px;background:#1F1E1D;opacity:.45;-webkit-mask:url(assets/menubar-template.svg) center/contain no-repeat;mask:url(assets/menubar-template.svg) center/contain no-repeat"></div><x-import component-from-global-scope="MurmurDots" from="./murmur-motion.js" size="2.5" color="#1F1E1D" hint-size="18px,8px"></x-import></div>
+        <span style="font-weight:500">Mon 5 Oct  9:41</span>
+      </div>
+      <span style="font-size:13px"><b style="font-weight:500">Processing</b> <span style="color:#8A857C">· dimmed + ripple</span></span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="height:30px;border-radius:8px;background:#FBF7F1;border:1px solid rgba(31,30,29,.12);display:flex;align-items:center;justify-content:flex-end;gap:16px;padding:0 12px;font-size:13px">
+        <div style="position:relative;width:22px;height:18px"><div style="width:18px;height:18px;background:#1F1E1D;-webkit-mask:url(assets/menubar-template.svg) center/contain no-repeat;mask:url(assets/menubar-template.svg) center/contain no-repeat"></div><span style="position:absolute;right:-2px;bottom:-1px;width:9px;height:9px;border-radius:9px;background:#1F1E1D;box-shadow:0 0 0 1.5px #FBF7F1;color:#FBF7F1;font:700 7px/9px Geist,sans-serif;text-align:center">!</span></div>
+        <span style="font-weight:500">Mon 5 Oct  9:41</span>
+      </div>
+      <span style="font-size:13px"><b style="font-weight:500">Error</b> <span style="color:#8A857C">· ink badge, never red</span></span>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:40px;align-items:flex-start">
+    <div style="display:flex;gap:4px;align-items:flex-start;flex:none">
+      <div style="width:280px;background:#FBF7F1;border:1px solid rgba(31,30,29,.18);border-radius:12px;padding:6px;box-sizing:border-box;font-size:13px;box-shadow:0 12px 32px -12px rgba(31,30,29,.18)">
+        <div style="padding:8px 10px 10px;display:flex;flex-direction:column;gap:2px"><span style="font-weight:500">Murmur is ready</span><span style="color:#8A857C;font-size:12px">Hold [HOTKEY] to dictate · double-tap for hands-free</span></div>
+        <div style="height:1px;background:rgba(31,30,29,.1);margin:4px 8px"></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 10px;border-radius:6px"><span>Open Murmur</span><span style="color:#8A857C">⌘O</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 10px;border-radius:6px"><span>Paste last transcript</span><span style="color:#8A857C">⌃⌥V</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 10px;border-radius:6px"><span>Copy last transcript</span><span style="color:#8A857C">⌃⌥C</span></div>
+        <div style="height:1px;background:rgba(31,30,29,.1);margin:4px 8px"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;border-radius:6px;background:#1F1E1D;color:#F6EEE4"><span>Microphone</span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 10px;border-radius:6px"><span>Hide Flow Bar for 1 hour</span></div>
+        <div style="height:1px;background:rgba(31,30,29,.1);margin:4px 8px"></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 10px;border-radius:6px"><span>Shortcuts…</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 10px;border-radius:6px"><span>Settings…</span><span style="color:#8A857C">⌘,</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 10px;border-radius:6px"><span>Check permissions</span></div>
+        <div style="height:1px;background:rgba(31,30,29,.1);margin:4px 8px"></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 10px;border-radius:6px"><span>Quit Murmur</span><span style="color:#8A857C">⌘Q</span></div>
+        <div style="padding:8px 10px 4px;font:400 11px 'Geist Mono',monospace;color:#8A857C">v[VERSION] · on-device engine</div>
+      </div>
+      <div style="margin-top:142px;width:248px;background:#FBF7F1;border:1px solid rgba(31,30,29,.18);border-radius:12px;padding:6px;box-sizing:border-box;font-size:13px;box-shadow:0 12px 32px -12px rgba(31,30,29,.18)">
+        <div style="display:flex;gap:8px;padding:5px 10px;border-radius:6px"><span style="width:12px">✓</span><span>Automatic <span style="color:#8A857C">(Built-in)</span></span></div>
+        <div style="display:flex;gap:8px;padding:5px 10px;border-radius:6px"><span style="width:12px"></span><span>MacBook Pro Microphone</span></div>
+        <div style="display:flex;gap:8px;padding:5px 10px;border-radius:6px"><span style="width:12px"></span><span>Studio USB Mic</span></div>
+        <div style="display:flex;gap:8px;padding:5px 10px;border-radius:6px"><span style="width:12px"></span><span>Wireless Earbuds</span></div>
+        <div style="height:1px;background:rgba(31,30,29,.1);margin:4px 8px"></div>
+        <div style="display:flex;gap:8px;padding:5px 10px;border-radius:6px"><span style="width:12px"></span><span>Sound Settings…</span></div>
+      </div>
+    </div>
+
+    <div style="width:280px;flex:none;background:#2A2826;border:1px solid rgba(246,238,228,.14);border-radius:12px;padding:6px;box-sizing:border-box;font-size:13px;color:#F6EEE4">
+      <div style="padding:8px 10px 10px;display:flex;align-items:center;gap:10px">
+        <span style="width:7px;height:7px;border-radius:7px;background:#D9705F;flex:none"></span>
+        <div style="display:flex;flex-direction:column;gap:2px;flex:1"><span style="font-weight:500">Listening…</span><span style="color:#A39E95;font-size:12px">Studio USB Mic</span></div>
+        <span style="font:500 12px 'Geist Mono',monospace;color:#A39E95">0:04</span>
+      </div>
+      <div style="height:1px;background:rgba(246,238,228,.1);margin:4px 8px"></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 10px;border-radius:6px"><span>Open Murmur</span><span style="color:#A39E95">⌘O</span></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 10px;border-radius:6px;background:#F6EEE4;color:#1F1E1D"><span>Paste last transcript</span><span style="color:#5E5A54">⌃⌥V</span></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 10px;border-radius:6px"><span>Copy last transcript</span><span style="color:#A39E95">⌃⌥C</span></div>
+      <div style="height:1px;background:rgba(246,238,228,.1);margin:4px 8px"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;border-radius:6px"><span>Microphone</span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 10px;border-radius:6px"><span>Hide Flow Bar for 1 hour</span></div>
+      <div style="height:1px;background:rgba(246,238,228,.1);margin:4px 8px"></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 10px;border-radius:6px"><span>Shortcuts…</span></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 10px;border-radius:6px"><span>Settings…</span><span style="color:#A39E95">⌘,</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;border-radius:6px"><span>Check permissions</span><span style="font:500 10px Geist,sans-serif;padding:2px 6px;border-radius:4px;box-shadow:inset 0 0 0 1px rgba(246,238,228,.3);color:#F6EEE4">1 missing</span></div>
+      <div style="height:1px;background:rgba(246,238,228,.1);margin:4px 8px"></div>
+      <div style="display:flex;justify-content:space-between;padding:5px 10px;border-radius:6px"><span>Quit Murmur</span><span style="color:#A39E95">⌘Q</span></div>
+      <div style="padding:8px 10px 4px;font:400 11px 'Geist Mono',monospace;color:#A39E95">v[VERSION] · on-device engine</div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;flex:1 1 180px;min-width:0;padding-top:8px">
+      <span style="font:500 12px 'Geist Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#8A857C">Notes</span>
+      <p style="margin:0;font-size:13px;color:#1F1E1D;text-wrap:pretty">Status header mirrors the Flow Bar — ready, listening with live timer, processing, or the last error with a one-line fix.</p>
+      <p style="margin:0;font-size:13px;color:#1F1E1D;text-wrap:pretty">Highlight is ink on light, ivory on dark. Clay never highlights menu items.</p>
+      <p style="margin:0;font-size:13px;color:#1F1E1D;text-wrap:pretty">“Check permissions” shows a count badge when Microphone, Accessibility or Input Monitoring is missing.</p>
+    </div>
+  </div>
+</div>
+
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1308,"height":2280}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
