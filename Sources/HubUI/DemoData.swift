@@ -4,6 +4,31 @@ import MurmurKit
 /// Demo content for design snapshots and the gallery (UI_REDESIGN.md v2 §9: the boards' names, rows,
 /// dictionary and snippets are fixture data for snapshots only). Never written to the owner's store.
 public enum DemoData {
+    /// Edge cases for QA (`murmur-snap --stress`): very long transcripts, names, triggers and expansions,
+    /// a long app name, an unbroken token, and many rows across days.
+    public static func seedStress(_ store: HistoryStore) {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let long = String(repeating: "This is a very long dictation that keeps going to test wrapping and truncation in the History list. ", count: 6)
+        let rows: [(Int, String, String, String, DictationRecord.Status)] = [
+            (0, "Microsoft Outlook Web Access (Enterprise Edition)", "com.microsoft.Outlook", long, .inserted),
+            (0, "Terminal", "com.apple.Terminal", "https://example.com/a/very/long/url/without/any/spaces/that/should/not/overflow/the/row/" + String(repeating: "x", count: 120), .inserted),
+            (0, "Notes", "com.apple.Notes", "Short.", .inserted),
+            (-1, "Mail", "com.apple.mail", "Numbers 1,234,567.89 and dates 2026-10-05 and emoji-free symbols ⌘⌥⇧ ← → and quotes “like this”.", .pasteFailed),
+            (-3, "Slack", "com.tinyspeck.slackmacgap", "Older row from earlier in the week.", .inserted),
+            (-40, "Safari", "com.apple.Safari", "Much older row from last month.", .inserted),
+        ]
+        for (i, row) in rows.enumerated() {
+            let date = calendar.date(byAdding: DateComponents(day: row.0, hour: 9, minute: 50 - i), to: today) ?? today
+            try? store.insert(DictationRecord(startedAt: date, durationMs: 9_000, appBundleId: row.2, appName: row.1, mode: "hold",
+                                              engine: "parakeet-ultra", cleanup: "mlx:qwen3.5-4b", rawText: row.3, cleanText: row.3, status: row.4))
+        }
+        try? store.save(DictionaryRecord(term: "Supercalifragilisticexpialidocious Incorporated Holdings", replacement: "Supercalifragilisticexpialidocious Incorporated Holdings International", source: .manual))
+        try? store.save(DictionaryRecord(term: "a", replacement: "A", source: .suggested))
+        try? store.save(SnippetRecord(cue: "an extremely long trigger phrase that someone might actually say out loud", expansion: long))
+        try? store.save(SnippetRecord(cue: "x", expansion: "y"))
+    }
+
     public static func seed(_ store: HistoryStore) {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
