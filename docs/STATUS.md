@@ -12,7 +12,7 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 | 3 | Cleanup | Done | **Passed** | 27/30 corrections (28/30 re-run with Smart Formatting), guard 291/291, stall 855 ms. T4 re-measured, see below. [m3-report](m3-report.md) |
 | 4 | App windows | Done, plus QA and redesign pass | **Deferred to the end by owner** | Fresh-account onboarding and permission revocation need the owner's hands; steps in [m4-gate](m4-gate.md). QA pass: [m4-qa](m4-qa.md) |
 | 5 | Context | Done | **Passed** (automated) | Style test 64/64; Command Mode round trip with one-step Undo; self-test 19/19. [m5-report](m5-report.md) |
-| 6 | Polish | Not started | — | Needs measured tokens from recordings of the reference app (owner) |
+| 6 | Polish | **In progress** | Needs the owner | S2, I9, A6, idle unload and the performance pass done; measured tokens and the app matrix need the owner. [m6-report](m6-report.md) |
 | 7 | Windows (optional) | Not planned | — | |
 
 ## Requirements
@@ -66,7 +66,7 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 | I6 Secure fields | P0 | ✅ | |
 | I7 Paste and copy last | P0 | ✅ | ⌃⌘V / ⌃⌘C; the self-test checks Paste last |
 | I8 Layout-independent paste | P1 | ✅ | Key code looked up per paste for the current layout |
-| I9 Fallback typing | P2 | ⬜ | |
+| I9 Fallback typing | P2 | ✅ | Per-app list in System; clipboard untouched; self-test |
 | I10 One insertion at a time | P1 | ✅ | Insertion gate; regression test fails without it |
 | I11 Remote desktop delay | P2 | ✅ | 5 s restore delay for remote desktop apps (built in M1) |
 
@@ -74,7 +74,7 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 | ID | Pri | Status | Evidence / notes |
 |---|---|---|---|
 | S1 Dictionary | P1 | ✅ | Add, edit, delete; "Heard as"; spelling matcher |
-| S2 Suggestions | P2 | ⬜ | |
+| S2 Suggestions | P2 | ✅ | Corrected word → "Add to dictionary?" on the Flow Bar; self-test |
 | S3 Snippets | P1 | ✅ | Multi-line expansions; protected from cleanup |
 | S4 Styles | P1 | ✅ | Category from app or web address; deterministic styles; style-test 64/64 |
 | M1–M3 Command Mode | P1/P2 | ✅ | Rewrite selection or draft; one Undo; badge in History; self-test |
@@ -83,7 +83,7 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 | A3 Onboarding + permissions | P1 | ✅ | Revocation test deferred with the M4 gate |
 | A4 History | P1 | ✅ | Search, j/k, Return copies, Play, Retry/Recover, day groups |
 | A5 Settings pages | P1 | ✅ | General, System (Flow Bar, Smart Formatting), Style, Experimental, Data and Privacy |
-| A6 Hide Flow Bar 1 h | P2 | 🟡 | Hide and Show from the menu; no Undo yet |
+| A6 Hide Flow Bar 1 h | P2 | ✅ | Hide shows a card with Undo |
 | A7 Launch at login | P1 | ✅ | SMAppService |
 | A8 Reduce Motion | P1 | ✅ | Flow Bar and Hub |
 | A9 Never store | P2 | ✅ | |
@@ -99,6 +99,10 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 | C4 real-voice clips | Optional | Owner | Synthetic-voice results recorded; comma is the weak spot |
 | Gemma 3 1B | Excluded | Claude | Never stops generating |
 | Speculative decoding | Not default | Claude | Only ~12% faster on long inputs |
+
+## Performance (section 7)
+
+Release to text p50 **623 ms**, p95 **1,111 ms** (targets 800 ms and 1.5 s), from 38 real dictations. Idle CPU 0%. Models unload after 10 idle minutes: footprint 2.6 GB → ~0.25 GB. The 120 MB shell target is not met; see [m6-report](m6-report.md).
 
 ## Needs the owner
 
@@ -123,3 +127,10 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
   - D5 check.
   - Flow Bar Command accent.
   - Self-test 19/19, 129 unit tests.
+- **Milestone 6, without the owner's recordings:**
+  - S2 dictionary suggestions from corrections.
+  - I9 typing fallback.
+  - A6 hide with Undo.
+  - Idle unload of both models, with MLX cache clearing.
+  - Performance pass from real History timings.
+  - Self-test 21/21, 136 unit tests.

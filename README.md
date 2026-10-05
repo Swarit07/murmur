@@ -24,13 +24,18 @@ The full product spec is in [SPEC.md](SPEC.md). Progress against it is tracked i
   - A time limit that never holds up the paste.
 - **Personalization:**
   - A Dictionary with "Heard as" spellings and safe near-miss matching.
+  - Suggestions to add a word when you correct one.
   - Snippets that cleanup can't alter.
+  - Styles per app category (Personal, Work, Email, Other; web apps by address).
   - Language choice.
+- **Command Mode** (Settings › Experimental): hold Fn+Control and say "make this friendlier" or "translate to Spanish". Murmur rewrites the selection in place (one ⌘Z undoes it), or drafts at the cursor.
 - **Insertion:**
   - One paste per dictation, so one ⌘Z removes it.
   - Layout-independent ⌘V.
   - Focus guard.
   - ⌃⌘V pastes the last transcript; ⌃⌘C copies it.
+  - Optional "press enter" at the end.
+  - Typing instead of pasting for apps you list.
 - **App:**
   - Menu-bar app.
   - The Flow Bar overlay, which never takes focus.
@@ -39,6 +44,8 @@ The full product spec is in [SPEC.md](SPEC.md). Progress against it is tracked i
   - A permission watchdog.
   - Launch at login.
   - Never-store mode.
+  - Auto-stop at 20 minutes.
+  - Models unload after 10 idle minutes.
 
 ## Requirements
 
@@ -81,6 +88,7 @@ This builds the command-line tools with MLX: `murmur-cli` and `murmur-bench`.
 | `murmur-bench stall-test` | Stalled model still lands text within 1.5 s (C6) |
 | `murmur-bench vocab-test --pipeline mlx:qwen3.5-4b` | Dictionary recognition (T4) |
 | `murmur-bench vocab-false-test` | Dictionary words appearing where nobody said them (must be 0) |
+| `murmur-bench style-test` | Styles per category on cleaned corpus sentences (S4 gate) |
 | `murmur-bench long-test` | Cleanup time on 34–60-word dictations |
 | `murmur-bench punctuation-test` | Spoken punctuation (C4) |
 | `murmur-bench e2e` | Release-to-paste latency |
@@ -121,6 +129,8 @@ In the app, turn on **Settings › System › Debug menu** to get:
   - [M3](docs/m3-report.md)
   - [M4 QA pass](docs/m4-qa.md)
   - [M4 gate steps](docs/m4-gate.md)
+  - [M5](docs/m5-report.md)
+  - [M6](docs/m6-report.md)
 
 ## Branches
 
