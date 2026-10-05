@@ -150,3 +150,14 @@ Newest last. Each entry: date, decision, reason.
   - The owner's own dictations on this build were inserted in 291 to 779 ms.
   - Idle CPU is about 0%.
   - Commit `a74823d` also picked up 16 of the landing page's source files: another session is building it in `website/` in this same folder, and `git add -A` caught them. They were left in place rather than rewriting history under an active session; app commits now stage only app paths.
+- **2026-10-05 · Idle unload is on by default again: the reload leak is fixed in Murmur** ([mlx-unload-leak.md](mlx-unload-leak.md)). There were two leaks, both upstream.
+  - The ~408 MB per reload was Qwen3.5's fused GDN input projections (17 MB × 24 layers), not the embedding table. mlx-swift-lm's compiled decode traces read them without declaring them, so they became trace constants. MLX never frees released traces: its compile cache is per thread, and it does not break multi-output sibling cycles. Confining MLX to one thread still left 85–289 MB per reload.
+  - Each model build also stranded ~5,900 graph nodes (~4.3 MB): the lazily quantized random weights that `loadWeights` assigns over.
+
+  The fix:
+  - MLX compile is off (`MLX.compile(enable: false)`). Cleanup outputs are identical (110/110 on the corpus); latency is the same within noise (p50 251 vs 253 ms over 600 runs each; long dictations no slower).
+  - `unload()` keeps the model and replaces its weights with unevaluated zeros of the same shapes, which hold no memory. `load()` refills them with `loadWeights`, so the model is built only once.
+  - A flag checked inside `ModelContainer.perform` keeps a call queued behind an unload from running on the empty model.
+  - Turning the fusion off (`MLX_QWEN_FOUR_GDN=0`) also stops the first leak, but changes one corpus output, so it was not used.
+
+  Result: `reload-test` footprint after unload 129–136 MB over 10 reloads (was +440 MB each), 0 MB of MLX arrays. With Parakeet unloading too, no growth over 8 cycles. Reload takes 1.3 s instead of 2.0 s. `MURMUR_MLX_COMPILE=1` turns compile back on for comparison; once upstream fixes the traces, it can go back on.

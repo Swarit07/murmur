@@ -427,7 +427,7 @@ struct SystemSettings: View {
                 MToggleRow("Show in Dock", detail: "Murmur always stays in the menu bar.", isOn: $showInDock)
             }
             MSettingsGroup("Advanced") {
-                MToggleRow("Free memory when idle", detail: "After 10 minutes without dictation, Murmur unloads its models (about 2 GB) and reloads them as you start speaking. Off by default for now: each reload currently leaves about 400 MB behind.",
+                MToggleRow("Free memory when idle", detail: "After 10 minutes without dictation, Murmur unloads its models (about 2 GB) and reloads them as you start speaking.",
                            isOn: $unloadWhenIdle)
                 MToggleRow("Debug menu", detail: "Adds tools for testing the Flow Bar, sounds and focus to the menu bar menu.", isOn: $debug)
             }
