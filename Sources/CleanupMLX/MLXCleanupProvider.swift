@@ -152,7 +152,13 @@ public actor MLXCleanupProvider: CleanupProvider {
 
     public func unload() async {
         // Waits for any call still holding the model, so nothing runs on the GPU after this returns.
-        _ = await container?.perform { _ in 0 }
+        // Dropping the compiled traces first frees MLX's compiled functions (and the weights they took
+        // as inputs, the embedding table among them), which otherwise outlive the model: about
+        // 400 MB per reload.
+        _ = await container?.perform { context in
+            context.model.invalidateCompiledTraces()
+            return 0
+        }
         container = nil
         draft.context = nil
         prefix.clear()
@@ -163,6 +169,12 @@ public actor MLXCleanupProvider: CleanupProvider {
     }
 
     static let log = Logger(subsystem: "com.swaritsheel.Murmur", category: "mlx")
+
+    /// MLX's live and cached memory, for diagnostics.
+    public static func memoryReport() -> String {
+        Memory.clearCache()
+        return "MLX active \(Memory.activeMemory / 1_048_576) MB, cache \(Memory.cacheMemory / 1_048_576) MB"
+    }
 
     struct Request: Sendable {
         let rendered: [[String: any Sendable]]

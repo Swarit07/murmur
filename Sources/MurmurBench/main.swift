@@ -4,6 +4,9 @@ import Cleanup
 import Context
 import Core
 import Foundation
+#if canImport(CleanupMLX)
+import CleanupMLX
+#endif
 import Insertion
 import Pipeline
 import SpeechEngines
@@ -13,7 +16,7 @@ struct MurmurBench: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "murmur-bench",
         abstract: "Milestone 0 bake-off: record the corpus, run engines and cleanup models, write the report.",
-        subcommands: [RecordCorpus.self, Run.self, EnginePass.self, CleanupPass.self, StallTest.self, E2E.self, Report.self, Status.self, VocabTest.self, VocabFalseTest.self, StyleTest.self, CommandTest.self, LongTest.self, GuardTest.self, PunctuationTest.self],
+        subcommands: [RecordCorpus.self, Run.self, EnginePass.self, CleanupPass.self, StallTest.self, E2E.self, Report.self, Status.self, VocabTest.self, VocabFalseTest.self, StyleTest.self, CommandTest.self, ReloadTest.self, LongTest.self, GuardTest.self, PunctuationTest.self],
         defaultSubcommand: Status.self
     )
 }
@@ -735,6 +738,31 @@ struct CommandTest: AsyncParsableCommand {
         try ResultFiles.write(["passed": Double(passed), "total": Double(total), "p50": Stats.percentile(times, 50) ?? 0, "p95": Stats.percentile(times, 95) ?? 0],
                               to: paths.resultsURL.appendingPathComponent("command-test-\(ResultFiles.safeName(provider.id)).json"))
         await provider.unload()
+    }
+}
+
+// MARK: - reload-test
+
+struct ReloadTest: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "reload-test",
+        abstract: "Loads, runs and unloads the cleanup model several times (idle unload and reload). MLX memory after each unload is logged by the provider (category mlx); it must not grow."
+    )
+    @Option var provider: String = "mlx:qwen3.5-4b"
+    @Option var cycles: Int = 3
+
+    func run() async throws {
+        for i in 1...cycles {
+            guard let p = try CleanupCatalog.make(provider) else { return }
+            try await p.load()
+            _ = await CleanupRunner(provider: p, timeLimit: .seconds(5)).run("um so this is cycle number \(i)", request: CleanupRequest())
+            await p.unload()
+            #if canImport(CleanupMLX)
+            print("cycle \(i) unloaded: \(MLXCleanupProvider.memoryReport())")
+            try await Task.sleep(for: .seconds(2))
+            print("cycle \(i) +2 s: \(MLXCleanupProvider.memoryReport())")
+            #endif
+        }
     }
 }
 

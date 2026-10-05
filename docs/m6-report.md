@@ -10,7 +10,7 @@ Branch `milestone-6`, 2026-10-05 (overnight). The gate itself needs the owner. S
 | I9 typing instead of pasting | Settings › System lists apps that get the text typed as Unicode key events, with Return for line breaks. The clipboard is never touched. | Unit test; self-test in TextEdit with the clipboard's change count unchanged |
 | A6 hide with Undo | Hiding the Flow Bar for an hour shows a card with Undo. | Snapshot of the card |
 | I11 remote desktop | Clipboard restore waits 5 s in remote-desktop viewers (built in M1). | Unit test |
-| Idle unload (section 7) | Both models unload after 10 minutes without dictation and reload as the next dictation starts. MLX's buffer cache is cleared so the memory is really returned. | Footprint 2.6 GB loaded, ~0.25 GB unloaded; a self-test started unloaded passes 21/21; no growth over two runs |
+| Idle unload (section 7) | Both models unload after 10 minutes without dictation and reload as the next dictation starts. MLX's buffer cache is cleared so the memory is really returned. **Off by default for now**: each reload leaks about 400 MB inside mlx-swift-lm (see below). | Footprint 2.6 GB loaded, ~0.25 GB after the first unload; a self-test started unloaded passes 21/21 |
 | Spaces and full screen | The Flow Bar panel joins all Spaces, shows over full-screen apps and lifts when there is no Dock (built in M2). It follows the screen of the focused window. | M2 focus test; not tested on a second display |
 
 ## Performance (section 7)
@@ -23,7 +23,7 @@ Branch `milestone-6`, 2026-10-05 (overnight). The gate itself needs the owner. S
 | LLM cleanup | p50 381 ms, p95 847 ms | same |
 | Insertion | p50 2 ms, p95 11 ms | same |
 | Idle CPU < 1% | **0.0%** | `ps`, `top` |
-| App shell ≤ 120 MB | **Not met: ~225–300 MB with models unloaded** | `footprint`. About 170 MB of it is MLX arrays that stay alive after the model is released. The amount is fixed, not growing (see below). |
+| App shell ≤ 120 MB | **Not met** | ~225–300 MB after the first unload, and each reload leaks ~400 MB, so idle unload is off by default; with models loaded the footprint is flat at ~2.4 GB |
 
 ## Soak test
 
@@ -33,5 +33,5 @@ The self-test ran 10 times back to back: about 250 dictations, Command Mode runs
 
 - **Gate:** side-by-side recordings within 1 pt and one frame. Needs the owner's recordings of the reference app to measure the tokens; `Tokens.swift` still holds placeholders, by design (spec rule 5).
 - **App matrix** (spec section 8): manual, owner.
-- **Residual MLX memory after unload.** Loading Qwen3.5 4B makes 2,257 MB of arrays active. After unload, 407 MB stays active in the CLI and about 170 MB in the app. This happens with or without Murmur's prefix cache, and it does not grow with use. The size matches the model's quantized embedding table, so part of the weights is retained inside mlx-swift-lm. That is an upstream issue to report or patch before the 120 MB target can be met.
+- **MLX memory retained across reloads.** Loading Qwen3.5 4B makes 2,257 MB of arrays active. Each unload leaves about 400 MB alive (the size of the quantized embedding table), and repeated reload cycles add up: 407 → 815 → 1,222 → 1,630 MB in the app. This is not timing and not Murmur's prompt cache. Dropping compiled traces before release helps only partly. Idle unload is therefore off by default until this is fixed upstream (`murmur-bench reload-test` reproduces it in about 30 s).
 - **Second display:** untested; there is only one display here.

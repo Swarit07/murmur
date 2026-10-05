@@ -99,10 +99,11 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 | C4 real-voice clips | Optional | Owner | Synthetic-voice results recorded; comma is the weak spot |
 | Gemma 3 1B | Excluded | Claude | Never stops generating |
 | Speculative decoding | Not default | Claude | Only ~12% faster on long inputs |
+| Idle unload by default (section 7) | Off by default | Claude, overnight | Each model reload leaks ~400 MB in mlx-swift-lm; on by default would grow memory all day. Switch kept in System › Advanced |
 
 ## Performance (section 7)
 
-Release to text p50 **623 ms**, p95 **1,111 ms** (targets 800 ms and 1.5 s), from 38 real dictations. Idle CPU 0%. Models unload after 10 idle minutes: footprint 2.6 GB → ~0.25 GB. The 120 MB shell target is not met; see [m6-report](m6-report.md).
+Release to text p50 **623 ms**, p95 **1,111 ms** (targets 800 ms and 1.5 s), from 38 real dictations. Idle CPU 0%. Idle unload is built and works (2.6 GB → ~0.25 GB), but it is **off by default**: each reload leaks ~400 MB inside mlx-swift-lm. The 120 MB shell target is not met; see [m6-report](m6-report.md).
 
 ## Needs the owner
 

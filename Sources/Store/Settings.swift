@@ -77,9 +77,10 @@ public final class AppSettings: @unchecked Sendable {
         set { set(newValue, .commandMode) }
     }
 
-    /// Section 7: free the cleanup model's memory after 10 minutes without dictation (on by default).
+    /// Section 7: free the models' memory after 10 minutes without dictation. Off by default for now:
+    /// each reload leaks about 400 MB inside mlx-swift-lm (docs/decisions.md, 2026-10-05).
     public var unloadWhenIdle: Bool {
-        get { defaults.object(forKey: Key.unloadWhenIdle.rawValue) as? Bool ?? true }
+        get { defaults.object(forKey: Key.unloadWhenIdle.rawValue) as? Bool ?? false }
         set { set(newValue, .unloadWhenIdle) }
     }
 
