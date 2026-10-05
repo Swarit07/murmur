@@ -4,6 +4,7 @@ import Combine
 import MurmurKit
 import ServiceManagement
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// The Hub's pages (spec section 6): Home (History), Dictionary, Snippets, Style, and Settings split into
 /// General, System, Experimental, and Data and Privacy.
@@ -522,6 +523,13 @@ struct StylePage: View {
     @State private var transforms = AppSettings.shared.transformsEnabled
 
     static let categories = [("personal", "Personal messages"), ("work", "Work messages"), ("email", "Email"), ("other", "Other")]
+    static let examples = [
+        "personal": "Messages, WhatsApp, Telegram, Signal, Discord, Messenger and LINE, in the app or on the web.",
+        "work": "Slack, Microsoft Teams, Zoom, Google Chat, Mattermost and Webex.",
+        "email": "Mail, Outlook, Spark, Superhuman, Mimestream, and Gmail, Outlook, Yahoo, Fastmail, Proton and HEY on the web.",
+        "other": "Everything else, including AI assistants like ChatGPT and Claude, terminals and code editors.",
+    ]
+
     /// Names are written in their own style, as in the spec (S4).
     static let styleOptions: [(id: String, name: String, detail: String, example: String, categories: Set<String>)] = [
         ("formal", "Formal.", "Caps and punctuation", "Hey, are you free for lunch tomorrow? Let's do 12 if that works.", ["personal", "work", "email", "other"]),
@@ -545,10 +553,11 @@ struct StylePage: View {
                         }
                     }
                 }
+                Footnote(Self.examples[category] ?? "")
             } header: {
                 Text("Style by app")
             } footer: {
-                Footnote("Murmur picks the category from the app you dictate into, and web apps by their address. AI assistants and terminals count as Other. English only.")
+                Footnote("Murmur picks the category from the app you dictate into, and web apps by their address. Styles change capitals and end punctuation only, never your words. English only.")
             }
             Section {
                 Toggle(isOn: $transforms) {
@@ -686,6 +695,13 @@ struct SystemPage: View {
                 }
                 .onChange(of: showInDock) { model.settings.showInDock = showInDock }
             }
+            Section {
+                TypingApps(settings: model.settings)
+            } header: {
+                Text("Typing instead of pasting")
+            } footer: {
+                Footnote("For apps where pasting does not work, like some games and remote tools. Murmur types the text instead and never touches the clipboard. Typing is slower, and undoing it may take more than one ⌘Z.")
+            }
             Section("Advanced") {
                 Toggle(isOn: $debug) {
                     Text("Debug menu")
@@ -783,6 +799,41 @@ struct PrivacyPage: View {
                 try? FileManager.default.removeItem(at: MurmurPaths.audio)
             }
         } message: { Text("This cannot be undone. Your dictionary and snippets stay.") }
+    }
+}
+
+/// I9: the apps that get typed text instead of a paste.
+struct TypingApps: View {
+    let settings: AppSettings
+    @State private var apps: [String] = AppSettings.shared.typingApps
+
+    var body: some View {
+        ForEach(apps, id: \.self) { id in
+            HStack(spacing: 8) {
+                if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) {
+                    Image(nsImage: NSWorkspace.shared.icon(forFile: url.path)).resizable().frame(width: 18, height: 18)
+                    Text(FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: ""))
+                } else {
+                    Text(id).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Remove") { apps.removeAll { $0 == id }; settings.typingApps = apps }
+            }
+        }
+        Button("Add App…", action: pick)
+    }
+
+    func pick() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.application]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.allowsMultipleSelection = true
+        panel.prompt = "Add"
+        guard panel.runModal() == .OK else { return }
+        for url in panel.urls {
+            if let id = Bundle(url: url)?.bundleIdentifier, !apps.contains(id) { apps.append(id) }
+        }
+        settings.typingApps = apps
     }
 }
 

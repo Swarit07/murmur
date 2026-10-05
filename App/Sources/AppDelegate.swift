@@ -344,6 +344,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         .notice(FlowBarNotice(kind: .transcriptionError, message: "Transcription failed.")),
         .notice(FlowBarNotice(kind: .noTextBox, message: "No text box. Click one and press ⌃⌘V.")),
         .notice(FlowBarNotice(kind: .cancelled, message: "Cancelled")),
+        .notice(FlowBarNotice(kind: .hidden, message: "Flow Bar hidden for an hour.")),
+        .notice(FlowBarNotice(kind: .suggestion, message: "Add “Siobhan” to your dictionary?")),
     ]
 
     @objc func forceState(_ sender: NSMenuItem) { flowBar.model.forced = Self.forcibleStates[sender.tag] }
@@ -352,7 +354,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func playSound(_ sender: NSMenuItem) {
         if let raw = sender.representedObject as? String, let sound = UISound(rawValue: raw) { sounds.play(sound) }
     }
-    @objc func hideFlowBar() { flowBar.bar.hide(for: 3600) }
+    @objc func hideFlowBar() {
+        flowBar.bar.hide(for: 3600)
+        controller.notice("Flow Bar hidden for an hour.", kind: .flowBarHidden)
+    }
     @objc func showFlowBar() { flowBar.bar.unhide() }
     @objc func openDataFolder() { NSWorkspace.shared.open(MurmurPaths.appSupport) }
     @objc func saveSnapshotsFromMenu() { saveSnapshots() }

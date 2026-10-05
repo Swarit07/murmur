@@ -44,6 +44,7 @@ final class SelfTest {
     static let rewriteInstruction = "Make this more formal."
     static let draftInstruction = "Write a one sentence thank you note to Sam for the flowers."
     static let pressEnterPhrase = "Ship it, press enter."
+    static let suggestionPhrase = "Ask Chivan about the venue."
     private var textEditPID: pid_t = 0
 
     var cases: [Case] {
@@ -92,7 +93,7 @@ final class SelfTest {
     func run() async -> String {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let startedAt = Date()
-        let saved = (transforms: settings.transformsEnabled, smart: settings.smartFormatting, sounds: settings.soundsEnabled, pressEnter: settings.pressEnter)
+        let saved = (transforms: settings.transformsEnabled, smart: settings.smartFormatting, sounds: settings.soundsEnabled, pressEnter: settings.pressEnter, typing: settings.typingApps)
         savedStyles = settings.styles
         let clipboard = Self.saveClipboard()
         let sentinel = "murmur-self-test-\(UUID().uuidString.prefix(8))"
@@ -108,7 +109,7 @@ final class SelfTest {
 
         // Synthesize every clip first, so the document is only open while dictating.
         var clips: [String: [Float]] = [:]
-        for phrase in cases.map(\.phrase) + ["Let's grab coffee after the meeting.", Self.rewriteInstruction, Self.draftInstruction, Self.pressEnterPhrase] {
+        for phrase in cases.map(\.phrase) + ["Let's grab coffee after the meeting.", Self.rewriteInstruction, Self.draftInstruction, Self.pressEnterPhrase, Self.suggestionPhrase] {
             clips[phrase] = await synthesize(phrase)
         }
 
@@ -210,6 +211,44 @@ final class SelfTest {
             let pasted = Self.value(field) ?? ""
             record("Paste last transcript", pasted.trimmingCharacters(in: .whitespacesAndNewlines) == last ? nil : "pasted text differs from the newest dictation", text: pasted)
 
+            // S2: correcting a word Murmur wrote suggests a dictionary entry.
+            Self.setValue(field, "")
+            if controller.dictateForTest(clips[Self.suggestionPhrase] ?? []) {
+                _ = await waitIdle()
+                try? await Task.sleep(for: .milliseconds(600))
+                var words = (Self.value(field) ?? "").split(separator: " ").map(String.init)
+                if words.count > 2 { words[1] = "Siobhan" }
+                Self.setValue(field, words.joined(separator: " "))
+                controller.checkCorrections()
+                let suggestion = controller.pendingSuggestion
+                let shown = suggestion.map { "\($0.heard) → \($0.spelling)" } ?? "none"
+                if suggestion?.spelling == "Siobhan" {
+                    controller.acceptSuggestion()
+                    let added = ((try? store.dictionary()) ?? []).filter { $0.replacement == "Siobhan" && $0.source == .suggested }
+                    record("Correction suggests a dictionary word (S2)", added.isEmpty ? "Add did not save it" : nil, text: shown)
+                    for entry in added { try? store.deleteDictionaryEntry(id: entry.id) }
+                } else {
+                    controller.dismissSuggestion()
+                    record("Correction suggests a dictionary word (S2)", "no suggestion", text: shown)
+                }
+            } else {
+                record("Correction suggests a dictionary word (S2)", "could not start a dictation", text: "")
+            }
+
+            // I9: an app on the typing list gets the text typed; the clipboard is never touched.
+            Self.setValue(field, "")
+            settings.typingApps = saved.typing + ["com.apple.TextEdit"]
+            let boardBefore = NSPasteboard.general.changeCount
+            if controller.dictateForTest(clips[cases[0].phrase] ?? []) {
+                _ = await waitIdle()
+                let typed = Self.value(field) ?? ""
+                let untouched = NSPasteboard.general.changeCount == boardBefore
+                record("Typing instead of pasting (I9)", Self.missing(["quick", "fox", "dog"], in: typed) ?? (untouched ? nil : "the clipboard changed"), text: typed)
+            } else {
+                record("Typing instead of pasting (I9)", "could not start a dictation", text: "")
+            }
+            settings.typingApps = saved.typing
+
             // D7: a recording stops by itself at the time limit (6 s here instead of 20 minutes).
             Self.setValue(field, "")
             let limits = controller.recordingLimits
@@ -253,6 +292,7 @@ final class SelfTest {
         settings.smartFormatting = saved.smart
         settings.soundsEnabled = saved.sounds
         settings.pressEnter = saved.pressEnter
+        settings.typingApps = saved.typing
         settings.styles = savedStyles
         Self.restoreClipboard(clipboard)
 

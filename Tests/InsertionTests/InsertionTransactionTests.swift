@@ -66,6 +66,11 @@ final class FakeSender: PasteSending, @unchecked Sendable {
         if succeeds { onPaste?() }
         return succeeds
     }
+    private(set) var typed: [String] = []
+    @MainActor func type(_ text: String) async -> Bool {
+        typed.append(text)
+        return succeeds
+    }
 }
 
 @Suite("Insertion transaction")
@@ -98,6 +103,19 @@ struct InsertionTransactionTests {
         #expect(sender.calls == 1)
         // The transcript went on with the transient and concealed markers.
         #expect(board.writes.first?.1 == PasteboardMarkers.all)
+    }
+
+    /// I9: typing leaves the clipboard untouched.
+    @Test func typingNeverTouchesTheClipboard() async {
+        let board = FakePasteboard(items: Self.richClipboard())
+        let sender = FakeSender()
+        let tx = InsertionTransaction(pasteboard: board, sender: sender, restoreDelay: .milliseconds(10))
+        let before = board.changeCount
+        let result = await tx.insert("Typed, not pasted.", expected: focus, current: focus, typeInstead: true)
+        #expect(result == .inserted(restored: true))
+        #expect(sender.typed == ["Typed, not pasted."])
+        #expect(sender.calls == 0)
+        #expect(board.changeCount == before)
     }
 
     /// I10: a second insertion (Paste last during a dictation's paste) waits for the first, so the

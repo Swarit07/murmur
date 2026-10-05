@@ -157,6 +157,8 @@ struct NoticeCard: View {
         case .noTextBox: ("text.cursor", Color.token(tokens.secondaryTextLight, tokens.secondaryTextDark))
         case .cancelled: ("xmark.circle.fill", Color.token(tokens.secondaryTextLight, tokens.secondaryTextDark))
         case .info: ("info.circle.fill", Color.token(tokens.secondaryTextLight, tokens.secondaryTextDark))
+        case .hidden: ("eye.slash", Color.token(tokens.secondaryTextLight, tokens.secondaryTextDark))
+        case .suggestion: ("character.book.closed.fill", Color.token(tokens.commandLight, tokens.commandDark))
         }
     }
 
@@ -196,6 +198,7 @@ struct NoticeCard: View {
         case .openHistory: "Open History"
         case .dismiss: "Dismiss"
         case .pasteLast: "Paste"
+        case .add: "Add"
         }
     }
 }

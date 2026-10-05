@@ -18,16 +18,24 @@ final class FlowBarWiring {
         model.onClick = { [weak app] in app?.controller.toggleHandsFree() }
         model.onStop = { [weak app] in app?.controller.stopHandsFree() }
         model.onCancel = { [weak app] in app?.controller.cancelCurrent() }
-        model.onAction = { [weak app] action, notice in
+        model.onAction = { [weak self, weak app] action, notice in
             guard let app else { return }
             switch action {
             case .retry:
                 if notice.kind == .micError { app.controller.retryMicrophone() } else { app.controller.retryFailed() }
-            case .undo: app.controller.undoCancel()
+            case .undo:
+                if notice.kind == .hidden {
+                    self?.bar.unhide()
+                    app.controller.clearMessage()
+                } else {
+                    app.controller.undoCancel()
+                }
+            case .add: app.controller.acceptSuggestion()
             case .openHistory:
                 app.controller.clearMessage()
                 app.showHistory()
-            case .dismiss: app.controller.clearMessage()
+            case .dismiss:
+                if notice.kind == .suggestion { app.controller.dismissSuggestion() } else { app.controller.clearMessage() }
             case .pasteLast: app.controller.pasteLast()
             }
         }
@@ -36,7 +44,9 @@ final class FlowBarWiring {
             switch item {
             case .pasteLast: app.controller.pasteLast()
             case .copyLast: app.controller.copyLast()
-            case .hideForHour: self.bar.hide(for: 3600)
+            case .hideForHour:
+                self.bar.hide(for: 3600)
+                app.controller.notice("Flow Bar hidden for an hour.", kind: .flowBarHidden)
             case .resetPosition: self.bar.resetPosition()
             case .openHistory: app.showHistory()
             case .settings: app.showSettings()
@@ -79,6 +89,8 @@ final class FlowBarWiring {
         case .cancelled: .cancelled
         case .info: .info
         case .micError: .micError
+        case .flowBarHidden: .hidden
+        case .suggestion: .suggestion
         }
         return FlowBarNotice(kind: kind, message: n.message)
     }

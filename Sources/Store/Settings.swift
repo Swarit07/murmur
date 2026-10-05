@@ -13,7 +13,7 @@ public final class AppSettings: @unchecked Sendable {
     }
 
     enum Key: String {
-        case engine, cleanupProvider, cleanupLevel, keyboardLayout, showInDock, soundsEnabled, microphoneUID, keepAudio, showFlowBar, debugMenu, transformsEnabled, smartFormatting, languages, shortcuts, neverStore, onboardingStep, onboardingDone, styles, commandMode, pressEnter
+        case engine, cleanupProvider, cleanupLevel, keyboardLayout, showInDock, soundsEnabled, microphoneUID, keepAudio, showFlowBar, debugMenu, transformsEnabled, smartFormatting, languages, shortcuts, neverStore, onboardingStep, onboardingDone, styles, commandMode, pressEnter, typingApps
     }
 
     private func string(_ key: Key, _ fallback: String) -> String { defaults.string(forKey: key.rawValue) ?? fallback }
@@ -75,6 +75,12 @@ public final class AppSettings: @unchecked Sendable {
     public var commandMode: Bool {
         get { defaults.bool(forKey: Key.commandMode.rawValue) }
         set { set(newValue, .commandMode) }
+    }
+
+    /// I9: bundle ids of apps that get the text typed instead of pasted.
+    public var typingApps: [String] {
+        get { defaults.stringArray(forKey: Key.typingApps.rawValue) ?? [] }
+        set { set(newValue, .typingApps) }
     }
 
     /// C11: ending a dictation with "press enter" presses Return after the paste. Off by default.

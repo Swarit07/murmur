@@ -5,10 +5,14 @@ import SwiftUI
 public struct FlowBarNotice: Equatable, Sendable {
     public enum Kind: String, Sendable, CaseIterable {
         case pasteError, transcriptionError, noTextBox, cancelled, info, micError
+        /// A6: the bar was just hidden for an hour; Undo brings it back.
+        case hidden
+        /// S2: a word you corrected could go in the dictionary.
+        case suggestion
     }
 
     public enum Action: String, Sendable {
-        case retry, undo, openHistory, dismiss, pasteLast
+        case retry, undo, openHistory, dismiss, pasteLast, add
     }
 
     public var kind: Kind
@@ -27,6 +31,8 @@ public struct FlowBarNotice: Equatable, Sendable {
         case .noTextBox: [.dismiss]
         case .cancelled: [.undo, .openHistory]
         case .info: [.dismiss]
+        case .hidden: [.undo]
+        case .suggestion: [.add, .dismiss]
         }
     }
 
@@ -35,7 +41,8 @@ public struct FlowBarNotice: Equatable, Sendable {
         let t = LiveTokens.shared.value
         switch kind {
         case .cancelled: return t.cancelledToastDuration
-        case .noTextBox, .info: return t.noticeDuration
+        case .noTextBox, .info, .hidden: return t.noticeDuration
+        case .suggestion: return t.noticeDuration * 2
         case .pasteError, .transcriptionError, .micError: return nil
         }
     }

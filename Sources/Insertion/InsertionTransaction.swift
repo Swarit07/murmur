@@ -55,6 +55,7 @@ public struct InsertionTransaction: Sendable {
         _ text: String,
         expected: FocusSnapshot,
         current: FocusSnapshot,
+        typeInstead: Bool = false,
         onPasted: (@Sendable () -> Void)? = nil
     ) async -> InsertionResult {
         // I10: one insertion at a time. A second paste while the first waits to restore the clipboard
@@ -65,6 +66,15 @@ public struct InsertionTransaction: Sendable {
         if let failure = guardFailure(expected: expected, current: current) {
             _ = pasteboard.writeTranscript(text, markers: [])
             return .failed(failure)
+        }
+        // I9: apps where pasting does not work get the text typed; the clipboard is never touched.
+        if typeInstead {
+            guard await sender.type(text) else {
+                _ = pasteboard.writeTranscript(text, markers: [])
+                return .failed(.pasteNotSent)
+            }
+            onPasted?()
+            return .inserted(restored: true)
         }
         // 2. Snapshot.
         let saved = pasteboard.snapshot()

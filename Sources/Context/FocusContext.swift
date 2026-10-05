@@ -110,6 +110,13 @@ public enum FocusContext {
         )
     }
 
+    /// The text of an editable element (its AX value), for S2's correction check.
+    public static func value(of element: AXUIElement?) -> String? {
+        guard let element else { return nil }
+        AXUIElementSetMessagingTimeout(element, 0.3)
+        return string(element, kAXValueAttribute)
+    }
+
     /// The address of the web page that contains `element`, for browsers and web views: walks up to
     /// the nearest web area and reads its URL. Nil outside web content.
     public static func webAddress(of element: AXUIElement?) -> URL? {

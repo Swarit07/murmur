@@ -7,6 +7,8 @@ public protocol PasteSending: Sendable {
     /// Posts Cmd+V (or an equivalent) to the frontmost app. Returns false if nothing could be sent.
     /// Main thread only: the keyboard-layout lookup (Text Input Sources) asserts it on macOS 26 and later.
     @MainActor func sendPaste(to pid: pid_t) -> Bool
+    /// I9: types the text as Unicode key events instead of pasting. Returns false if nothing was sent.
+    @MainActor func type(_ text: String) async -> Bool
 }
 
 /// Cmd+V resolved for the active keyboard layout, with the Edit > Paste menu item through
@@ -18,6 +20,40 @@ public struct SystemPasteSender: PasteSending {
     public func sendPaste(to pid: pid_t) -> Bool {
         if postCommandV() { return true }
         return pressPasteMenuItem(pid: pid)
+    }
+
+    /// Unicode key events in chunks of whole characters (never splitting an emoji), Return for line
+    /// breaks, and a short pause between chunks so the app keeps up.
+    @MainActor
+    public func type(_ text: String) async -> Bool {
+        guard AXIsProcessTrusted() else { return false }
+        let source = CGEventSource(stateID: .privateState)
+        func post(_ units: [UniChar]) {
+            for down in [true, false] {
+                guard let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: down) else { continue }
+                event.flags = []
+                event.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units)
+                event.post(tap: .cgSessionEventTap)
+            }
+        }
+        var chunk: [UniChar] = []
+        for character in text {
+            if character == "\n" || character == "\r\n" {
+                if !chunk.isEmpty { post(chunk); chunk = [] }
+                KeyPresser.pressReturn()
+                try? await Task.sleep(for: .milliseconds(4))
+                continue
+            }
+            let units = Array(String(character).utf16)
+            if chunk.count + units.count > 16 {
+                post(chunk)
+                chunk = []
+                try? await Task.sleep(for: .milliseconds(4))
+            }
+            chunk += units
+        }
+        if !chunk.isEmpty { post(chunk) }
+        return true
     }
 
     /// Key code that types "v" under the current layout (Dvorak puts it elsewhere). Looked up each

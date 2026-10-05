@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import Audio
 import Cleanup
 import Context
@@ -35,7 +36,7 @@ public struct DictationStatus: Equatable, Sendable {
     }
 
     public enum NoticeKind: String, Equatable, Sendable {
-        case pasteError, transcriptionError, noTextBox, cancelled, info, micError
+        case pasteError, transcriptionError, noTextBox, cancelled, info, micError, flowBarHidden, suggestion
     }
 
     public struct Notice: Equatable, Sendable {
@@ -118,6 +119,12 @@ public final class DictationController {
     public var recordingLimits = RecordingLimits(maxSeconds: ProcessInfo.processInfo.environment["MURMUR_MAX_RECORDING_S"].flatMap(Double.init) ?? 1200)
     /// Why the current recording was stopped automatically, shown once its text is inserted.
     var autoStopReason: String?
+    /// S2: the field Murmur last pasted into, what it pasted, and the field's text right after.
+    var lastInsertion: (element: AXUIElement, text: String, value: String)?
+    var correctionCheck: Task<Void, Never>?
+    /// The dictionary suggestion on the Flow Bar, and the ones dismissed this session.
+    public private(set) var pendingSuggestion: CorrectionDetector.Suggestion?
+    var dismissedSuggestions: Set<String> = []
     /// The dictionary and snippets (S1, S3), reloaded when they change.
     var rules = RulesCleaner()
     var vocabulary: [String] = []
@@ -563,7 +570,8 @@ public final class DictationController {
         let text = replacesSelection ? finalText : SmartSpacing.adjust(finalText, before: SmartSpacing.characterBeforeCursor(of: current.element))
         let insertStart = Clock.now()
         let pasted = PasteClock()
-        let result = await insertion.insert(text, expected: started.focus, current: current) { pasted.mark() }
+        let typeInstead = current.bundleId.map(settings.typingApps.contains) ?? false
+        let result = await insertion.insert(text, expected: started.focus, current: current, typeInstead: typeInstead) { pasted.mark() }
         if let at = pasted.value {
             timings.insertMs = Clock.ms(from: insertStart, to: at)
             timings.totalMs = Clock.ms(from: releasedAt, to: at)
@@ -586,6 +594,7 @@ public final class DictationController {
                 status.notice = DictationStatus.Notice(kind: .info, message: reason)
             }
             status.phase = .inserted
+            if started.mode != .command { rememberInsertion(text, in: current.element) }
             if settings.soundsEnabled { sounds?.play(.done) }
             if firstAudioMs != nil { Signposts.transition(from: "released", to: "inserted \(timings.summary)") }
         case .failed(let failure):
@@ -599,6 +608,59 @@ public final class DictationController {
             endSession(.dismiss)
             fail(Self.message(for: failure, app: started.focus.appName), kind: kind == .noTextBox ? .noTextBox : .pasteError)
         }
+    }
+
+    // MARK: Dictionary suggestions (S2)
+
+    /// Keeps what was pasted and the field's text right after, then checks for corrections 15 and 45 s
+    /// later. Only the field Murmur pasted into is read, and nothing leaves this Mac.
+    func rememberInsertion(_ text: String, in element: AXUIElement?) {
+        checkCorrections()
+        correctionCheck?.cancel()
+        guard let element else { lastInsertion = nil; return }
+        Task { @MainActor [weak self] in
+            // Let the paste land before reading the field.
+            try? await Task.sleep(for: .milliseconds(300))
+            guard let self, let value = FocusContext.value(of: element) else { return }
+            self.lastInsertion = (element, text, value)
+            self.correctionCheck = Task { @MainActor [weak self] in
+                for delay in [15.0, 30.0] {
+                    try? await Task.sleep(for: .seconds(delay))
+                    guard !Task.isCancelled, let self, self.lastInsertion != nil else { return }
+                    self.checkCorrections()
+                }
+            }
+        }
+    }
+
+    /// Compares the field with its text after the last paste; a corrected word that looks like a name
+    /// or a term becomes a suggestion on the Flow Bar (one per dictation).
+    public func checkCorrections() {
+        guard let last = lastInsertion, session == nil, pendingSuggestion == nil,
+              let now = FocusContext.value(of: last.element), now != last.value else { return }
+        let known = Set(((try? store.dictionary()) ?? []).map { $0.replacement.lowercased() })
+        guard let suggestion = CorrectionDetector.suggestions(before: last.value, after: now, inserted: last.text)
+            .first(where: { !known.contains($0.spelling.lowercased()) && !dismissedSuggestions.contains($0.key) }) else { return }
+        lastInsertion = nil
+        correctionCheck?.cancel()
+        pendingSuggestion = suggestion
+        status.message = "Add “\(suggestion.spelling)” to your dictionary?"
+        status.notice = DictationStatus.Notice(kind: .suggestion, message: "Add “\(suggestion.spelling)” to your dictionary?")
+        log.notice("dictionary suggestion shown")
+    }
+
+    /// Add on the suggestion: the spelling goes in the dictionary, heard as what Murmur wrote.
+    public func acceptSuggestion() {
+        guard let suggestion = pendingSuggestion else { return }
+        pendingSuggestion = nil
+        try? store.save(DictionaryRecord(term: suggestion.heard, replacement: suggestion.spelling, source: .suggested))
+        clearMessage()
+    }
+
+    public func dismissSuggestion() {
+        if let suggestion = pendingSuggestion { dismissedSuggestions.insert(suggestion.key) }
+        pendingSuggestion = nil
+        clearMessage()
     }
 
     /// S4: the style chosen for the category of the app (or web page) that had focus.
@@ -807,9 +869,9 @@ public final class DictationController {
     }
 
     /// An informational notice on the Flow Bar and in the menu (permissions lost, and so on).
-    public func notice(_ message: String) {
+    public func notice(_ message: String, kind: DictationStatus.NoticeKind = .info) {
         status.message = message
-        status.notice = DictationStatus.Notice(kind: .info, message: message)
+        status.notice = DictationStatus.Notice(kind: kind, message: message)
         log.notice("notice shown")
     }
 
@@ -831,7 +893,8 @@ public final class DictationController {
         let focus = FocusContext.snapshot()
         let spaced = SmartSpacing.adjust(text, before: SmartSpacing.characterBeforeCursor(of: focus.element))
         Task {
-            let result = await insertion.insert(spaced, expected: focus, current: FocusContext.snapshot())
+            let typeInstead = focus.bundleId.map(settings.typingApps.contains) ?? false
+            let result = await insertion.insert(spaced, expected: focus, current: FocusContext.snapshot(), typeInstead: typeInstead)
             if case .failed(let failure) = result { fail(Self.message(for: failure, app: focus.appName)) }
         }
     }
