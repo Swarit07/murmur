@@ -62,3 +62,4 @@ Newest last. Each entry: date, decision, reason.
 - **Audio kept 14 days** for Retry and Recover (A4), deleted at launch after that; a Settings switch turns keeping audio off.
 - **Sounds are generated tones** (`Scripts/make-sounds.swift`), placeholders until Milestone 2 tokens.
 - **Groq keys come from the Keychain** in the app (`Keychain` service `com.swaritsheel.Murmur`, account `groq`), the environment in the CLI.
+- **2026-10-05 · The owner moved the M1 gate.** Milestone 2 starts now, and the owner keeps using Murmur day to day instead of a dedicated test day. Crashes and lost dictations found that way are fixed as they come up, and Claude checks History (`Scripts/m1-day-report.sh`) along the way instead of asking for a formal report. Two crashes found in the first 10 minutes of use (an empty audio-engine prepare, and paste off the main thread) were fixed before this decision.
