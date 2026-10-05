@@ -177,7 +177,14 @@ public final class FlowBarModel {
     private func stateChanged(from old: FlowBarState) {
         transientTask?.cancel()
         countdownTask?.cancel()
-        if state == .inserted && old != .inserted { insertedSettled = false }
+        // A new check only for a dictation that just finished; coming back from a notice shows idle.
+        if state == .inserted {
+            switch old {
+            case .processing, .listening: insertedSettled = false
+            case .notice: insertedSettled = true
+            default: break
+            }
+        }
         if case .listening = state {
             if listeningSince == nil { listeningSince = Date() }
         } else {

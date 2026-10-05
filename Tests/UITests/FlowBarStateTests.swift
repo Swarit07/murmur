@@ -214,6 +214,16 @@ struct FlowBarInsertedTests {
         #expect(model.displayed == .inserted)
     }
 
+    @Test func backFromANoticeShowsIdleNotTheCheckAgain() {
+        let model = FlowBarModel()
+        model.showAtAllTimes = true
+        model.state = .processing
+        model.state = .inserted
+        model.state = .notice(FlowBarNotice(kind: .info, message: "App matrix: 1 of 1 apps passed"))
+        model.state = .inserted  // the notice is dismissed; the controller's phase is still "inserted"
+        #expect(model.displayed == .idle)
+    }
+
     @Test func nextDictationShowsTheCheckAgain() {
         let model = FlowBarModel()
         model.showAtAllTimes = true
@@ -222,6 +232,7 @@ struct FlowBarInsertedTests {
         model.state = .processing
         model.state = .inserted
         #expect(model.displayed == .inserted)
+        #expect(!model.insertedSettled)
     }
 }
 
