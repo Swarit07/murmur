@@ -16,7 +16,7 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
   - "Shortcuts" stays a submenu.
   - ⌃⌘V and ⌃⌘C stay.
 - **Self-test:** it now confirms its TextEdit document has focus before every dictation, after a run while the owner was typing sent test text into the owner's focused app.
-- **New debug test, the app matrix:** Debug › Run app matrix dictates into blank targets in TextEdit, Safari, Chrome, Firefox, Terminal and Ghostty. TextEdit, Firefox, Terminal and Ghostty pass. VS Code and Cursor stay manual because their editors hide text from Accessibility. In each it checks that the text is complete, one Undo removes it, the clipboard is restored and focus is unchanged.
+- **New debug test, the app matrix:** Debug › Run app matrix dictates into blank targets in TextEdit, Safari, Chrome, Firefox, Terminal and Ghostty. All six pass (Safari and Chrome on the second run). VS Code and Cursor stay manual because their editors hide text from Accessibility. In each it checks that the text is complete, one Undo removes it, the clipboard is restored and focus is unchanged.
 - **Checks:** unit tests 170 pass, focus test 50/50, self-test 21/21 (before the new cases), latency p50 652 ms and p95 1,340 ms.
 
 **In progress:**
