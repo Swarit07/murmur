@@ -252,6 +252,9 @@ struct CleanupPass: AsyncParsableCommand {
     @Flag(help: "Turn Smart Formatting on, as the app does by default.")
     var smartFormatting = false
 
+    @Option(help: "Unload and reload the model this many times before the pass, as idle unloading does.")
+    var reloads = 0
+
     static let sets = ["correction", "levels", "numbers", "names", "plain", "quiet"]
 
     func run() async throws {
@@ -289,6 +292,11 @@ struct CleanupPass: AsyncParsableCommand {
             }
             result.loadMs = Clock.ms(since: start)
             print("\(providerId): loaded in \(Format.ms(result.loadMs!))")
+            for _ in 0..<reloads {
+                await provider.unload()
+                try await provider.load()
+            }
+            if reloads > 0 { print("\(providerId): reloaded \(reloads) times") }
         }
         result.footprintAfterLoad = ProcessMemory.snapshot()?.footprint
 
@@ -746,25 +754,82 @@ struct CommandTest: AsyncParsableCommand {
 struct ReloadTest: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "reload-test",
-        abstract: "Loads, runs and unloads the cleanup model several times (idle unload and reload). MLX memory after each unload is logged by the provider (category mlx); it must not grow."
+        abstract: "Idle unload and reload, as the app does it: loads the cleanup model (and optionally the speech engine), runs one dictation, unloads, and prints the process memory after each step. Memory after each unload must stay flat."
     )
+    @OptionGroup var paths: CommonPaths
     @Option var provider: String = "mlx:qwen3.5-4b"
     @Option var cycles: Int = 3
+    @Option(help: "Also load, run and unload this speech engine each cycle, on one corpus clip (the app unloads both).")
+    var engine: String?
     @Flag(help: "Load and unload only (set MURMUR_MLX_NO_WARMUP=1 to skip the warm-up generation too).") var loadOnly = false
 
+    /// Footprint is what Activity Monitor shows as Memory; resident is the pages currently in RAM.
+    struct Sample {
+        var footprint = 0, resident = 0, mlxActive = 0, mlxCache = 0
+
+        static func now() -> Sample {
+            var sample = Sample()
+            #if canImport(CleanupMLX)
+            (sample.mlxActive, sample.mlxCache) = MLXCleanupProvider.memoryMB()
+            #endif
+            var info = rusage_info_v4()
+            let result = withUnsafeMutablePointer(to: &info) { pointer in
+                pointer.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) { proc_pid_rusage(getpid(), RUSAGE_INFO_V4, $0) }
+            }
+            if result == 0 {
+                sample.footprint = Int(info.ri_phys_footprint / 1_048_576)
+                sample.resident = Int(info.ri_resident_size / 1_048_576)
+            }
+            return sample
+        }
+
+        var line: String { "footprint \(footprint) MB, resident \(resident) MB, MLX active \(mlxActive) MB, MLX cache \(mlxCache) MB" }
+    }
+
     func run() async throws {
+        let speech = try engine.map { try EngineCatalog.make($0) }
+        var samples: [Float] = []
+        if speech != nil {
+            let corpus = try Corpus.load(from: paths.corpusURL)
+            guard let clip = corpus.clips.first(where: { FileManager.default.fileExists(atPath: Corpus.audioURL($0, in: paths.corpusURL).path) }) else {
+                throw ValidationError("No recorded clip in \(paths.corpus).")
+            }
+            samples = try WAV.read(Corpus.audioURL(clip, in: paths.corpusURL))
+        }
+        // One provider for the whole run, as in the app.
+        guard let p = try CleanupCatalog.make(provider) else { return }
+        let start = Sample.now()
+        print("start: \(start.line)")
+        var unloaded: [Sample] = []
         for i in 1...cycles {
-            guard let p = try CleanupCatalog.make(provider) else { return }
+            let t = Clock.now()
+            try await speech?.load()
             try await p.load()
+            print("cycle \(i) loaded in \(Format.ms(Clock.ms(since: t))): \(Sample.now().line)")
             if !loadOnly {
-                _ = await CleanupRunner(provider: p, timeLimit: .seconds(5)).run("um so this is cycle number \(i)", request: CleanupRequest())
+                var text = "um so this is cycle number \(i)"
+                if let speech { text = try await speech.transcribe(samples, options: TranscribeOptions(language: "en")) }
+                let output = await CleanupRunner(provider: p, timeLimit: .seconds(5)).run(text, request: CleanupRequest())
+                print("cycle \(i) ran (\(output.fallback?.rawValue ?? "model"), \(output.text.count) characters): \(Sample.now().line)")
             }
             await p.unload()
-            #if canImport(CleanupMLX)
-            print("cycle \(i) unloaded: \(MLXCleanupProvider.memoryReport())")
+            await speech?.unload()
             try await Task.sleep(for: .seconds(2))
-            print("cycle \(i) +2 s: \(MLXCleanupProvider.memoryReport())")
-            #endif
+            let after = Sample.now()
+            unloaded.append(after)
+            print("cycle \(i) unloaded: \(after.line)")
+        }
+        print("\nAfter each unload (MB; growth is against cycle 1):")
+        print("cycle  footprint  growth  resident  growth  MLX active")
+        for (i, s) in unloaded.enumerated() {
+            print(String(format: "%5d  %9d  %+6d  %8d  %+6d  %10d", i + 1, s.footprint, s.footprint - unloaded[0].footprint,
+                         s.resident, s.resident - unloaded[0].resident, s.mlxActive))
+        }
+        if unloaded.count > 1, let first = unloaded.first, let last = unloaded.last {
+            let n = Double(unloaded.count - 1)
+            print(String(format: "Per reload after the first: footprint %+.1f MB, resident %+.1f MB, MLX active %+.1f MB",
+                         Double(last.footprint - first.footprint) / n, Double(last.resident - first.resident) / n,
+                         Double(last.mlxActive - first.mlxActive) / n))
         }
     }
 }
