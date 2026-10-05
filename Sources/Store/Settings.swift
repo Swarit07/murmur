@@ -13,7 +13,7 @@ public final class AppSettings: @unchecked Sendable {
     }
 
     enum Key: String {
-        case engine, cleanupProvider, cleanupLevel, keyboardLayout, showInDock, soundsEnabled, microphoneUID, keepAudio, showFlowBar, debugMenu, transformsEnabled, smartFormatting, languages
+        case engine, cleanupProvider, cleanupLevel, keyboardLayout, showInDock, soundsEnabled, microphoneUID, keepAudio, showFlowBar, debugMenu, transformsEnabled, smartFormatting, languages, shortcuts, neverStore, onboardingStep, onboardingDone, styles
     }
 
     private func string(_ key: Key, _ fallback: String) -> String { defaults.string(forKey: key.rawValue) ?? fallback }
@@ -80,6 +80,36 @@ public final class AppSettings: @unchecked Sendable {
     public var languages: [String] {
         get { defaults.stringArray(forKey: Key.languages.rawValue) ?? [] }
         set { set(newValue, .languages) }
+    }
+
+    /// D8: the push-to-talk and hands-free shortcuts as JSON (stored per Mac). Nil uses the defaults for
+    /// `keyboardLayout`.
+    public var shortcuts: Data? {
+        get { defaults.data(forKey: Key.shortcuts.rawValue) }
+        set { set(newValue, .shortcuts) }
+    }
+
+    /// A9: nothing is written to History or disk (no rows, no audio).
+    public var neverStore: Bool {
+        get { defaults.bool(forKey: Key.neverStore.rawValue) }
+        set { set(newValue, .neverStore) }
+    }
+
+    /// Onboarding resumes at this step if Murmur quits partway.
+    public var onboardingStep: Int {
+        get { defaults.integer(forKey: Key.onboardingStep.rawValue) }
+        set { set(newValue, .onboardingStep) }
+    }
+
+    public var onboardingDone: Bool {
+        get { defaults.bool(forKey: Key.onboardingDone.rawValue) }
+        set { set(newValue, .onboardingDone) }
+    }
+
+    /// S4: the chosen style per category ("personal", "work", "email", "other") as JSON.
+    public var styles: [String: String] {
+        get { (defaults.dictionary(forKey: Key.styles.rawValue) as? [String: String]) ?? [:] }
+        set { set(newValue, .styles) }
     }
 
     /// The language to pass to the engine: the one chosen language, or nil for automatic.

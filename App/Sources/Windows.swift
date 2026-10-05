@@ -26,6 +26,11 @@ final class WindowManager {
         NSApp.activate()
     }
 
+    func close(_ id: String) {
+        windows[id]?.close()
+        windows[id] = nil
+    }
+
     func showHistory(store: HistoryStore) {
         show("history", title: "Murmur History", size: NSSize(width: 760, height: 480)) { HistoryView(store: store) }
     }

@@ -35,7 +35,7 @@ public struct DictationStatus: Equatable, Sendable {
     }
 
     public enum NoticeKind: String, Equatable, Sendable {
-        case pasteError, transcriptionError, noTextBox, cancelled, info
+        case pasteError, transcriptionError, noTextBox, cancelled, info, micError
     }
 
     public struct Notice: Equatable, Sendable {
@@ -80,6 +80,10 @@ public final class DictationController {
 
     let settings: AppSettings
     let store: HistoryStore
+    /// A9: in never-store mode every write goes to an in-memory History, so nothing reaches disk but
+    /// Paste last still works for the session.
+    let memoryStore = try! HistoryStore(url: nil)
+    var history: HistoryStore { settings.neverStore ? memoryStore : store }
     let sounds: SoundPlaying?
     let levels = LevelRelay()
     let recorder: AudioRecorder
@@ -89,6 +93,7 @@ public final class DictationController {
 
     var recognizer: HotkeyRecognizer
     var tap: KeyEventTap?
+    var capsMonitor: CapsLockMonitor?
     var engine: (any SpeechEngine)?
     var engineId: String?
     var cleanupProvider: (any CleanupProvider)?
@@ -123,9 +128,24 @@ public final class DictationController {
         self.store = store
         self.sounds = sounds
         recorder = AudioRecorder(onLevel: { [levels] level in levels.send(level) })
-        recognizer = HotkeyRecognizer(configuration: settings.keyboardLayout == "other" ? .otherKeyboard : .appleKeyboard)
+        recognizer = HotkeyRecognizer(configuration: Self.shortcutConfiguration(settings))
         recorder.setDevice(uid: settings.microphoneUID)
     }
+
+    /// The configured shortcuts (D8), or the defaults for the keyboard layout.
+    public static func shortcutConfiguration(_ settings: AppSettings) -> HotkeyConfiguration {
+        if let data = settings.shortcuts, let saved = try? JSONDecoder().decode(HotkeyConfiguration.self, from: data) { return saved }
+        return settings.keyboardLayout == "other" ? .otherKeyboard : .appleKeyboard
+    }
+
+    public var shortcutConfiguration: HotkeyConfiguration { recognizer.configuration }
+
+    public func setShortcuts(_ configuration: HotkeyConfiguration?) {
+        settings.shortcuts = configuration.flatMap { try? JSONEncoder().encode($0) }
+    }
+
+    /// While the user records a new shortcut, key events must not start dictations.
+    public var shortcutsPaused = false
 
     // MARK: Lifecycle
 
@@ -159,6 +179,22 @@ public final class DictationController {
         } catch {
             self.tap = nil
             status.message = Self.inputMonitoringMessage
+        }
+        updateCapsLockMonitor()
+    }
+
+    /// Caps Lock needs the keyboard HID; only listen when it is one of the shortcuts.
+    func updateCapsLockMonitor() {
+        let config = recognizer.configuration
+        if config.pushToTalk == .capsLock || config.handsFree == .capsLock {
+            guard capsMonitor == nil else { return }
+            let monitor = CapsLockMonitor { [weak self] event in
+                DispatchQueue.main.async { MainActor.assumeIsolated { self?.handle(event) } }
+            }
+            if monitor.start() { capsMonitor = monitor }
+        } else {
+            capsMonitor?.stop()
+            capsMonitor = nil
         }
     }
 
@@ -203,8 +239,9 @@ public final class DictationController {
     func settingsChanged(_ key: String?) {
         switch key {
         case "engine", "cleanupProvider": reloadModels()
-        case "keyboardLayout":
-            recognizer = HotkeyRecognizer(configuration: settings.keyboardLayout == "other" ? .otherKeyboard : .appleKeyboard)
+        case "keyboardLayout", "shortcuts":
+            recognizer = HotkeyRecognizer(configuration: Self.shortcutConfiguration(settings))
+            updateCapsLockMonitor()
         case "microphoneUID": recorder.setDevice(uid: settings.microphoneUID)
         case "cleanupLevel", "smartFormatting", "transformsEnabled": prewarmCleanup()
         default: break
@@ -255,6 +292,7 @@ public final class DictationController {
     // MARK: Keys
 
     func handle(_ event: KeyEvent) {
+        if shortcutsPaused || micTestRunning { return }
         for action in recognizer.handle(event) {
             perform(action)
         }
@@ -308,7 +346,8 @@ public final class DictationController {
             recognizer.reset()
             lastBeginRefusal = "microphone: \(error)"
             log.error("microphone start failed: \(String(describing: error), privacy: .public)")
-            fail("Microphone unavailable: \(error)")
+            recorder.forceRebuild()
+            fail("The microphone is unavailable (\(recorder.deviceName)). Check it is connected, then Retry.", kind: .micError)
             return
         }
         lastBeginRefusal = nil
@@ -360,7 +399,7 @@ public final class DictationController {
         // Save the audio and the History row before transcribing, so nothing is lost if anything below fails.
         let id = UUID().uuidString
         var audioPath: String?
-        if settings.keepAudio {
+        if settings.keepAudio && !settings.neverStore {
             let url = MurmurPaths.audio.appendingPathComponent("\(id).wav")
             audioPath = url.path
             Task.detached(priority: .utility) { try? WAV.write(samples, to: url) }
@@ -370,7 +409,7 @@ public final class DictationController {
             appName: started.focus.appName, mode: started.mode.rawValue, engine: engine.id,
             cleanup: cleanupProvider?.id ?? "rules", status: .recorded, audioPath: audioPath
         )
-        try? store.insert(record)
+        _ = try? history.insert(record)
         session?.recordId = id
 
         // Transcribe.
@@ -382,7 +421,7 @@ public final class DictationController {
             timings.transcribeMs = Clock.ms(since: t0)
         } catch {
             guard isCurrent(token) else { return }
-            _ = try? store.update(id: id) { $0.status = .transcriptionFailed; $0.errorCode = String(describing: error) }
+            _ = try? history.update(id: id) { $0.status = .transcriptionFailed; $0.errorCode = String(describing: error) }
             state.send(.transcriptionFailed)
             lastFailed = (started, samples, id)
             endSession(.dismiss)
@@ -392,9 +431,9 @@ public final class DictationController {
         guard isCurrent(token) else { return }
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         // The raw transcript reaches disk before cleanup starts (T2).
-        _ = try? store.update(id: id) { $0.rawText = trimmed; $0.status = .transcribed; $0.timings = timings }
+        _ = try? history.update(id: id) { $0.rawText = trimmed; $0.status = .transcribed; $0.timings = timings }
         guard !trimmed.isEmpty else {
-            _ = try? store.update(id: id) { $0.status = .cancelled; $0.errorCode = "empty" }
+            _ = try? history.update(id: id) { $0.status = .cancelled; $0.errorCode = "empty" }
             endSession(.discard)
             return
         }
@@ -408,7 +447,7 @@ public final class DictationController {
         timings.rulesMs = outcome.rulesMs
         timings.llmMs = outcome.llmMs
         guard isCurrent(token) else { return }
-        _ = try? store.update(id: id) { $0.cleanText = outcome.text; $0.timings = timings }
+        _ = try? history.update(id: id) { $0.cleanText = outcome.text; $0.timings = timings }
         guard state.send(.cleaned(outcome.text)) != nil else { return }
 
         // Insert through the focus guard and the clipboard transaction.
@@ -425,7 +464,7 @@ public final class DictationController {
 
         switch result {
         case .inserted:
-            _ = try? store.update(id: id) { $0.status = .inserted; $0.timings = timings }
+            _ = try? history.update(id: id) { $0.status = .inserted; $0.timings = timings }
             state.send(.inserted)
             session = nil
             processing = nil
@@ -434,7 +473,7 @@ public final class DictationController {
             if firstAudioMs != nil { Signposts.transition(from: "released", to: "inserted \(timings.summary)") }
         case .failed(let failure):
             let kind: DictationErrorKind = failure == .noTextBox ? .noTextBox : .pasteFailed
-            _ = try? store.update(id: id) {
+            _ = try? history.update(id: id) {
                 $0.status = kind == .noTextBox ? .noTextBox : .pasteFailed
                 $0.errorCode = failure.rawValue
                 $0.timings = timings
@@ -479,20 +518,20 @@ public final class DictationController {
             let id = UUID().uuidString
             recordId = id
             var audioPath: String?
-            if settings.keepAudio, !samples.isEmpty {
+            if settings.keepAudio, !settings.neverStore, !samples.isEmpty {
                 let url = MurmurPaths.audio.appendingPathComponent("\(id).wav")
                 audioPath = url.path
                 let copy = samples
                 Task.detached(priority: .utility) { try? WAV.write(copy, to: url) }
             }
-            _ = try? store.insert(DictationRecord(
+            _ = try? history.insert(DictationRecord(
                 id: id, startedAt: current.startedAt, durationMs: Double(samples.count) / 16, appBundleId: current.focus.bundleId,
                 appName: current.focus.appName, mode: current.mode.rawValue, engine: engineId ?? "-", cleanup: cleanupId,
                 status: .cancelled, errorCode: "user", audioPath: audioPath
             ))
         } else if let id = current.recordId {
             recordId = id
-            _ = try? store.update(id: id) { $0.status = .cancelled; $0.errorCode = "user" }
+            _ = try? history.update(id: id) { $0.status = .cancelled; $0.errorCode = "user" }
             samples = processingSamples ?? []
         }
         lastCancelled = samples.isEmpty ? nil : (current, samples, recordId)
@@ -511,7 +550,7 @@ public final class DictationController {
     public func undoCancel() {
         guard let cancelled = lastCancelled else { return }
         lastCancelled = nil
-        if let id = cancelled.recordId { _ = try? store.update(id: id) { $0.status = .cancelled; $0.errorCode = "undone" } }
+        if let id = cancelled.recordId { _ = try? history.update(id: id) { $0.status = .cancelled; $0.errorCode = "undone" } }
         reprocess(cancelled.samples, like: cancelled.session)
     }
 
@@ -519,7 +558,7 @@ public final class DictationController {
     public func retryFailed() {
         guard let failed = lastFailed else { return }
         lastFailed = nil
-        _ = try? store.update(id: failed.recordId) { $0.errorCode = "retried" }
+        _ = try? history.update(id: failed.recordId) { $0.errorCode = "retried" }
         reprocess(failed.samples, like: failed.session)
     }
 
@@ -546,6 +585,71 @@ public final class DictationController {
 
     public var isRecording: Bool { recorder.isRunning }
 
+    // MARK: Retry and Recover from History (A4)
+
+    /// Re-runs a saved dictation from its audio: transcribe, clean up, and update the row. Nothing is
+    /// pasted; the row's text can then be copied. Used for failed and interrupted rows.
+    public func retry(recordId: String) async -> Bool {
+        guard let engine, let record = try? store.record(id: recordId), let path = record.audioPath,
+              let samples = try? WAV.read(URL(fileURLWithPath: path)), !samples.isEmpty else { return false }
+        do {
+            let raw = try await engine.transcribe(samples, options: TranscribeOptions(
+                language: settings.engineLanguage, vocabulary: vocabulary, aliases: aliases)).trimmingCharacters(in: .whitespacesAndNewlines)
+            _ = try? store.update(id: recordId) { $0.rawText = raw; $0.status = .transcribed; $0.errorCode = "retried" }
+            guard !raw.isEmpty else { return false }
+            let provider = settings.transformsEnabled ? cleanupProvider : nil
+            let outcome = await CleanupRunner(rules: rules, provider: provider).run(raw, request: currentCleanupRequest)
+            _ = try? store.update(id: recordId) { $0.cleanText = outcome.text; $0.status = .inserted; $0.errorCode = "recovered" }
+            return true
+        } catch {
+            _ = try? store.update(id: recordId) { $0.errorCode = String(describing: error) }
+            return false
+        }
+    }
+
+    /// D9 retry: rebuild the audio engine and check the microphone starts.
+    public func retryMicrophone() {
+        recorder.forceRebuild()
+        if startMicTest() {
+            stopMicTest()
+            clearMessage()
+            log.notice("microphone recovered")
+        } else {
+            fail("The microphone is still unavailable (\(recorder.deviceName)). Pick another in Settings › General, or Retry.", kind: .micError)
+        }
+    }
+
+    // MARK: Microphone test (onboarding, Settings)
+
+    public private(set) var micTestRunning = false
+
+    /// Starts the microphone for the level meter only. Shortcuts are ignored meanwhile (D5).
+    public func startMicTest() -> Bool {
+        guard !micTestRunning, state.state == .idle else { return micTestRunning }
+        do {
+            try recorder.start()
+            micTestRunning = true
+            return true
+        } catch {
+            status.message = "Microphone unavailable: \(error)"
+            return false
+        }
+    }
+
+    public func stopMicTest() {
+        guard micTestRunning else { return }
+        _ = recorder.stop()
+        micTestRunning = false
+    }
+
+    public func selectMicrophone(uid: String?) {
+        let wasTesting = micTestRunning
+        if wasTesting { stopMicTest() }
+        settings.microphoneUID = uid
+        recorder.setDevice(uid: uid)
+        if wasTesting { _ = startMicTest() }
+    }
+
     /// The Flow Bar's stop button.
     public func stopHandsFree() {
         recognizer.reset()
@@ -555,6 +659,13 @@ public final class DictationController {
     /// The Flow Bar's X button and Esc.
     public func cancelCurrent() {
         cancel()
+    }
+
+    /// An informational notice on the Flow Bar and in the menu (permissions lost, and so on).
+    public func notice(_ message: String) {
+        status.message = message
+        status.notice = DictationStatus.Notice(kind: .info, message: message)
+        log.notice("notice shown")
     }
 
     public func clearMessage() {
@@ -568,7 +679,7 @@ public final class DictationController {
     /// ⌃⌘V: paste the newest transcript into the focused field. Cancels a dictation still processing.
     public func pasteLast() {
         if processing != nil { cancel() }
-        guard let text = (try? store.lastWithText())?.bestText ?? status.lastTranscript else {
+        guard let text = (try? history.lastWithText())?.bestText ?? status.lastTranscript else {
             status.message = "Nothing to paste yet."
             return
         }
@@ -582,7 +693,7 @@ public final class DictationController {
 
     /// ⌃⌘C: put the newest transcript on the clipboard as plain text.
     public func copyLast() {
-        guard let text = (try? store.lastWithText())?.bestText ?? status.lastTranscript else {
+        guard let text = (try? history.lastWithText())?.bestText ?? status.lastTranscript else {
             status.message = "Nothing to copy yet."
             return
         }

@@ -54,6 +54,11 @@ public final class AudioRecorder: @unchecked Sendable {
         return AVCaptureDevice.default(for: .audio)?.localizedName ?? "unknown"
     }
 
+    /// Throws the engine away so the next `start` builds a fresh one (D9 retry after a device problem).
+    public func forceRebuild() {
+        lock.withLock { needsRebuild = true }
+    }
+
     /// Chooses the input device; nil follows the system default. Takes effect at the next `start`.
     public func setDevice(uid: String?) {
         lock.withLock {

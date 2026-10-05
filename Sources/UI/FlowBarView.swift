@@ -140,6 +140,7 @@ struct NoticeCard: View {
     var icon: (String, Color) {
         switch notice.kind {
         case .pasteError, .transcriptionError: ("exclamationmark.triangle.fill", Color.token(tokens.errorLight, tokens.errorDark))
+        case .micError: ("mic.slash.fill", Color.token(tokens.errorLight, tokens.errorDark))
         case .noTextBox: ("text.cursor", Color.token(tokens.secondaryTextLight, tokens.secondaryTextDark))
         case .cancelled: ("xmark.circle.fill", Color.token(tokens.secondaryTextLight, tokens.secondaryTextDark))
         case .info: ("info.circle.fill", Color.token(tokens.secondaryTextLight, tokens.secondaryTextDark))

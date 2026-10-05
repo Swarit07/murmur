@@ -29,6 +29,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let sounds = Sounds()
     var flowBar: FlowBarWiring!
     var focusTest: FocusTest?
+    var hub: HubModel!
+    var onboarding: OnboardingModel?
+    var permissionTimer: Timer?
+    var lastPermissions = PermissionSnapshot.current()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(settings.showInDock ? .regular : .accessory)
@@ -48,7 +52,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.render(status)
             self?.flowBar.render(status)
         }
-        controller.onLevel = { [weak self] level in self?.flowBar.model.push(level: level) }
+        hub = HubModel(controller: controller, store: store)
+        controller.onLevel = { [weak self] level in
+            self?.flowBar.model.push(level: level)
+            self?.hub.push(level: level)
+        }
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.setAccessibilityLabel("Murmur")
@@ -83,11 +91,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
 
-        AVCaptureDevice.requestAccess(for: .audio) { _ in }
         controller.start()
-        if !Permissions.accessibility || !Permissions.inputMonitoring {
-            showPermissions()
+        startPermissionWatchdog()
+        if !settings.onboardingDone {
+            showOnboarding()
+        } else if !PermissionSnapshot.current().allGranted {
+            showHub(.general)
         }
+    }
+
+    // MARK: Permissions watchdog (A3)
+
+    /// Notices revoked permissions within two seconds, tells the user where to fix them, and picks the
+    /// shortcut back up once Input Monitoring is granted again. Pasting already fails closed without
+    /// Accessibility (the text stays on the clipboard and in History).
+    func startPermissionWatchdog() {
+        permissionTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.checkPermissions() }
+        }
+    }
+
+    func checkPermissions() {
+        let now = PermissionSnapshot.current()
+        defer { lastPermissions = now }
+        guard now != lastPermissions else { return }
+        var lost: [String] = []
+        if lastPermissions.microphone && !now.microphone { lost.append("Microphone") }
+        if lastPermissions.accessibility && !now.accessibility { lost.append("Accessibility") }
+        if lastPermissions.inputMonitoring && !now.inputMonitoring { lost.append("Input Monitoring") }
+        if !lost.isEmpty {
+            controller.notice("Murmur lost the \(lost.joined(separator: " and ")) permission. Open Murmur › Settings › General to turn it back on.")
+        }
+        if now.inputMonitoring && !lastPermissions.inputMonitoring { controller.startKeyTap() }
+        if now.allGranted && !lastPermissions.allGranted { controller.clearMessage() }
     }
 
     static var shared: AppDelegate? { NSApp.delegate as? AppDelegate }
@@ -141,8 +177,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         menu.addItem(.separator())
         menu.addItem(shortcutsMenu())
-        menu.addItem(item("Dictionary…", #selector(showDictionary)))
-        menu.addItem(item("Snippets…", #selector(showSnippets)))
         menu.addItem(item("Settings…", #selector(showSettings), key: ","))
         menu.addItem(item("Check permissions…", #selector(showPermissions)))
         if settings.debugMenu { menu.addItem(debugMenu()) }
@@ -233,6 +267,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         sub.addItem(soundsItem)
         sub.addItem(item("Run focus test (50 trials)", #selector(runFocusTestFromMenu)))
         sub.addItem(item("Open data folder", #selector(openDataFolder)))
+        sub.addItem(item("Run onboarding again", #selector(showOnboardingFromMenu)))
         parent.submenu = sub
         return parent
     }
@@ -281,11 +316,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settings.keyboardLayout = sender.representedObject as? String ?? "apple"
     }
 
-    @objc func showHistory() { windows.showHistory(store: store) }
-    @objc func showSettings() { windows.showSettings(settings: settings) }
-    @objc func showDictionary() { windows.showDictionary(store: store) }
-    @objc func showSnippets() { windows.showSnippets(store: store) }
-    @objc func showPermissions() {
-        windows.showPermissions { [weak self] in self?.controller.startKeyTap() }
+    @objc func showHistory() { showHub(.home) }
+    @objc func showSettings() { showHub(.general) }
+    @objc func showDictionary() { showHub(.dictionary) }
+    @objc func showSnippets() { showHub(.snippets) }
+    @objc func showOnboardingFromMenu() { showOnboarding() }
+    @objc func showPermissions() { showHub(.general) }
+
+    func showHub(_ page: HubPage) {
+        hub.go(page)
+        windows.show("hub", title: "Murmur", size: NSSize(width: 920, height: 620)) { HubView(model: hub) }
+    }
+
+    func showOnboarding() {
+        let model = onboarding ?? OnboardingModel(hub: hub)
+        onboarding = model
+        model.onShowFlowBar = { [weak self] show in
+            self?.flowBar.model.forced = show ? .notice(FlowBarNotice(kind: .info, message: "This is the Flow Bar. Click it to dictate hands-free.")) : nil
+        }
+        model.onFinish = { [weak self] in
+            self?.windows.close("onboarding")
+            self?.showHub(.home)
+        }
+        windows.show("onboarding", title: "Set up Murmur", size: NSSize(width: 600, height: 470)) { OnboardingView(model: model) }
     }
 }

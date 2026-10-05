@@ -18,10 +18,11 @@ final class FlowBarWiring {
         model.onClick = { [weak app] in app?.controller.toggleHandsFree() }
         model.onStop = { [weak app] in app?.controller.stopHandsFree() }
         model.onCancel = { [weak app] in app?.controller.cancelCurrent() }
-        model.onAction = { [weak app] action, _ in
+        model.onAction = { [weak app] action, notice in
             guard let app else { return }
             switch action {
-            case .retry: app.controller.retryFailed()
+            case .retry:
+                if notice.kind == .micError { app.controller.retryMicrophone() } else { app.controller.retryFailed() }
             case .undo: app.controller.undoCancel()
             case .openHistory:
                 app.controller.clearMessage()
@@ -76,6 +77,7 @@ final class FlowBarWiring {
         case .noTextBox: .noTextBox
         case .cancelled: .cancelled
         case .info: .info
+        case .micError: .micError
         }
         return FlowBarNotice(kind: kind, message: n.message)
     }

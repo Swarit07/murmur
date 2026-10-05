@@ -93,3 +93,18 @@ Newest last. Each entry: date, decision, reason.
 - **Speculative decoding is an option, not the default** (`mlx:qwen3-4b-2507+draft`, 4 draft tokens; 6 and 8 were slower). It needs trimmable caches, so not Qwen3.5.
 - **Cleanup is prewarmed with the exact instructions in use** at launch and whenever the dictionary, level, formatting or Transforms change.
 - **An MLX call never returns while its generator still runs:** on cancel it cancels the generator task and awaits it, because an overlap crashed Metal. `unload()` waits for in-flight calls.
+
+## 2026-10-05 · Milestone 4 (app windows)
+
+- **Shortcuts are a `Shortcut` value** (modifiers alone, key plus modifiers, mouse button, Caps Lock) for push-to-talk and hands-free, stored per Mac as JSON in UserDefaults. The recognizer reduces every event kind to push-to-talk down and up, other key, hands-free trigger and Esc, so one state machine serves them all (20 tests).
+- **Caps Lock comes from the keyboard HID** (IOHIDManager, usage 0x39): the event tap only sees Caps Lock when its lock flips. While Caps Lock is a Murmur shortcut, its lock state is put back after each press (`IOHIDSetModifierLockState`), so typing is not left in capitals.
+- **The Hub replaces the separate windows:** Home (History), Dictionary, Snippets, Style, and Settings (General, System, Experimental, Data and Privacy). ⌘[ and ⌘] go back and forward; ⌥↑ and ⌥↓ move between pages; History supports ↑↓/j/k and Return to copy.
+- **Retry and Recover in History** re-run a saved dictation from its audio and update the row without pasting. Shown when the audio is under 14 days old; failed rows must also be at least 5 s (A4).
+- **Onboarding adds a "Getting the models ready" step** (not in the spec's list). A fresh account downloads ~3 GB before the first dictation can work, and without the step that wait would look like a broken app.
+- **Never-store mode routes History writes to an in-memory store,** so nothing reaches disk but Paste last still works for the session; audio is not written.
+- **Permission watchdog every 2 s** (A3): a revoked permission shows a notice naming it; Input Monitoring coming back restarts the event tap; pasting already fails closed without Accessibility.
+- **Microphone failures show a Retry notice** (D9) that rebuilds the audio engine and checks the mic.
+- **Launch at login through `SMAppService.mainApp`** (A7); it shows when macOS needs approval in Login Items.
+- **Style page stores a style per category now;** applying styles to cleanup is S4, Milestone 5.
+- **Experimental toggles (Command Mode, Press Enter) are shown but disabled** until Milestone 5.
+- **`Scripts/install-app.sh --system` also copies to /Applications** for the fresh-account gate test.

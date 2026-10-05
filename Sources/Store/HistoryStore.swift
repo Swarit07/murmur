@@ -202,6 +202,12 @@ public final class HistoryStore: Sendable {
         }
     }
 
+    /// Deletes every dictation row (Data and Privacy). The dictionary and snippets stay.
+    public func deleteAll() throws {
+        _ = try db.write { try DictationRecord.deleteAll($0) }
+        notify()
+    }
+
     public func count() throws -> Int {
         try db.read { try DictationRecord.fetchCount($0) }
     }

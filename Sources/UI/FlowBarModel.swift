@@ -4,7 +4,7 @@ import SwiftUI
 /// A notice the bar shows as a card: errors, cancelled, no text box.
 public struct FlowBarNotice: Equatable, Sendable {
     public enum Kind: String, Sendable, CaseIterable {
-        case pasteError, transcriptionError, noTextBox, cancelled, info
+        case pasteError, transcriptionError, noTextBox, cancelled, info, micError
     }
 
     public enum Action: String, Sendable {
@@ -23,7 +23,7 @@ public struct FlowBarNotice: Equatable, Sendable {
     public var actions: [Action] {
         switch kind {
         case .pasteError: [.dismiss]
-        case .transcriptionError: [.retry, .dismiss]
+        case .transcriptionError, .micError: [.retry, .dismiss]
         case .noTextBox: [.dismiss]
         case .cancelled: [.undo, .openHistory]
         case .info: [.dismiss]
@@ -36,7 +36,7 @@ public struct FlowBarNotice: Equatable, Sendable {
         switch kind {
         case .cancelled: return t.cancelledToastDuration
         case .noTextBox, .info: return t.noticeDuration
-        case .pasteError, .transcriptionError: return nil
+        case .pasteError, .transcriptionError, .micError: return nil
         }
     }
 }

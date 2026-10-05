@@ -1,3 +1,4 @@
+import Foundation
 @testable import Hotkey
 import Testing
 
@@ -169,5 +170,78 @@ struct HotkeyRecognizerTests {
         s.mods([.fn], at: 5000)
         s.mods([], at: 6000)
         #expect(s.actions == [.startHold, .discard, .startHandsFree, .startHold, .stopHold])
+    }
+}
+
+extension Script {
+    mutating func keyUp(_ code: Int, at ms: UInt64) { actions += recognizer.handle(.keyUp(keyCode: code, time: ms * 1_000_000)) }
+    mutating func mouse(_ button: Int, down: Bool, at ms: UInt64) {
+        actions += recognizer.handle(down ? .mouseDown(button: button, time: ms * 1_000_000) : .mouseUp(button: button, time: ms * 1_000_000))
+    }
+    mutating func caps(_ down: Bool, at ms: UInt64) { actions += recognizer.handle(.capsLock(down: down, time: ms * 1_000_000)) }
+}
+
+@Suite("Custom shortcuts (D8)")
+struct CustomShortcutTests {
+    let f5 = 96
+
+    @Test func keyAsPushToTalk() {
+        var s = Script(HotkeyConfiguration(pushToTalk: .key(keyCode: 96, modifiers: []), handsFree: .key(keyCode: 97, modifiers: [])))
+        s.key(f5, at: 0)
+        s.keyUp(f5, at: 1500)
+        #expect(s.actions == [.startHold, .stopHold])
+    }
+
+    @Test func keyChordWithModifiers() {
+        var s = Script(HotkeyConfiguration(pushToTalk: .key(keyCode: 49, modifiers: [.control]), handsFree: .key(keyCode: 49, modifiers: [.control, .shift])))
+        s.key(49, at: 0)           // plain Space: not the shortcut
+        s.mods([.control], at: 100)
+        s.key(49, at: 200)         // Ctrl+Space down
+        s.keyUp(49, at: 1600)
+        #expect(s.actions == [.startHold, .stopHold])
+    }
+
+    @Test func mouseButtonAsPushToTalkAndHandsFree() {
+        var s = Script(HotkeyConfiguration(pushToTalk: .mouse(button: 3), handsFree: .mouse(button: 4)))
+        s.mouse(3, down: true, at: 0)
+        s.mouse(3, down: false, at: 1200)
+        s.mouse(4, down: true, at: 3000)
+        s.mouse(4, down: false, at: 3100)
+        s.mouse(4, down: true, at: 6000)
+        #expect(s.actions == [.startHold, .stopHold, .startHandsFree, .stopHandsFree])
+    }
+
+    @Test func capsLockAsPushToTalk() {
+        var s = Script(HotkeyConfiguration(pushToTalk: .capsLock, handsFree: .key(keyCode: 49, modifiers: [.control, .option])))
+        s.caps(true, at: 0)
+        s.caps(false, at: 1400)
+        s.caps(true, at: 2000)
+        s.caps(false, at: 2080)
+        s.caps(true, at: 2300)  // double-tap -> hands-free
+        s.caps(false, at: 2380)
+        #expect(s.actions == [.startHold, .stopHold, .startHold, .discard, .startHandsFree])
+    }
+
+    @Test func modifierOnlyHandsFree() {
+        var s = Script(HotkeyConfiguration(pushToTalk: .modifiers([.fn]), handsFree: .modifiers([.fn, .control])))
+        s.mods([.fn], at: 0)
+        s.mods([.fn, .control], at: 60)
+        s.mods([], at: 200)
+        s.mods([.fn], at: 4000)
+        s.mods([], at: 4100)
+        #expect(s.actions == [.startHold, .convertToHandsFree, .stopHandsFree])
+    }
+
+    @Test func shortcutNames() {
+        #expect(Shortcut.modifiers([.option, .control]).displayName == "⌃ ⌥")
+        #expect(Shortcut.key(keyCode: 49, modifiers: [.fn]).displayName == "fn Space")
+        #expect(Shortcut.mouse(button: 3).displayName == "Mouse button 4")
+        #expect(Shortcut.capsLock.displayName == "Caps Lock")
+    }
+
+    @Test func shortcutsRoundTripThroughJSON() throws {
+        let config = HotkeyConfiguration(pushToTalk: .capsLock, handsFree: .key(keyCode: 96, modifiers: [.shift]))
+        let decoded = try JSONDecoder().decode(HotkeyConfiguration.self, from: JSONEncoder().encode(config))
+        #expect(decoded == config)
     }
 }

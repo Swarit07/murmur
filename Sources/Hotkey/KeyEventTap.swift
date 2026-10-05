@@ -27,7 +27,8 @@ public final class KeyEventTap: @unchecked Sendable {
 
     public func start() throws {
         guard tap == nil else { return }
-        let mask = (1 << CGEventType.flagsChanged.rawValue) | (1 << CGEventType.keyDown.rawValue)
+        let types: [CGEventType] = [.flagsChanged, .keyDown, .keyUp, .otherMouseDown, .otherMouseUp]
+        let mask = types.reduce(CGEventMask(0)) { $0 | (1 << $1.rawValue) }
         let callback: CGEventTapCallBack = { _, type, event, info in
             if let info {
                 Unmanaged<KeyEventTap>.fromOpaque(info).takeUnretainedValue().handle(type: type, event: event)
@@ -36,7 +37,7 @@ public final class KeyEventTap: @unchecked Sendable {
         }
         guard let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap, place: .headInsertEventTap, options: .listenOnly,
-            eventsOfInterest: CGEventMask(mask), callback: callback,
+            eventsOfInterest: mask, callback: callback,
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else { throw TapError.inputMonitoringDenied }
         self.tap = tap
@@ -78,6 +79,12 @@ public final class KeyEventTap: @unchecked Sendable {
         case .keyDown:
             if event.getIntegerValueField(.keyboardEventAutorepeat) != 0 { return }
             handler(.keyDown(keyCode: Int(event.getIntegerValueField(.keyboardEventKeycode)), time: time))
+        case .keyUp:
+            handler(.keyUp(keyCode: Int(event.getIntegerValueField(.keyboardEventKeycode)), time: time))
+        case .otherMouseDown:
+            handler(.mouseDown(button: Int(event.getIntegerValueField(.mouseEventButtonNumber)), time: time))
+        case .otherMouseUp:
+            handler(.mouseUp(button: Int(event.getIntegerValueField(.mouseEventButtonNumber)), time: time))
         default:
             break
         }
