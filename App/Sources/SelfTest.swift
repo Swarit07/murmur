@@ -129,6 +129,16 @@ final class SelfTest {
             }
             settings.smartFormatting = saved.smart
 
+            // D5: a second start while a dictation is processing is ignored.
+            Self.setValue(field, "")
+            let firstStarted = controller.dictateForTest(clips["Let's grab coffee after the meeting."] ?? [])
+            let secondStarted = controller.dictateForTest(clips[cases[0].phrase] ?? [])
+            _ = await waitIdle()
+            let busyText = Self.value(field) ?? ""
+            record("Second start while busy is ignored (D5)",
+                   !firstStarted ? "the first dictation did not start" : secondStarted ? "a second dictation started" : (Self.words(busyText).contains("fox") ? "the second clip was inserted" : Self.missing(["coffee"], in: busyText)),
+                   text: busyText)
+
             // Esc while processing inserts nothing; Undo on the notice inserts it after all.
             Self.setValue(field, "")
             if controller.dictateForTest(clips["Let's grab coffee after the meeting."] ?? []) {

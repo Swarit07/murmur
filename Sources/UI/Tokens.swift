@@ -6,6 +6,15 @@ import SwiftUI
 /// UI hard-codes a size, color, duration, spring or sound value; it reads `LiveTokens`, which starts
 /// from these defaults and can be tuned at runtime from the debug panel.
 public struct Tokens: Codable, Equatable, Sendable {
+    /// Saved overrides laid over the current defaults, so a token added later keeps its default
+    /// instead of making the whole saved set unreadable.
+    public static func merged(over data: Data) -> Tokens? {
+        guard let saved = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let base = try? JSONSerialization.jsonObject(with: JSONEncoder().encode(Tokens.defaults)) as? [String: Any],
+              let merged = try? JSONSerialization.data(withJSONObject: base.merging(saved) { _, new in new }) else { return nil }
+        return try? JSONDecoder().decode(Tokens.self, from: merged)
+    }
+
     // MARK: Bar geometry (points)
 
     /// Pill size while idle and visible.
@@ -56,6 +65,9 @@ public struct Tokens: Codable, Equatable, Sendable {
     public var errorLight: String = "#FF9F0AFF"
     public var errorDark: String = "#FF9F0AFF"
     public var successLight: String = "#30D158FF"
+    /// Command Mode's accent on the bar while it listens and works.
+    public var commandLight: String = "#BF8CFFFF"
+    public var commandDark: String = "#BF8CFFFF"
     public var successDark: String = "#30D158FF"
     public var textLight: String = "#FFFFFFFF"
     public var textDark: String = "#FFFFFFFF"
@@ -144,11 +156,7 @@ public final class LiveTokens {
     }
 
     init() {
-        if let data = UserDefaults.standard.data(forKey: Self.key), let saved = try? JSONDecoder().decode(Tokens.self, from: data) {
-            value = saved
-        } else {
-            value = .defaults
-        }
+        value = UserDefaults.standard.data(forKey: Self.key).flatMap(Tokens.merged(over:)) ?? .defaults
     }
 
     public func reset() { value = .defaults }

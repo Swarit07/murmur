@@ -60,11 +60,15 @@ struct FlowBarView: View {
         case .listening(let handsFree):
             HStack(spacing: 10) {
                 if handsFree { circleButton("xmark", color: Color.token(t.cancelLight, t.cancelDark), label: "Cancel") { model.onCancel?() } }
-                Waveform(levels: model.levels, tokens: t)
+                if model.command { commandMark }
+                Waveform(levels: model.levels, tokens: t, color: model.command ? Color.token(t.commandLight, t.commandDark) : nil)
                 if handsFree { circleButton("stop.fill", color: Color.token(t.stopLight, t.stopDark), label: "Stop and insert") { model.onStop?() } }
             }
         case .processing:
-            ProcessingDots(period: t.processingLoopPeriod, color: Color.token(t.waveformLight, t.waveformDark), reduceMotion: reduceMotion)
+            HStack(spacing: 8) {
+                if model.command { commandMark }
+                ProcessingDots(period: t.processingLoopPeriod, color: model.command ? Color.token(t.commandLight, t.commandDark) : Color.token(t.waveformLight, t.waveformDark), reduceMotion: reduceMotion)
+            }
         case .inserted:
             Image(systemName: "checkmark")
                 .font(.system(size: t.labelSize + 2, weight: .bold))
@@ -73,6 +77,14 @@ struct FlowBarView: View {
         case .notice(let notice):
             NoticeCard(notice: notice, model: model, tokens: t)
         }
+    }
+
+    /// Marks a Command Mode recording, so it never looks like plain dictation.
+    var commandMark: some View {
+        Image(systemName: "sparkles")
+            .font(.system(size: t.labelSize, weight: .semibold))
+            .foregroundStyle(Color.token(t.commandLight, t.commandDark))
+            .accessibilityLabel("Command Mode")
     }
 
     func circleButton(_ symbol: String, color: Color, label: String, action: @escaping () -> Void) -> some View {
@@ -95,6 +107,7 @@ extension FlowBarState {
 struct Waveform: View {
     let levels: [Double]
     let tokens: Tokens
+    var color: Color?
 
     var body: some View {
         HStack(alignment: .center, spacing: tokens.waveformBarGap) {
@@ -103,7 +116,7 @@ struct Waveform: View {
                 let center = Double(levels.count - 1) / 2
                 let weight = 1 - 0.45 * abs(Double(index) - center) / max(1, center)
                 Capsule()
-                    .fill(Color.token(tokens.waveformLight, tokens.waveformDark))
+                    .fill(color ?? Color.token(tokens.waveformLight, tokens.waveformDark))
                     .frame(width: tokens.waveformBarWidth, height: tokens.waveformMinHeight + (tokens.waveformMaxHeight - tokens.waveformMinHeight) * level * weight)
             }
         }

@@ -66,6 +66,9 @@ public enum FlowBarState: Equatable, Sendable {
 @MainActor
 @Observable
 public final class FlowBarModel {
+    /// Command Mode is listening or working (the bar shows its accent).
+    public var command = false
+
     /// The state from the dictation controller.
     public var state: FlowBarState = .idle {
         didSet { stateChanged(from: oldValue) }

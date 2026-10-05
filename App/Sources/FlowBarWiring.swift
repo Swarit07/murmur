@@ -56,6 +56,7 @@ final class FlowBarWiring {
             bar.followFocusedScreen()
         }
         lastPhase = status.phase
+        model.command = status.command
         model.state = Self.state(for: status)
     }
 

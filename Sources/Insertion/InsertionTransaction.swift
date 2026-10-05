@@ -57,6 +57,10 @@ public struct InsertionTransaction: Sendable {
         current: FocusSnapshot,
         onPasted: (@Sendable () -> Void)? = nil
     ) async -> InsertionResult {
+        // I10: one insertion at a time. A second paste while the first waits to restore the clipboard
+        // would snapshot the first transcript as "the user's clipboard" and restore it.
+        await Self.line.enter()
+        defer { Self.line.leave() }
         // 1. Focus guard and secure-field check.
         if let failure = guardFailure(expected: expected, current: current) {
             _ = pasteboard.writeTranscript(text, markers: [])
@@ -84,10 +88,32 @@ public struct InsertionTransaction: Sendable {
         return .inserted(restored: false)
     }
 
+    @MainActor static let line = SerialGate()
+
     public func guardFailure(expected: FocusSnapshot, current: FocusSnapshot) -> InsertionFailure? {
         if current.isSecure || expected.isSecure { return .secureField }
         if !expected.sameFocus(as: current) { return .focusChanged }
         if requireEditable && !current.isEditable { return .noTextBox }
         return nil
+    }
+}
+
+/// A first-come, first-served gate for async work on the main actor.
+@MainActor
+final class SerialGate {
+    private var busy = false
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+
+    func enter() async {
+        if busy {
+            await withCheckedContinuation { waiting.append($0) }
+        } else {
+            busy = true
+        }
+    }
+
+    /// Hands the gate straight to the next waiter, or opens it.
+    func leave() {
+        if waiting.isEmpty { busy = false } else { waiting.removeFirst().resume() }
     }
 }

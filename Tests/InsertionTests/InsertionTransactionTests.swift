@@ -100,6 +100,20 @@ struct InsertionTransactionTests {
         #expect(board.writes.first?.1 == PasteboardMarkers.all)
     }
 
+    /// I10: a second insertion (Paste last during a dictation's paste) waits for the first, so the
+    /// user's clipboard comes back instead of the first transcript.
+    @Test func overlappingInsertionsKeepTheUsersClipboard() async {
+        let board = FakePasteboard(items: Self.richClipboard())
+        let tx = InsertionTransaction(pasteboard: board, sender: FakeSender(), restoreDelay: .milliseconds(80))
+        async let first = tx.insert("First.", expected: focus, current: focus)
+        try? await Task.sleep(for: .milliseconds(10))
+        async let second = tx.insert("Second.", expected: focus, current: focus)
+        let results = await [first, second]
+        #expect(results == [.inserted(restored: true), .inserted(restored: true)])
+        #expect(board.currentItems == Self.richClipboard())
+        #expect(board.writes.map(\.0) == ["First.", "Second."])
+    }
+
     /// Regression: Murmur.app aborted when the paste keystroke ran off the main thread (macOS asserts
     /// that the keyboard-layout lookup happens on the main queue).
     @Test func pasteRunsOnMainThread() async {

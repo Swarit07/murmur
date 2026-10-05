@@ -467,6 +467,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     try? await Task.sleep(for: .milliseconds(450))
                     if let rep = Self.capture(panel) { sheet.append(rep) }
                 }
+                // Command Mode's accent while listening (hold and hands-free) and working.
+                flowBar.model.command = true
+                for state in [FlowBarState.listening(handsFree: false), .listening(handsFree: true), .processing] {
+                    flowBar.model.forced = state
+                    try? await Task.sleep(for: .milliseconds(450))
+                    if let rep = Self.capture(panel) { sheet.append(rep) }
+                }
+                flowBar.model.command = false
                 Self.contactSheet(sheet, columns: 2, scale: 1, to: dir.appendingPathComponent("sheet-bar-\(lookName).png"))
             }
             panel.appearance = nil

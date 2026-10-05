@@ -49,6 +49,8 @@ public struct DictationStatus: Equatable, Sendable {
     public var lastTranscript: String?
     /// The same notice, typed, for the Flow Bar's buttons (Retry, Undo, Dismiss).
     public var notice: Notice?
+    /// The current recording or processing is a Command Mode instruction.
+    public var command = false
 }
 
 /// Hands microphone levels from the audio thread to the main actor.
@@ -327,7 +329,10 @@ public final class DictationController {
         case .cancel: cancel()
         case .startCommand: begin(.command)
         case .convertToCommand:
-            if session != nil, recorder.isRunning { session?.mode = .command }
+            if session != nil, recorder.isRunning {
+                session?.mode = .command
+                status.command = true
+            }
         }
     }
 
@@ -374,7 +379,7 @@ public final class DictationController {
         session = newSession
         autoStopReason = nil
         watch(newSession.token)
-        status = DictationStatus(phase: .recording(handsFree: mode == .handsFree), message: nil, lastTranscript: status.lastTranscript, notice: nil)
+        status = DictationStatus(phase: .recording(handsFree: mode == .handsFree), message: nil, lastTranscript: status.lastTranscript, notice: nil, command: mode == .command)
         Signposts.transition(from: "key-down", to: "recording (\(Format.ms(Clock.ms(since: keyDownAt))))")
         if settings.soundsEnabled { sounds?.play(.start) }
     }
@@ -691,6 +696,7 @@ public final class DictationController {
         self.session = session
         status.notice = nil
         status.message = nil
+        status.command = original.mode == .command
         status.phase = .processing
         processingSamples = samples
         processing = Task { [weak self] in
