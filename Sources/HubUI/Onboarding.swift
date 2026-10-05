@@ -5,7 +5,7 @@ import MurmurKit
 import SwiftUI
 
 /// Onboarding (spec section 6). Resumes where it stopped if Murmur quits, and skips steps already done.
-enum OnboardingStep: Int, CaseIterable {
+public enum OnboardingStep: Int, CaseIterable, Sendable {
     case welcome, microphone, accessibility, inputMonitoring, models, micTest, shortcut, languages, practiceHold, practiceHandsFree, data, flowBar
 
     var title: String {
@@ -56,18 +56,18 @@ enum OnboardingStep: Int, CaseIterable {
 
 @MainActor
 @Observable
-final class OnboardingModel {
+public final class OnboardingModel {
     let hub: HubModel
     let settings = AppSettings.shared
-    var step: OnboardingStep
+    public var step: OnboardingStep
     var modelsReady = false
     var practiceDone: Set<OnboardingStep> = []
-    var onFinish: (() -> Void)?
-    var onShowFlowBar: ((Bool) -> Void)?
+    public var onFinish: (() -> Void)?
+    public var onShowFlowBar: ((Bool) -> Void)?
     /// A preview (design snapshots) shows steps without saving progress or starting the microphone.
     let preview: Bool
 
-    init(hub: HubModel, preview: Bool = false) {
+    public init(hub: HubModel, preview: Bool = false) {
         self.hub = hub
         self.preview = preview
         step = preview ? .welcome : (OnboardingStep(rawValue: AppSettings.shared.onboardingStep) ?? .welcome)
@@ -104,12 +104,16 @@ final class OnboardingModel {
     }
 }
 
-struct OnboardingView: View {
+public struct OnboardingView: View {
     @Bindable var model: OnboardingModel
+
+    public init(model: OnboardingModel) {
+        self.model = model
+    }
     let timer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
     @State private var tick = 0
 
-    var body: some View {
+    public var body: some View {
         VStack(spacing: 0) {
             VStack(spacing: 10) {
                 HStack(spacing: 8) {

@@ -92,11 +92,13 @@ struct Footnote: View {
 
 /// An empty strip that moves the window, for the parts of a transparent title bar that SwiftUI content
 /// covers (AppKit only drags from the title bar itself). Double-click follows the system setting.
-struct WindowDragArea: NSViewRepresentable {
-    final class DragView: NSView {
-        override var mouseDownCanMoveWindow: Bool { true }
+public struct WindowDragArea: NSViewRepresentable {
+    public init() {}
 
-        override func mouseDown(with event: NSEvent) {
+    public final class DragView: NSView {
+        override public var mouseDownCanMoveWindow: Bool { true }
+
+        override public func mouseDown(with event: NSEvent) {
             guard event.clickCount == 2 else {
                 window?.performDrag(with: event)
                 return
@@ -109,6 +111,6 @@ struct WindowDragArea: NSViewRepresentable {
         }
     }
 
-    func makeNSView(context: Context) -> NSView { DragView() }
-    func updateNSView(_ view: NSView, context: Context) {}
+    public func makeNSView(context: Context) -> NSView { DragView() }
+    public func updateNSView(_ view: NSView, context: Context) {}
 }

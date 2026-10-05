@@ -8,11 +8,11 @@ import UniformTypeIdentifiers
 
 /// The Hub's pages (spec section 6): Home (History), Dictionary, Snippets, Style, and Settings split into
 /// General, System, Experimental, and Data and Privacy.
-enum HubPage: String, CaseIterable, Identifiable, Hashable {
+public enum HubPage: String, CaseIterable, Identifiable, Hashable, Sendable {
     case home, dictionary, snippets, style, general, system, experimental, privacy
-    var id: String { rawValue }
+    public var id: String { rawValue }
 
-    var title: String {
+    public var title: String {
         switch self {
         case .home: "Home"
         case .dictionary: "Dictionary"
@@ -38,32 +38,32 @@ enum HubPage: String, CaseIterable, Identifiable, Hashable {
         }
     }
 
-    static let main: [HubPage] = [.home, .dictionary, .snippets, .style]
-    static let settings: [HubPage] = [.general, .system, .experimental, .privacy]
+    public static let main: [HubPage] = [.home, .dictionary, .snippets, .style]
+    public static let settings: [HubPage] = [.general, .system, .experimental, .privacy]
 }
 
 /// Shared state for the Hub and onboarding: the controller, History, and the live mic level.
 @MainActor
 @Observable
-final class HubModel {
+public final class HubModel {
     let controller: DictationController
     let store: HistoryStore
     let settings = AppSettings.shared
-    var page: HubPage = .home
+    public var page: HubPage = .home
     var backStack: [HubPage] = []
     var forwardStack: [HubPage] = []
     /// Latest microphone level, 0…1, for the level meters.
     var micLevel: Double = 0
     /// The controller's latest status, for the sidebar's status card.
-    var status: DictationStatus?
+    public var status: DictationStatus?
 
-    init(controller: DictationController, store: HistoryStore) {
+    public init(controller: DictationController, store: HistoryStore) {
         self.controller = controller
         self.store = store
         status = controller.status
     }
 
-    func go(_ page: HubPage) {
+    public func go(_ page: HubPage) {
         guard page != self.page else { return }
         backStack.append(self.page)
         forwardStack.removeAll()
@@ -89,7 +89,7 @@ final class HubModel {
         go(all[(i + delta + all.count) % all.count])
     }
 
-    func push(level dbfs: Float) {
+    public func push(level dbfs: Float) {
         micLevel = min(1, max(0, (Double(dbfs) + 60) / 50))
     }
 }
@@ -97,13 +97,17 @@ final class HubModel {
 /// The Hub: a full-height translucent sidebar and a page with its own header row, laid out by hand
 /// under a transparent title bar. No SwiftUI toolbar or split view, so nothing in the title bar can
 /// overlap the page content (it clipped the first section heading once).
-struct HubView: View {
+public struct HubView: View {
     @Bindable var model: HubModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Height of the unified title bar; the traffic lights sit centered in it.
-    static let headerHeight: CGFloat = 52
+    public static let headerHeight: CGFloat = 52
 
-    var body: some View {
+    public init(model: HubModel) {
+        self.model = model
+    }
+
+    public var body: some View {
         HStack(spacing: 0) {
             HubSidebar(model: model)
                 .frame(width: 214)
@@ -918,14 +922,14 @@ struct PermissionsSummary: View {
     }
 }
 
-struct PermissionSnapshot: Equatable {
-    var microphone: Bool
-    var accessibility: Bool
-    var inputMonitoring: Bool
+public struct PermissionSnapshot: Equatable, Sendable {
+    public var microphone: Bool
+    public var accessibility: Bool
+    public var inputMonitoring: Bool
 
-    var allGranted: Bool { microphone && accessibility && inputMonitoring }
+    public var allGranted: Bool { microphone && accessibility && inputMonitoring }
 
-    static func current() -> PermissionSnapshot {
+    public static func current() -> PermissionSnapshot {
         PermissionSnapshot(
             microphone: AVCaptureDevice.authorizationStatus(for: .audio) == .authorized,
             accessibility: Permissions.accessibility,

@@ -17,6 +17,8 @@ targets:
     dependencies:
       - package: murmur
         product: MurmurKit
+      - package: murmur
+        product: HubUI
     info:
       path: Info.plist
       properties:

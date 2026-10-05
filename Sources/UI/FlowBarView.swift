@@ -2,12 +2,16 @@ import SwiftUI
 
 /// The Flow Bar's content. Every number comes from `LiveTokens`. Original drawing: a capsule with a
 /// level-driven waveform, a looping three-dot indicator, and notice cards.
-struct FlowBarView: View {
+public struct FlowBarView: View {
     let model: FlowBarModel
+
+    public init(model: FlowBarModel) {
+        self.model = model
+    }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var t: Tokens { LiveTokens.shared.value }
 
-    var body: some View {
+    public var body: some View {
         let size = model.barSize
         VStack {
             Spacer(minLength: 0)

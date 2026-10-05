@@ -71,7 +71,10 @@ public final class FlowBarController {
     // MARK: Placement
 
     /// The canvas is large enough for the biggest state; the bar sits at its bottom center.
-    var canvasSize: CGSize {
+    var canvasSize: CGSize { Self.canvas }
+
+    /// The panel's fixed size (also used by the snapshot tool).
+    public static var canvas: CGSize {
         let t = LiveTokens.shared.value
         return CGSize(
             width: max(t.noticeWidth, t.handsFreeWidth, t.activeWidth) + FlowBarPanel.shadowMargin * 2,

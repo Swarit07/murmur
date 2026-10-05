@@ -10,3 +10,8 @@ results/raw/
 App/Murmur.xcodeproj/
 App/Info.plist
 App/build/
+
+# UI snapshot sets are regenerated with `swift run murmur-snap`; only the contact sheets are committed.
+Artifacts/ui/before/
+Artifacts/ui/after/
+Artifacts/ui/gallery/

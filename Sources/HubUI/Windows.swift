@@ -3,13 +3,16 @@ import AVFoundation
 import Combine
 import MurmurKit
 import SwiftUI
+import UI
 
 /// Opens one window per kind and brings it forward when asked again.
 @MainActor
-final class WindowManager {
+public final class WindowManager {
+    public init() {}
+
     private var windows: [String: NSWindow] = [:]
 
-    enum Chrome {
+    public enum Chrome: Sendable {
         /// A normal title bar with the title.
         case standard
         /// A transparent 52-pt title bar that the content draws under; the traffic lights sit centered
@@ -19,12 +22,22 @@ final class WindowManager {
         case transparent
     }
 
-    func show<V: View>(_ id: String, title: String, size: NSSize, chrome: Chrome = .standard, @ViewBuilder content: () -> V) {
+    public func show<V: View>(_ id: String, title: String, size: NSSize, chrome: Chrome = .standard, @ViewBuilder content: () -> V) {
         if let window = windows[id] {
             window.makeKeyAndOrderFront(nil)
             NSApp.activate()
             return
         }
+        let window = Self.makeWindow(id: id, title: title, size: size, chrome: chrome, content: content)
+        window.center()
+        if chrome == .unified { window.setFrameAutosaveName("murmur.\(id)") }
+        windows[id] = window
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+    }
+
+    /// Builds a window with Murmur's chrome without showing it (the snapshot tool renders these).
+    public static func makeWindow<V: View>(id: String, title: String, size: NSSize, chrome: Chrome, @ViewBuilder content: () -> V) -> NSWindow {
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = title
         window.isReleasedWhenClosed = false
@@ -40,34 +53,30 @@ final class WindowManager {
             window.toolbarStyle = .unified
         }
         window.setContentSize(size)
-        window.center()
-        if chrome == .unified { window.setFrameAutosaveName("murmur.\(id)") }
-        windows[id] = window
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        return window
     }
 
-    func window(_ id: String) -> NSWindow? { windows[id] }
+    public func window(_ id: String) -> NSWindow? { windows[id] }
 
-    func close(_ id: String) {
+    public func close(_ id: String) {
         windows[id]?.close()
         windows[id] = nil
     }
 
-    func showTokens() {
-        show("tokens", title: "Flow Bar Tokens", size: NSSize(width: 460, height: 620)) { TokenPanel() }
+    public func showTokens(forceState: ((FlowBarState?) -> Void)? = nil) {
+        show("tokens", title: "Flow Bar Tokens", size: NSSize(width: 460, height: 760)) { TokenPanel(forceState: forceState) }
     }
 }
 
 /// Display names for the speech engines and cleanup models offered in Settings.
-enum ModelNames {
-    static let engines: [String: String] = [
+public enum ModelNames {
+    public static let engines: [String: String] = [
         "parakeet-ultra": "Parakeet ultra (recommended)", "parakeet-v3": "Parakeet v3", "parakeet-v2": "Parakeet v2 (English)",
         "parakeet-phonon2": "Parakeet phonon2", "whisper-turbo": "Whisper Large v3 Turbo", "apple-speech": "Apple on-device",
         "groq-whisper": "Groq Whisper (cloud, needs key)",
     ]
 
-    static let cleanup: [String: String] = [
+    public static let cleanup: [String: String] = [
         "mlx:qwen3.5-4b": "Qwen3.5 4B (recommended)", "mlx:smollm3-3b": "SmolLM3 3B (less memory)", "mlx:qwen3-4b-2507": "Qwen3 4B 2507",
         "mlx:qwen3.5-2b": "Qwen3.5 2B", "apple-foundation": "Apple on-device", "groq": "Groq (cloud, needs key)",
         "openrouter": "OpenRouter (cloud, needs key)", "rules": "Rules only (no AI)",

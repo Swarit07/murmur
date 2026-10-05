@@ -15,8 +15,10 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "MurmurKit", targets: ["MurmurKit"]),
+        .library(name: "HubUI", targets: ["HubUI"]),
         .executable(name: "murmur-cli", targets: ["MurmurCLI"]),
         .executable(name: "murmur-bench", targets: ["MurmurBench"]),
+        .executable(name: "murmur-snap", targets: ["MurmurSnap"]),
     ],
     dependencies: [
         .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.17.5"),
@@ -64,6 +66,11 @@ let package = Package(
             dependencies: ["Core", "Hotkey", "Audio", "SpeechEngines", "Cleanup", "Context", "Insertion", "Store", "Pipeline", "UI"],
             swiftSettings: strict
         ),
+        // The app's windows (Hub, onboarding, settings, design gallery) as a library, so the snapshot
+        // tool can render them with fixture data.
+        .target(name: "HubUI", dependencies: ["UI", "MurmurKit"], swiftSettings: strict),
+        // Renders every Hub page, onboarding step and Flow Bar state to PNG in light and dark.
+        .executableTarget(name: "MurmurSnap", dependencies: ["HubUI", "UI", "MurmurKit"], swiftSettings: strict),
         .executableTarget(
             name: "MurmurCLI",
             dependencies: [

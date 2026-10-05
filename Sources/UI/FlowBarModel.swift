@@ -222,6 +222,21 @@ public final class FlowBarModel {
     }
 }
 
+extension FlowBarState {
+    /// Every state the debug menu, the design gallery and the snapshot tool show.
+    public static let gallery: [(name: String, state: FlowBarState)] = [
+        ("idle", .idle), ("hidden", .hidden), ("listening-hold", .listening(handsFree: false)),
+        ("listening-handsfree", .listening(handsFree: true)), ("processing", .processing), ("inserted", .inserted),
+        ("paste-error", .notice(FlowBarNotice(kind: .pasteError, message: "Couldn't paste. The text is on the clipboard."))),
+        ("transcription-error", .notice(FlowBarNotice(kind: .transcriptionError, message: "Transcription failed."))),
+        ("mic-error", .notice(FlowBarNotice(kind: .micError, message: "The microphone is unavailable."))),
+        ("no-text-box", .notice(FlowBarNotice(kind: .noTextBox, message: "No text box. Click one and press ⌃⌘V."))),
+        ("cancelled", .notice(FlowBarNotice(kind: .cancelled, message: "Cancelled"))),
+        ("hidden-undo", .notice(FlowBarNotice(kind: .hidden, message: "Flow Bar hidden for an hour."))),
+        ("suggestion", .notice(FlowBarNotice(kind: .suggestion, message: "Add “Siobhan” to your dictionary?"))),
+    ]
+}
+
 /// Right-click menu entries.
 public enum FlowBarMenuItem: String, CaseIterable, Sendable {
     case pasteLast = "Paste last transcript"

@@ -1,4 +1,5 @@
 import AppKit
+import HubUI
 import MurmurKit
 import SwiftUI
 
@@ -183,67 +184,6 @@ final class Sounds: SoundPlaying {
         d.append(contentsOf: Array("data".utf8)); u32(bytes)
         for s in samples { u16(UInt16(bitPattern: Int16(s * 32_000))) }
         return d
-    }
-}
-
-// MARK: - Token panel
-
-/// Shows every token live and lets numbers and colors be edited while watching the bar. "Copy as
-/// Swift" puts the current values on the clipboard for pasting into Tokens.swift.
-struct TokenPanel: View {
-    @State private var rows: [(key: String, value: String)] = TokenPanel.rows()
-    @State private var filter = ""
-
-    static func rows() -> [(key: String, value: String)] {
-        guard let data = try? JSONEncoder().encode(LiveTokens.shared.value),
-              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
-        let order = Mirror(reflecting: LiveTokens.shared.value).children.compactMap(\.label)
-        return order.compactMap { key in dict[key].map { (key, "\($0)") } }
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                TextField("Filter", text: $filter).textFieldStyle(.roundedBorder)
-                Button("Copy as Swift") {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(LiveTokens.shared.swiftSource, forType: .string)
-                }
-                Button("Reset") {
-                    LiveTokens.shared.reset()
-                    rows = Self.rows()
-                }
-            }
-            .padding(10)
-            List {
-                ForEach(rows.indices.filter { filter.isEmpty || rows[$0].key.localizedCaseInsensitiveContains(filter) }, id: \.self) { i in
-                    HStack {
-                        Text(rows[i].key).font(.system(.body, design: .monospaced))
-                        Spacer()
-                        TextField("", text: Binding(get: { rows[i].value }, set: { rows[i].value = $0 }))
-                            .frame(width: 140)
-                            .multilineTextAlignment(.trailing)
-                            .onSubmit { apply(i) }
-                    }
-                }
-            }
-        }
-    }
-
-    /// Writes one edited value back through JSON, so types follow the Tokens struct.
-    func apply(_ i: Int) {
-        guard let data = try? JSONEncoder().encode(LiveTokens.shared.value),
-              var dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
-        let key = rows[i].key, text = rows[i].value
-        switch dict[key] {
-        case is Bool: dict[key] = text.lowercased() == "true"
-        case is NSNumber: dict[key] = Double(text) ?? dict[key]
-        default: dict[key] = text
-        }
-        if let updated = try? JSONSerialization.data(withJSONObject: dict), let tokens = try? JSONDecoder().decode(Tokens.self, from: updated) {
-            LiveTokens.shared.value = tokens
-        }
-        rows = Self.rows()
     }
 }
 

@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import HubUI
 import MurmurKit
 
 /// Debug self-test (QA): speaks short phrases with the system voice, runs each one through the real
