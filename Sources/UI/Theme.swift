@@ -33,16 +33,18 @@ extension EnvironmentValues {
 }
 
 /// Builds the theme from the environment (color scheme, Increase Contrast, Reduce Motion, Reduce
-/// Transparency), the Text size setting and the debug overrides, and injects it as `\.theme`.
+/// Transparency), the Text size setting and the debug overrides, and injects it as `\.theme`. Only the
+/// Hub passes a text scale ("Applies to the Hub only"); onboarding, the Flow Bar and the menu stay at the
+/// default size, and so does the debug text-scale override there.
 public struct ThemeProvider<Content: View>: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    private let textScale: Double
+    private let textScale: Double?
     private let content: Content
 
-    public init(textScale: Double = TypeTokens.scaleDefault, @ViewBuilder content: () -> Content) {
+    public init(textScale: Double? = nil, @ViewBuilder content: () -> Content) {
         self.textScale = textScale
         self.content = content()
     }
@@ -50,8 +52,8 @@ public struct ThemeProvider<Content: View>: View {
     public var body: some View {
         let debug = UIDebug.shared
         content.environment(\.theme, Theme.make(
-            scheme: scheme, increaseContrast: contrast == .increased, reduceMotion: debug.reduceMotion ?? reduceMotion,
-            reduceTransparency: reduceTransparency, textScale: debug.textScale ?? textScale, timeScale: debug.timeScale))
+            scheme: scheme, increaseContrast: debug.increaseContrast ?? (contrast == .increased), reduceMotion: debug.reduceMotion ?? reduceMotion,
+            reduceTransparency: reduceTransparency, textScale: textScale.map { debug.textScale ?? $0 } ?? TypeTokens.scaleDefault, timeScale: debug.timeScale))
     }
 }
 

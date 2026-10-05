@@ -48,7 +48,7 @@ public struct MToggle: View {
         .accessibilityElement()
         .accessibilityLabel(label)
         .accessibilityValue(isOn ? "On" : "Off")
-        .accessibilityAddTraits(.isButton)
+        .accessibilityAddTraits(.isToggle)
         .accessibilityAction { isOn.toggle() }
     }
 }

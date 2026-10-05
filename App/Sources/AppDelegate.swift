@@ -4,6 +4,7 @@ import Carbon.HIToolbox
 import HubUI
 import MurmurKit
 import SwiftUI
+import UI
 
 @main
 enum MurmurMain {
@@ -36,6 +37,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var onboarding: OnboardingModel?
     var permissionTimer: Timer?
     var lastPermissions = PermissionSnapshot.current()
+    /// The dropdown's header (§5.2) and the processing ripple's redraw timer.
+    let menuHeader = MenuHeaderModel()
+    var rippleTimer: Timer?
+    var rippleStart = Date()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Bundled fonts first, so every window opens in Murmur's type (system fonts if this fails).
@@ -62,7 +67,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         hub = HubModel(controller: controller, store: store)
 
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.setAccessibilityLabel("Murmur")
         let menu = NSMenu()
         menu.delegate = self
@@ -121,6 +126,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             MainActor.assumeIsolated {
                 guard let app = Self.shared, app.settings.debugMenu else { return }
                 app.flowBar.model.force(FlowBarState.gallery.first { $0.name == name })
+            }
+        }
+        // Design review (U8): shows the status item and dropdown in a state ("recording", "processing",
+        // "error", "loading", or the current one), opens the dropdown for a few seconds, then restores.
+        DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.swaritsheel.Murmur.debug.menu"), object: nil, queue: .main) { note in
+            let name = note.object as? String
+            MainActor.assumeIsolated {
+                guard let app = Self.shared, app.settings.debugMenu else { return }
+                var status = app.controller.status
+                switch name {
+                case "recording": status.phase = .recording(handsFree: true)
+                case "processing": status.phase = .processing
+                case "loading": status.phase = .loading
+                case "error":
+                    status.phase = .error
+                    status.message = "Transcription failed. The audio is saved in History."
+                default: break
+                }
+                app.render(status)
+                // Saves the open dropdown (a window of this process), then closes it.
+                let capture = Timer(timeInterval: 1.2, repeats: false) { _ in
+                    MainActor.assumeIsolated {
+                        app.captureMenuWindows(name ?? "current")
+                        app.statusItem.menu?.cancelTracking()
+                        app.render(app.controller.status)
+                    }
+                }
+                RunLoop.main.add(capture, forMode: .common)
+                app.statusItem.button?.performClick(nil)
             }
         }
         // Performance pass (U3): a 10-second hands-free recording, then discarded (nothing is inserted
@@ -217,40 +251,86 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: Icon
 
+    /// The status item shows the glyph's four states (§3.6). Loading uses the processing glyph, still;
+    /// only processing ripples, and not under Reduce Motion.
     func render(_ status: DictationStatus) {
+        let wasRecording: Bool = if case .recording = menuHeader.phase { true } else { false }
+        menuHeader.phase = status.phase
+        menuHeader.message = status.message
+        menuHeader.hotkey = hub?.hotkeyLabel ?? menuHeader.hotkey
+        menuHeader.microphone = controller?.microphoneName ?? ""
+        if case .recording = status.phase {
+            if !wasRecording { menuHeader.recordingSince = Date() }
+        } else {
+            menuHeader.recordingSince = nil
+        }
         guard let button = statusItem?.button else { return }
-        let symbol: String
+        let state: MenuBarGlyph.State
         let label: String
         switch status.phase {
-        case .loading: symbol = "hourglass"; label = "Murmur: loading models"
-        case .idle, .inserted: symbol = "waveform"; label = "Murmur"
-        case .recording(let handsFree): symbol = handsFree ? "waveform.badge.mic" : "waveform.circle.fill"; label = "Murmur: listening"
-        case .processing: symbol = "ellipsis.circle"; label = "Murmur: processing"
-        case .error: symbol = "exclamationmark.triangle"; label = "Murmur: needs attention"
+        case .loading: state = .processing; label = "Murmur: loading models"
+        case .idle, .inserted: state = .idle; label = "Murmur"
+        case .recording: state = .recording; label = "Murmur: listening"
+        case .processing: state = .processing; label = "Murmur: working"
+        case .error: state = .error; label = "Murmur: needs attention"
         }
-        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)
-        image?.isTemplate = true
-        button.image = image
+        let ripple = status.phase == .processing && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        if ripple, rippleTimer == nil {
+            rippleStart = Date()
+            let timer = Timer(timeInterval: MotionTokens.menuBarFrame, repeats: true) { _ in
+                MainActor.assumeIsolated {
+                    guard let app = Self.shared, let button = app.statusItem?.button else { return }
+                    button.image = MenuBarGlyph.image(.processing, phase: Date().timeIntervalSince(app.rippleStart))
+                }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            rippleTimer = timer
+        } else if !ripple {
+            rippleTimer?.invalidate()
+            rippleTimer = nil
+        }
+        let dark = button.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        // A still processing glyph shows the ripple a quarter of the way through, so the dots read as dots.
+        button.image = MenuBarGlyph.image(state, phase: MotionTokens.dotsPeriod / 4, dark: dark)
+        button.setAccessibilityLabel(label)
         button.toolTip = status.message ?? label
+    }
+
+    /// Design review: writes this process's open menu windows to PNGs in the data folder. (The status item
+    /// itself lives in the system's menu bar process, so murmur-snap renders the glyph states instead.)
+    func captureMenuWindows(_ name: String) {
+        let folder = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Murmur/Snapshots/menu", isDirectory: true)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let windows = NSApp.windows.filter { $0.isVisible && $0.className.contains("Menu") }
+        for (i, window) in windows.enumerated() {
+            guard let id = CGWindowID(exactly: window.windowNumber),
+                  let image = CGWindowListCreateImage(.null, .optionIncludingWindow, id, [.boundsIgnoreFraming, .bestResolution]) else { continue }
+            let rep = NSBitmapImageRep(cgImage: image)
+            let file = folder.appendingPathComponent("\(name)-\(i)-\(window.className).png")
+            try? rep.representation(using: .png, properties: [:])?.write(to: file)
+        }
     }
 
     // MARK: Menu
 
+    /// The dropdown in §5.2's order: header; Open, Paste last, Copy last; Microphone, Hide Flow Bar;
+    /// Shortcuts, Settings, Check permissions; Quit; footer. Native items, system highlight.
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        if let message = controller.status.message {
-            let item = NSMenuItem(title: message, action: nil, keyEquivalent: "")
-            item.isEnabled = false
-            menu.addItem(item)
-            menu.addItem(.separator())
-        }
-        menu.addItem(item("Open Murmur", #selector(showHistory)))
+        menuHeader.hotkey = hub.hotkeyLabel
+        menuHeader.microphone = controller.microphoneName
+        menu.addItem(.hosting(MenuHeaderView(model: menuHeader)))
+        menu.addItem(.separator())
+        menu.addItem(item("Open Murmur", #selector(showHistory), key: "o"))
+        // The app's global shortcuts are ⌃⌘V and ⌃⌘C (SPEC I7); the menu shows the real ones.
         let paste = item("Paste last transcript", #selector(pasteLast), key: "v")
         paste.keyEquivalentModifierMask = [.control, .command]
         menu.addItem(paste)
         let copy = item("Copy last transcript", #selector(copyLast), key: "c")
         copy.keyEquivalentModifierMask = [.control, .command]
         menu.addItem(copy)
+        menu.addItem(.separator())
         menu.addItem(microphoneMenu())
         if flowBar.model.hiddenUntil.map({ $0 > Date() }) ?? false {
             menu.addItem(item("Show Flow Bar", #selector(showFlowBar)))
@@ -260,23 +340,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(shortcutsMenu())
         menu.addItem(item("Settings…", #selector(showSettings), key: ","))
-        menu.addItem(item("Check permissions…", #selector(showPermissions)))
+        let permissions = item("Check permissions", #selector(showPermissions))
+        let snapshot = PermissionSnapshot.current()
+        let missing = [snapshot.microphone, snapshot.accessibility, snapshot.inputMonitoring].filter { !$0 }.count
+        if missing > 0 { permissions.badge = NSMenuItemBadge(string: "\(missing) missing") }
+        menu.addItem(permissions)
         if settings.debugMenu { menu.addItem(debugMenu()) }
         menu.addItem(.separator())
-        let info = NSMenuItem(title: modelsLine, action: nil, keyEquivalent: "")
-        info.isEnabled = false
-        menu.addItem(info)
         menu.addItem(item("Quit Murmur", #selector(NSApplication.terminate(_:)), key: "q", target: NSApp))
+        menu.addItem(.separator())
+        menu.addItem(.hosting(MenuFooterView(footerLine)))
     }
 
-    /// “Parakeet ultra · Qwen3.5 4B”, or what is still loading.
-    var modelsLine: String {
-        func name(_ table: [String: String], _ id: String) -> String {
-            (table[id] ?? id).replacingOccurrences(of: " (recommended)", with: "")
+    /// "v0.1.0 · on-device engine", or which part runs in the cloud.
+    var footerLine: String {
+        let cloud = AppInfo.cloud(controller)
+        let place = switch (cloud.speech, cloud.cleanup) {
+        case (false, false): "on-device engine"
+        case (false, true): "on-device speech, cloud cleanup"
+        case (true, false): "cloud speech, on-device cleanup"
+        case (true, true): "cloud engine"
         }
-        let engine = controller.engineDescription
-        let cleanup = controller.cleanupDescription
-        return "\(name(ModelNames.engines, engine)) · \(name(ModelNames.cleanup, cleanup == "rules only" ? "rules" : cleanup))"
+        return "v\(AppInfo.version) · \(place)"
     }
 
     func menuDidClose(_ menu: NSMenu) {
@@ -290,22 +375,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return item
     }
 
+    /// Automatic (the system default, named), each input device, then Sound Settings….
     func microphoneMenu() -> NSMenuItem {
         let parent = NSMenuItem(title: "Microphone", action: nil, keyEquivalent: "")
         let sub = NSMenu()
-        let systemDefault = item("System default", #selector(chooseMicrophone(_:)))
-        systemDefault.representedObject = nil
-        systemDefault.state = settings.microphoneUID == nil ? .on : .off
-        sub.addItem(systemDefault)
-        sub.addItem(.separator())
-        for device in AudioDevices.inputs() {
-            let entry = item(device.name + (device.isDefault ? " (default)" : ""), #selector(chooseMicrophone(_:)))
+        let devices = AudioDevices.inputs()
+        let automatic = item("Automatic", #selector(chooseMicrophone(_:)))
+        if let name = devices.first(where: \.isDefault)?.name {
+            let title = NSMutableAttributedString(string: "Automatic ", attributes: [.font: NSFont.menuFont(ofSize: 0)])
+            title.append(NSAttributedString(string: "(\(name))", attributes: [.font: NSFont.menuFont(ofSize: 0), .foregroundColor: NSColor.secondaryLabelColor]))
+            automatic.attributedTitle = title
+        }
+        automatic.representedObject = nil
+        automatic.state = settings.microphoneUID == nil ? .on : .off
+        sub.addItem(automatic)
+        for device in devices {
+            let entry = item(device.name, #selector(chooseMicrophone(_:)))
             entry.representedObject = device.uid
             entry.state = settings.microphoneUID == device.uid ? .on : .off
             sub.addItem(entry)
         }
+        sub.addItem(.separator())
+        sub.addItem(item("Sound Settings…", #selector(openSoundSettings)))
         parent.submenu = sub
         return parent
+    }
+
+    @objc func openSoundSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.sound?input") { NSWorkspace.shared.open(url) }
     }
 
     func shortcutsMenu() -> NSMenuItem {
@@ -628,7 +725,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func showDictionary() { showHub(.dictionary) }
     @objc func showSnippets() { showHub(.snippets) }
     @objc func showOnboardingFromMenu() { showOnboarding() }
-    @objc func showPermissions() { showHub(.general) }
+    @objc func showPermissions() { showHub(.system) }
 
     func showHub(_ page: HubPage) {
         hub.go(page)

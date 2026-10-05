@@ -23,6 +23,8 @@ public final class UIDebug {
     public var timeScale: Double = 1
     /// nil follows the Text size setting.
     public var textScale: Double?
+    /// nil follows the system's Increase Contrast setting.
+    public var increaseContrast: Bool?
 
     private init() {}
 }

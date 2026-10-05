@@ -82,7 +82,7 @@ public final class HubModel {
     }
 
     /// The push-to-talk key as the status card and copy show it ("fn", "⌃ Ctrl").
-    var hotkeyLabel: String {
+    public var hotkeyLabel: String {
         let shortcut = DictationController.shortcutConfiguration(settings).pushToTalk
         guard case .modifiers(let mods) = shortcut, mods.count == 1, let key = mods.first else { return shortcut.displayName }
         return switch key {

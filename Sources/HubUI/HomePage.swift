@@ -321,7 +321,9 @@ struct HistoryRowView: View {
                 .textStyle(TypeTokens.meta)
                 .monospacedDigit()
                 .foregroundStyle(c.textTertiary.color)
-                .frame(width: HubGeometry.historyTimeColumn, alignment: .leading)
+                // One line at any text size: the column grows with the text ("12:59 PM" at Large).
+                .fixedSize()
+                .frame(width: HubGeometry.historyTimeColumn * theme.textScale, alignment: .leading)
             MAppTile(silent ? .mic : Self.icon(for: record.appBundleId), faint: silent)
             HStack(spacing: Spacing.s8) {
                 if silent {

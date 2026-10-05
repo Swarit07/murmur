@@ -4,19 +4,20 @@ import MurmurKit
 import SwiftUI
 import UI
 
-// murmur-snap [before|after] [--out <dir>] [--large] [--reduce-motion] [--compare]
+// murmur-snap [before|after] [--out <dir>] [--large] [--reduce-motion] [--contrast] [--compare]
 // Renders every Hub page, onboarding step and Flow Bar state in light and dark at the screen's
 // backing scale (2× on Retina) with demo data, into Artifacts/ui/<set>/<appearance>/. `--large`
 // renders at text scale 1.15 into <set>-large, `--reduce-motion` with Reduce Motion on into
-// <set>-reduced (UI_REDESIGN.md §8). Exits non-zero if any image comes out blank. Windows are drawn offscreen through AppKit's own cacheDisplay rather
+// <set>-reduced, `--contrast` with Increase Contrast on into <set>-contrast (UI_REDESIGN.md §8). Exits non-zero if any image comes out blank. Windows are drawn offscreen through AppKit's own cacheDisplay rather
 // than ImageRenderer, because ImageRenderer cannot draw AppKit-backed controls such as text fields.
 
 let arguments = Array(CommandLine.arguments.dropFirst())
 let large = arguments.contains("--large")
 let reduceMotion = arguments.contains("--reduce-motion")
+let increaseContrast = arguments.contains("--contrast")
 let compare = arguments.contains("--compare")
 let outValue = arguments.firstIndex(of: "--out").flatMap { $0 + 1 < arguments.count ? arguments[$0 + 1] : nil }
-let setName = (arguments.first { !$0.hasPrefix("-") && $0 != outValue } ?? "after") + (large ? "-large" : "") + (reduceMotion ? "-reduced" : "")
+let setName = (arguments.first { !$0.hasPrefix("-") && $0 != outValue } ?? "after") + (large ? "-large" : "") + (reduceMotion ? "-reduced" : "") + (increaseContrast ? "-contrast" : "")
 let outRoot: URL = {
     if let i = arguments.firstIndex(of: "--out"), i + 1 < arguments.count { return URL(fileURLWithPath: arguments[i + 1]) }
     return URL(fileURLWithPath: "Artifacts/ui")
@@ -86,6 +87,7 @@ enum Snap {
         if !FontRegistry.registerBundledFonts() { print("murmur-snap: bundled fonts did not register; using system fonts") }
         if large { UIDebug.shared.textScale = TypeTokens.scaleLarge }
         if reduceMotion { UIDebug.shared.reduceMotion = true }
+        if increaseContrast { UIDebug.shared.increaseContrast = true }
 
         guard let store = try? HistoryStore(url: nil) else { fatalError("in-memory store") }
         DemoData.seed(store)
@@ -142,6 +144,52 @@ enum Snap {
             }
             model.force(nil)
             bar.close()
+
+            // Menu bar (§5.2, §3.6): the four glyph states on the menu bar's color, then the dropdown's
+            // header in each state and its footer, on the menu's color. The native menu itself is captured
+            // by the app (Debug › menu hook), since it can't be drawn offscreen.
+            let header = MenuHeaderModel()
+            header.hotkey = "fn"
+            header.microphone = "MacBook Pro Microphone"
+            func headerView(_ phase: DictationStatus.Phase, _ message: String? = nil) -> some View {
+                let m = MenuHeaderModel()
+                m.phase = phase
+                m.message = message
+                m.hotkey = header.hotkey
+                m.microphone = header.microphone
+                m.recordingSince = Date().addingTimeInterval(-4)
+                return MenuHeaderView(model: m)
+            }
+            let menuBar = NSHostingView(rootView: ThemeProvider {
+                VStack(alignment: .leading, spacing: Spacing.s16) {
+                    HStack(spacing: Spacing.s24) {
+                        ForEach(MenuBarGlyph.State.allCases, id: \.self) { state in
+                            Image(nsImage: MenuBarGlyph.image(state, phase: MotionTokens.dotsPeriod / 4, dark: lookName == "dark"))
+                        }
+                    }
+                    .padding(Spacing.s8)
+                    .background(Color(nsColor: .windowBackgroundColor))
+                    VStack(alignment: .leading, spacing: 0) {
+                        headerView(.idle)
+                        headerView(.recording(handsFree: true))
+                        headerView(.processing)
+                        headerView(.error, "Transcription failed. The audio is saved in History.")
+                        headerView(.loading)
+                        MenuFooterView("v0.1.0 · on-device engine")
+                    }
+                    .background(Color(nsColor: .windowBackgroundColor))
+                }
+                .padding(Spacing.s16)
+                .background(Color(nsColor: .underPageBackgroundColor))
+            })
+            menuBar.frame = NSRect(origin: .zero, size: menuBar.fittingSize)
+            let mb = NSWindow(contentRect: menuBar.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+            mb.contentView = menuBar
+            mb.appearance = NSAppearance(named: look)
+            prepare(mb)
+            pump(0.5)
+            capture(menuBar, to: dir.appendingPathComponent("menubar.png"))
+            mb.close()
         }
         // Design Gallery: every component in every state, light and dark side by side, at full height.
         let galleryHost = NSHostingView(rootView: DesignGallery(scrolls: false))

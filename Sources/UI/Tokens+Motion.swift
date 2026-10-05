@@ -31,6 +31,8 @@ public enum MotionTokens {
     /// Processing dots: one ripple period, the phase step between dots, lift and opacity range.
     public static let dotsPeriod: Double = 1.1 // source: board
     public static let dotsPhaseStep: Double = 0.62 // source: board
+    /// The menu bar's processing ripple is redrawn at this interval (an image, not a layer, so keep it modest).
+    public static let menuBarFrame: Double = 1.0 / 30 // source: derived (smooth enough at 18 pt; costs nothing at idle)
     public static let dotsLift: Double = 0.9 // source: board (times the dot size)
     public static let dotsOpacityLow: Double = 0.4 // source: board
     public static let dotsPulseReduced: Double = 1.6 // source: board
@@ -112,8 +114,6 @@ public enum MeterTokens {
     public static let releasePerFrame: Double = 0.08 // source: board
     /// The level a still meter shows (the reference's reduced-motion frame).
     public static let previewLevel: Double = 0.72 // source: board
-    /// The countdown digit is this share of the ring's size.
-    public static let ringDigitShare: Double = 0.42 // source: board
 }
 
 /// Animations that honor Reduce Motion and the debug time scale.

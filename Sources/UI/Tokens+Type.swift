@@ -47,14 +47,6 @@ public struct TextStyleToken: Sendable, Hashable {
         t.weight = w
         return t
     }
-
-    /// The same style at another size, keeping the line height's leading (key caps, small controls).
-    public func sized(_ s: Double) -> TextStyleToken {
-        var t = self
-        t.lineHeight += s - size
-        t.size = s
-        return t
-    }
 }
 
 public enum TypeTokens {

@@ -78,6 +78,23 @@ public final class WindowManager {
 }
 
 /// Display names for the speech engines and cleanup models offered in Settings.
+/// The app's version and system requirement as copy shows them ([VERSION], [MIN_MACOS]), and where the
+/// models run (the "on-device" tag and the menu footer).
+public enum AppInfo {
+    public static var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev" }
+    /// "macOS 14 or later", from the bundle's minimum system version (14 when run outside the app).
+    public static var requirement: String {
+        let minimum = Bundle.main.object(forInfoDictionaryKey: "LSMinimumSystemVersion") as? String ?? "14"
+        return "macOS \(minimum.hasSuffix(".0") ? String(minimum.dropLast(2)) : minimum) or later"
+    }
+
+    /// Which parts use a cloud service: speech (Groq Whisper) and cleanup (Groq, OpenRouter).
+    @MainActor
+    public static func cloud(_ controller: DictationController) -> (speech: Bool, cleanup: Bool) {
+        (controller.engineDescription.hasPrefix("groq"), ["groq", "openrouter"].contains(controller.cleanupDescription))
+    }
+}
+
 public enum ModelNames {
     public static let engines: [String: String] = [
         "parakeet-ultra": "Parakeet ultra (recommended)", "parakeet-v3": "Parakeet v3", "parakeet-v2": "Parakeet v2 (English)",

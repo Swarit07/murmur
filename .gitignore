@@ -19,3 +19,4 @@ Tools/.venv/
 Artifacts/ui/*-large/
 Artifacts/ui/*-reduced/
 Artifacts/ui/compare/
+Artifacts/ui/*-contrast/

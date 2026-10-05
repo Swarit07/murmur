@@ -152,11 +152,9 @@ public enum HubGeometry {
     public static let emptyStateMaxWidth: CGFloat = 380 // source: assumed // MEASURE
     public static let dialogWidth: CGFloat = 440 // source: assumed (Help & setup sheet) // MEASURE
     public static let popoverWidth: CGFloat = 300 // source: assumed (bell popover) // MEASURE
-    public static let menuMinWidth: CGFloat = 200 // source: assumed // MEASURE
 
     // History rows (Home)
     public static let historyTimeColumn: CGFloat = 52 // source: board
-    public static let historyTileColumn: CGFloat = 24 // source: board
     public static let historyMetaColumn: CGFloat = 112 // source: board
     public static let historyColumnGap: CGFloat = 14 // source: board
     public static let historyRowPadding = CGSize(width: 16, height: 13) // source: board
@@ -166,12 +164,10 @@ public enum HubGeometry {
     public static let dictionaryWordColumn: CGFloat = 200 // source: board
     public static let dictionaryTagColumn: CGFloat = 84 // source: board
     public static let dictionaryUsesColumn: CGFloat = 72 // source: board
-    public static let dictionaryActionsColumn: CGFloat = 64 // source: board
     public static let dictionaryColumnGap: CGFloat = 12 // source: board
     public static let dictionaryWordField: CGFloat = 200 // source: board
     public static let dictionarySoundsField: CGFloat = 220 // source: board
     public static let editRowPadding = CGSize(width: 12, height: 10) // source: board
-    public static let editFieldHeight: CGFloat = 34 // source: board
     public static let searchFieldWidth: CGFloat = 320 // source: board
 
     // Snippets, Style, Settings
@@ -229,7 +225,6 @@ public enum OnboardingGeometry {
     public static let holdKeyPaddingH: CGFloat = 18 // source: board
     public static let holdGap: CGFloat = 18 // source: board
     public static let appIcon: CGFloat = 128 // source: board
-    public static let holdKeyHeight: CGFloat = 56 // source: board
     public static let meterBars = 18 // source: board
     public static let meterBarWidth: CGFloat = 8 // source: board
     public static let meterBarGap: CGFloat = 4 // source: board
@@ -301,7 +296,6 @@ public enum FlowGeometry {
     public static let timerWidth: CGFloat = 30 // source: assumed (room for "0:07" in mono 11) // MEASURE
     /// A card's text column stops here; longer SPEC messages truncate.
     public static let cardTextMaxWidth: CGFloat = 260 // source: assumed // MEASURE
-    public static let textGap: CGFloat = 1 // source: assumed (title to sub-line) // MEASURE
     public static let ring: CGFloat = 22 // source: board
     public static let ringStroke: CGFloat = 2 // source: board
     public static let ring1pt: CGFloat = 1 // source: board (every surface's inset edge)
@@ -326,4 +320,12 @@ public enum MenuBarGeometry {
     public static let badge: CGFloat = 9 // source: board
     public static let badgeCutout: CGFloat = 1.5 // source: board
     public static let badgeMarkSize: CGFloat = 7 // source: board (bold "!")
+    /// The dropdown's custom header and footer views (§5.2); the menu itself is native.
+    public static let menuWidth: CGFloat = 280 // source: board
+    public static let menuInsetH: CGFloat = 16 // source: measured (native item titles start 16 pt in on macOS 27; check on 14) // MEASURE
+    public static let menuHeaderPaddingV: CGFloat = 6 // source: assumed // MEASURE
+    public static let menuFooterPaddingV: CGFloat = 2 // source: assumed // MEASURE
+    public static let menuLiveDot: CGFloat = 7 // source: board
+    public static let menuLiveDotGap: CGFloat = 8 // source: assumed // MEASURE
+    public static let menuTextGap: CGFloat = 2 // source: board
 }

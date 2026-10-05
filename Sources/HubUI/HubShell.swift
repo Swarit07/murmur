@@ -138,7 +138,9 @@ struct HubStatusCard: View {
         case .error: "Needs attention"
         }
         let live: Bool = if case .recording = phase { true } else { false }
-        MStatusCard(title: title, hotkey: model.hotkeyLabel, microphone: model.controller.microphoneName, live: live)
+        let cloud = AppInfo.cloud(model.controller)
+        MStatusCard(title: title, tag: cloud.speech || cloud.cleanup ? "cloud" : "on-device", hotkey: model.hotkeyLabel,
+                    microphone: model.controller.microphoneName, live: live)
             .help(model.status?.message ?? title)
     }
 }
@@ -228,7 +230,6 @@ struct HelpSheet: View {
     var body: some View {
         let c = theme.colors
         let config = DictationController.shortcutConfiguration(model.settings)
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
         MDialog("Help & setup") {
             VStack(alignment: .leading, spacing: Spacing.s16) {
                 MCaption("Shortcuts")
@@ -250,7 +251,7 @@ struct HelpSheet: View {
                         model.onRunOnboarding?()
                     }
                     Spacer()
-                    Text("v\(version) · macOS 14 or later").textStyle(TypeTokens.meta).foregroundStyle(c.textTertiary.color)
+                    Text("v\(AppInfo.version) · \(AppInfo.requirement)").textStyle(TypeTokens.meta).foregroundStyle(c.textTertiary.color)
                     MButton("Done", kind: .ink, size: .small) { model.helpOpen = false }
                 }
             }

@@ -451,3 +451,88 @@ One report per milestone (UI_REDESIGN.md §10), newest last. If a session ends m
   - The two cards are the existing choice: keep History on this Mac, or keep nothing.
   - "Keep audio" uses the real retention, 14 days.
 - **Shortcut cards** show both modes as in use, with a Change button each, instead of a radio choice. Push-to-talk and hands-free both always work.
+
+## U8: Menu bar, polish, accessibility
+
+**What changed**
+- **Status item (§3.6):**
+  - Uses `MenuBarGlyph` in its four states: idle (template), recording (clay copy plus a 5 pt dot), processing (45% template plus five rippling dots), error (ink "!" badge, never red).
+  - Loading shows the still processing glyph.
+  - The ripple is redrawn every 1/30 s only while processing (`MotionTokens.menuBarFrame`) and is still under Reduce Motion.
+  - The status item is now variable-length so the dots fit. Each state has its own VoiceOver label and tooltip.
+- **Dropdown (§5.2)** is a native `NSMenu`, in the board's order:
+  - Header: a custom view (`MenuHeaderView`) that mirrors the bar. It shows ready with the real hotkey; listening with the clay dot, mic name and a live mono timer; working; loading; or the last error split into what happened and the fix ("Transcription failed." / "The audio is saved in History.").
+  - Open Murmur ⌘O, Paste last, Copy last.
+  - Microphone ▸: "Automatic (*default device*)", each input, then Sound Settings….
+  - Hide Flow Bar for 1 hour.
+  - Shortcuts ▸, Settings… ⌘,, and Check permissions (it opens Settings › System). It shows a native "N missing" badge when Microphone, Accessibility or Input Monitoring is missing.
+  - Quit Murmur ⌘Q.
+  - Footer: a custom view with mono "v0.1.0 · on-device engine", or which part runs in the cloud.
+  - The highlight is the system's.
+- **Measured against the real menu.** The header and footer start 16 pt in (`menuInsetH`), matching the native item titles on macOS 27 in a capture of the real dropdown. A debug hook (`com.swaritsheel.Murmur.debug.menu <state>`) opens the dropdown in a state and saves it to `Snapshots/menu/`.
+- **Accessibility passes:**
+  - **Text size 1.15** (`murmur-snap --large`): the History time column wrapped ("9:41 A / M"). It now stays on one line and its column grows with the text.
+  - **Text size scope:** the setting now applies only to the Hub, as its hint says. `ThemeProvider` takes a scale only from the Hub, so onboarding, the Flow Bar and menus stay at default size, including under the debug override.
+  - **Increase Contrast:** new `murmur-snap --contrast` set (`UIDebug.increaseContrast`). Edges and tertiary text strengthen in both schemes; no clipping.
+  - **Reduce Motion** (`--reduce-motion`): renders clean. Behavior is covered by the motion tests in `ThemeTests`.
+  - **VoiceOver:**
+    - A runtime scan isn't possible offscreen: SwiftUI only builds its accessibility tree for an attached assistive client.
+    - So every control was audited in source: icon-only buttons, the Flow Bar round buttons, the search clear button, onboarding Back, cards, chips, segmented items, selects and key caps all carry names; selected items carry the selected trait.
+    - `MToggle` now reports the toggle trait (VoiceOver says "switch") instead of button.
+- **Clipping check:** `Tools/check_layout.py`. It fails if an onboarding step's primary button ends within 20 pt of the window bottom, or if anything but the backdrop touches a Flow Bar canvas edge. All four snapshot sets pass (58 images each).
+- **Truth fixes:**
+  - The sidebar status card's tag says "cloud" when a cloud speech engine or cleanup model is selected; before, it always said "on-device".
+  - "macOS 14 or later" now comes from the bundle's minimum version (`AppInfo`).
+- **Dead code removed:**
+  - `MStepFrame` (onboarding uses `StepScaffold`); its file is now `MIllustrationWell.swift`.
+  - `TextStyleToken.sized`.
+  - Nine unused tokens: `silentTile`, `subtle`, `menuMinWidth`, `historyTileColumn`, `dictionaryActionsColumn`, `editFieldHeight`, `holdKeyHeight`, `textGap`, `ringDigitShare`.
+  - No stock `Form`, `Toggle`, `Picker`, `.alert` or `confirmationDialog`, and no SF Symbols, remain in shipped UI.
+  - The only token-lint exemptions left are the two debug tools.
+- **`docs/ui-calibration.md`:** the §9 placeholders and where each is resolved, the open items with what ships now, and all 76 `// MEASURE` tokens with value, reason and location.
+- **Contact sheet:** `Tools/redesign_sheet.py` writes three columns per screen: before (v1), after (v2), reference board crop.
+  - Sections: `Artifacts/ui/sheets/contact-{hub,onboarding,flowbar,menubar}.png`.
+  - Overview: `Artifacts/ui/sheets/contact-sheet.png`.
+  - The per-milestone compare sheets and the gallery in `Artifacts/ui/sheets/` were refreshed to the final build.
+
+**§8 checks**
+
+| Check | Result |
+| --- | --- |
+| Token lint (`Scripts/check-tokens.sh`) | Pass. Only the two debug tools are exempt. |
+| Contrast tests (every §3.2 pair, both schemes; no stone text, clay only where allowed, no red) | Pass (`ThemeTests`) |
+| Snapshot tool: light, dark, 1.15, Reduce Motion, Increase Contrast | Pass: 77 images per set, none blank. Clipping check passes on all four sets. |
+| Reference comparison (`murmur-snap after --compare`) | Written to `Artifacts/ui/compare/`. Differences are listed in each milestone's report above. |
+| SPEC test suite | Pass: 167 tests (`MURMUR_NO_MLX=1 swift test`) |
+| 50-trial focus test | Pass: 50/50 kept focus in TextEdit, 50/50 clicks reached the bar, 50/50 started hands-free |
+| Reduce Motion behavior (A8) | Pass (motion tests; the processing ripple and onboarding drift are still under Reduce Motion) |
+| Permission-revocation detection (A3) | Code unchanged; the live test is on the owner's checklist (it needs permissions revoked by hand) |
+| SPEC §7 latency budget | Pass. Release to text p50 652 ms, p95 1,340 ms over today's 62 dictations (targets 800 ms and 1.5 s). The pipeline was not touched. |
+| Dictation self-test (21 recorded clips through the real pipeline into TextEdit) | Pass: 21/21 |
+| In-app checks (window drag, Style row click, ⌘[ ⌘] ⌥↑ ⌥↓) | Pass |
+| Idle CPU | 0.0–0.1% with the new status item |
+
+**Not fully met**
+- **Flow Bar frame pacing during a live recording:** 12 of 572 frames (2%) went over 16.7 ms in U3's profile. The bar alone has none over budget (commit p99 5.5 ms). The late frames line up with the speech engine's GPU work, and the main thread is about 92% idle. Details are in the U3 report.
+- **Menu header and footer inset:** 16 pt was measured on macOS 27 only. macOS 14's native menu inset may differ by a point or two; the value is marked MEASURE.
+
+## Owner checklist (manual)
+
+Things that can't be run from here. About 30 minutes in all.
+
+1. **Fresh macOS account onboarding** (`docs/m4-gate.md` part A): run setup end to end. Quit midway and reopen: it resumes at the same step and skips permissions already granted.
+2. **Permission revocation** (`docs/m4-gate.md` part B): turn Accessibility off while Murmur runs. The notice should appear, the menu's Check permissions should show "1 missing", and the status item should show the error glyph.
+3. **Flow Bar placement:**
+   - over a full-screen app, a dark app and a light app, with system appearance light and then dark;
+   - Dock on the left, on the right and auto-hidden;
+   - two displays.
+4. **Hub window** at the minimum 880 × 560 and the default 1180 × 740: nothing clipped, and the sidebar and status card fit.
+5. **Slow motion:** menu bar › Debug › Token panel…, set time scale to 0.2, then watch each Flow Bar transition, a page switch and an onboarding step.
+6. **VoiceOver** (⌘F5): walk the sidebar, a Settings tab with toggles, one onboarding step and the menu bar dropdown.
+7. **Decisions** (details in `docs/ui-calibration.md` and `docs/ui-todo.md`):
+   - wire the "We couldn't hear you" card or not;
+   - v2 Flow Bar timings vs SPEC §6;
+   - "Shortcuts" as a submenu;
+   - the board's ⌃⌥V/⌃⌥C vs the real ⌃⌘V/⌃⌘C;
+   - review the dark Hub (there is no dark Hub board);
+   - the onboarding size and the data-step crash-reports card.

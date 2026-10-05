@@ -367,7 +367,6 @@ struct WelcomeStep: View {
 
     var body: some View {
         let c = theme.colors
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
         VStack(spacing: OnboardingGeometry.gap) {
             StepHeader(model: model, section: nil)
             Spacer(minLength: 0)
@@ -389,7 +388,7 @@ struct WelcomeStep: View {
             VStack(spacing: Spacing.s12) {
                 MButton("Get started", kind: .primary, fullWidth: true) { model.next() }
                     .keyboardShortcut(.defaultAction)
-                Text("v\(version) · macOS 14 or later").textStyle(TypeTokens.meta).foregroundStyle(c.textTertiary.color)
+                Text("v\(AppInfo.version) · \(AppInfo.requirement)").textStyle(TypeTokens.meta).foregroundStyle(c.textTertiary.color)
             }
         }
         .padding(OnboardingGeometry.padding)
