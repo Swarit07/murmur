@@ -1,177 +1,254 @@
 import CoreGraphics
 
-// Geometry tokens (UI_REDESIGN.md §3.4, §3.5). Hub sizes were measured from the reference screenshots
-// at 1.333 px per pt (macOS traffic lights as the anchor). The Flow Bar's proportions are measured,
-// its absolute sizes assume a 28 pt pill (no OS anchor in those screenshots), so they carry MEASURE.
+// Geometry tokens (UI_REDESIGN.md v2 §3.4, §3.5, §4, §5). The boards are drawn at 1 CSS px = 1 pt, so
+// board values are exact. Values on no board are tagged assumed and carry `// MEASURE`.
 
-/// The spacing scale, in points.
+/// The spacing scale, in points (`space-1` … `space-12` in `Design/tokens.json`).
 public enum Spacing {
-    public static let xxs: CGFloat = 4
-    public static let xs: CGFloat = 8
-    public static let sm: CGFloat = 12
-    public static let md: CGFloat = 16
-    public static let lg: CGFloat = 20
-    public static let xl: CGFloat = 24
-    public static let xxl: CGFloat = 28
-    public static let x3: CGFloat = 32
-    public static let x4: CGFloat = 40
-    public static let x5: CGFloat = 48
-    public static let x6: CGFloat = 64
+    public static let s4: CGFloat = 4 // source: board
+    public static let s8: CGFloat = 8 // source: board
+    public static let s10: CGFloat = 10 // source: board
+    public static let s12: CGFloat = 12 // source: board
+    public static let s14: CGFloat = 14 // source: board
+    public static let s16: CGFloat = 16 // source: board
+    public static let s20: CGFloat = 20 // source: board
+    public static let s24: CGFloat = 24 // source: board
+    public static let s28: CGFloat = 28 // source: board
+    public static let s32: CGFloat = 32 // source: board
+    public static let s44: CGFloat = 44 // source: board
+    public static let s56: CGFloat = 56 // source: board
 }
 
-/// The Hub window.
+/// Corner radii (`radius-*` in `Design/tokens.json`).
+public enum Radius {
+    public static let keycapSmall: CGFloat = 5 // source: board
+    public static let keycap: CGFloat = 7 // source: board
+    public static let control: CGFloat = 8 // source: board
+    public static let button: CGFloat = 10 // source: board
+    public static let card: CGFloat = 12 // source: board
+    public static let cardLarge: CGFloat = 14 // source: board
+    public static let feature: CGFloat = 16 // source: board
+    public static let appTile: CGFloat = 6 // source: board
+}
+
+/// Borders and strokes.
+public enum Stroke {
+    public static let hairline: CGFloat = 1 // source: board
+    public static let selected: CGFloat = 1.5 // source: board
+    /// Increase Contrast thickens the selected-card ring (§6.3).
+    public static let selectedIncreased: CGFloat = 2 // source: board
+    public static let focusRing: CGFloat = 2 // source: board
+    public static let focusGap: CGFloat = 2 // source: board
+    public static let fieldHalo: CGFloat = 3 // source: board
+    public static let keycapBottom: CGFloat = 2 // source: board
+    public static let icon: CGFloat = 1.6 // source: board
+    public static let appTileIcon: CGFloat = 1.8 // source: board
+    public static let selectChevron: CGFloat = 2.4 // source: board
+    public static let dash: CGFloat = 4 // source: assumed (dashed snippet box) // MEASURE
+}
+
+/// `shadow-float`: paper toasts and popovers only (§3.4). SwiftUI shadows have no spread, so the
+/// −14 spread is approximated by a smaller blur radius.
+public enum ShadowTokens {
+    public static let floatY: CGFloat = 12 // source: board
+    public static let floatBlur: CGFloat = 32 // source: board
+    public static let floatSpread: CGFloat = -14 // source: board
+    /// What SwiftUI gets: blur and spread folded into one radius.
+    public static let floatRadius: CGFloat = (floatBlur + floatSpread) / 2 // source: derived // MEASURE
+}
+
+/// The Hub window and its pages (§3.4, §5.3).
 public enum HubGeometry {
-    public static let referenceWindow = CGSize(width: 1280, height: 700) // source: wis
-    public static let defaultWindow = CGSize(width: 1100, height: 700) // source: assumed // MEASURE
+    public static let defaultWindow = CGSize(width: 1180, height: 740) // source: assumed // MEASURE
     public static let minimumWindow = CGSize(width: 880, height: 560) // source: assumed // MEASURE
 
-    public static let sidebarWidth: CGFloat = 230 // source: wis
-    public static let sidebarItemWidth: CGFloat = 208 // source: wis
-    public static let sidebarItemHeight: CGFloat = 38 // source: wis
-    public static let sidebarItemPitch: CGFloat = 44 // source: wis
-    public static let sidebarItemInset: CGFloat = 10 // source: wis
-    public static let sidebarItemRadius: CGFloat = 8 // source: wis (estimated) // MEASURE
-    public static let sidebarIcon: CGFloat = 16 // source: wis
-    public static let sidebarIconGap: CGFloat = 13 // source: wis
-    public static let sidebarCollapsedWidth: CGFloat = 0 // source: assumed // MEASURE
+    // Sidebar
+    public static let sidebarWidth: CGFloat = 232 // source: board
+    public static let sidebarPaddingTop: CGFloat = 14 // source: board
+    public static let sidebarPaddingSide: CGFloat = 12 // source: board
+    public static let sidebarItemGap: CGFloat = 2 // source: board
+    public static let trafficLightsZone: CGFloat = 16 // source: board
+    public static let brandMarkHeight: CGFloat = 22 // source: board
+    public static let brandMarkInset: CGFloat = 22 // source: board (top and bottom)
+    public static let brandMarkLeft: CGFloat = 10 // source: board
+    public static let sidebarItemHeight: CGFloat = 36 // source: board
+    public static let sidebarItemPaddingH: CGFloat = 10 // source: board
+    public static let sidebarIcon: CGFloat = 18 // source: board
+    public static let statusCardPadding: CGFloat = 12 // source: board
 
-    /// Title bar zone: traffic lights, sidebar toggle and bell share one centre line.
-    public static let titleBarHeight: CGFloat = 46 // source: wis
-    public static let titleBarCenterLine: CGFloat = 20 // source: wis
-    public static let sidebarToggleX: CGFloat = 124 // source: wis
+    // Content panel
+    public static let panelInset: CGFloat = 8 // source: board (top, right, bottom)
+    public static let topBarHeight: CGFloat = 48 // source: board
+    public static let iconButton: CGFloat = 32 // source: board
+    public static let iconButtonSmall: CGFloat = 28 // source: board
+    public static let iconGlyph: CGFloat = 16 // source: board
+    public static let bellDot: CGFloat = 7 // source: board
+    public static let bellDotRing: CGFloat = 2 // source: board
+    public static let pagePaddingTop: CGFloat = 44 // source: board
+    public static let pagePaddingTopHome: CGFloat = 8 // source: board
+    public static let pagePaddingSide: CGFloat = 56 // source: board
+    public static let sectionGapHome: CGFloat = 28 // source: board
+    public static let sectionGap: CGFloat = 22 // source: board
+    public static let titleToSubtitle: CGFloat = 10 // source: board
+    public static let contentMaxWidth: CGFloat = 1000 // source: assumed (wide windows) // MEASURE
 
-    /// The content panel floats inside the window, flush against the sidebar.
-    public static let panelInsetTop: CGFloat = 46 // source: wis
-    public static let panelInsetTrailing: CGFloat = 9 // source: wis
-    public static let panelInsetBottom: CGFloat = 9 // source: wis
-    public static let panelRadius: CGFloat = 12 // source: wis (estimated) // MEASURE
-    public static let hairline: CGFloat = 1 // source: wis
+    // Buttons
+    public static let buttonHeight: CGFloat = 40 // source: board
+    public static let buttonPaddingH: CGFloat = 18 // source: board
+    public static let buttonIcon: CGFloat = 15 // source: board
+    public static let buttonHeightSmall: CGFloat = 28 // source: board
+    public static let buttonPaddingHSmall: CGFloat = 12 // source: board
+    public static let linkUnderlineOffset: CGFloat = 4 // source: board
 
-    public static let contentMaxWidth: CGFloat = 850 // source: wis
-    public static let contentMinSidePadding: CGFloat = 32 // source: wis
-    public static let titleTop: CGFloat = 66 // source: wis (re-check after the serif swap) // MEASURE
-    public static let titleToFeatureGap: CGFloat = 29 // source: wis
+    // Controls
+    public static let toggleSize = CGSize(width: 40, height: 24) // source: board
+    public static let toggleSizeSmall = CGSize(width: 34, height: 20) // source: board
+    public static let toggleKnobInset: CGFloat = 3 // source: board
+    public static let segmentedPadding: CGFloat = 2 // source: board
+    public static let segmentHeight: CGFloat = 30 // source: board
+    public static let segmentPaddingH: CGFloat = 14 // source: board
+    public static let segmentHeightSmall: CGFloat = 26 // source: board
+    public static let segmentPaddingHSmall: CGFloat = 10 // source: board
+    public static let fieldHeight: CGFloat = 36 // source: board
+    public static let fieldPaddingH: CGFloat = 12 // source: assumed // MEASURE
+    public static let searchIcon: CGFloat = 14 // source: board
+    public static let selectHeight: CGFloat = 30 // source: board
+    public static let selectChevron: CGFloat = 10 // source: board
+    public static let keycapInlineHeight: CGFloat = 20 // source: board (18-22)
+    public static let keycapHeight: CGFloat = 30 // source: board (28-32)
+    public static let keycapPaddingH: CGFloat = 10 // source: board
+    public static let keycapPaddingHInline: CGFloat = 6 // source: assumed // MEASURE
+    public static let radio: CGFloat = 14 // source: board
+    public static let radioSelectedRing: CGFloat = 4.5 // source: board
+    public static let tagHeight: CGFloat = 20 // source: board
+    public static let tagPaddingH: CGFloat = 7 // source: board
+    public static let statHeight: CGFloat = 32 // source: board
+    public static let statGroupPaddingH: CGFloat = 14 // source: board
+    public static let statDivider = CGSize(width: 1, height: 14) // source: board
+    public static let appTile: CGFloat = 24 // source: board
+    public static let appTileIcon: CGFloat = 13 // source: board
+    public static let chipHeight: CGFloat = 32 // source: board (onboarding language chips)
 
-    public static let featureCardHeight: CGFloat = 230 // source: wis
-    public static let featureCardPadding: CGFloat = 28 // source: wis
-    public static let cardRadius: CGFloat = 14 // source: wis (estimated) // MEASURE
-    public static let featureTitleToBody: CGFloat = 28 // source: wis
-    public static let featureBodyToButton: CGFloat = 31 // source: wis
-
-    public static let buttonHeightSmall: CGFloat = 32 // source: assumed // MEASURE
-    public static let buttonHeight: CGFloat = 40 // source: wis
-    public static let buttonHeightLarge: CGFloat = 48 // source: assumed // MEASURE
-    public static let buttonMinWidth: CGFloat = 100 // source: wis
-    public static let buttonMinWidthSmall: CGFloat = 56 // source: assumed // MEASURE
-    public static let buttonRadius: CGFloat = 10 // source: ant (9.6)
-    public static let buttonPaddingH: CGFloat = 15 // source: wis
-    public static let iconButton: CGFloat = 32 // source: assumed // MEASURE
-    public static let iconButtonRadius: CGFloat = 8 // source: assumed // MEASURE
-    public static let iconGlyph: CGFloat = 16 // source: wis
-
-    public static let sectionCaptionTop: CGFloat = 58 // source: wis
-    public static let sectionCaptionBottom: CGFloat = 22 // source: wis
-    public static let listRadius: CGFloat = 14 // source: wis (estimated) // MEASURE
-    public static let rowHeight: CGFloat = 57 // source: wis
-    public static let rowHeightTwoLine: CGFloat = 75 // source: wis
-    public static let rowTimeColumn: CGFloat = 18 // source: wis
-    public static let rowTextColumn: CGFloat = 124 // source: wis
-    public static let rowTextWrap: CGFloat = 500 // source: wis
-
-    public static let statChipHeight: CGFloat = 32 // source: wis
-    public static let statChipWidth: CGFloat = 313 // source: wis
-    public static let statChipSeparatorHeight: CGFloat = 16 // source: assumed // MEASURE
-    public static let badgeHeight: CGFloat = 26 // source: wis
-    public static let badgeRadius: CGFloat = 7 // source: wis (estimated) // MEASURE
-    public static let notificationDot: CGFloat = 14 // source: wis
-
-    public static let cardPadding: CGFloat = 20 // source: assumed // MEASURE
-    public static let selectedBorder: CGFloat = 2 // source: assumed // MEASURE
-    public static let focusRingWidth: CGFloat = 2 // source: assumed // MEASURE
-    public static let focusRingGap: CGFloat = 2 // source: assumed // MEASURE
-    public static let fieldHeight: CGFloat = 40 // source: assumed // MEASURE
-    public static let fieldRadius: CGFloat = 10 // source: assumed // MEASURE
-    public static let toggleSize = CGSize(width: 40, height: 24) // source: assumed // MEASURE
-    public static let toggleKnobInset: CGFloat = 3 // source: assumed // MEASURE
-    public static let checkbox: CGFloat = 18 // source: assumed // MEASURE
-    public static let checkboxRadius: CGFloat = 5 // source: assumed // MEASURE
-    public static let checkGlyph: CGFloat = 14 // source: assumed // MEASURE
-    public static let keycapMin: CGFloat = 26 // source: assumed // MEASURE
-    public static let keycapRadius: CGFloat = 6 // source: assumed // MEASURE
-    public static let tabHeight: CGFloat = 32 // source: assumed // MEASURE
-    public static let tabInset: CGFloat = 3 // source: assumed // MEASURE
-    public static let dialogWidth: CGFloat = 440 // source: assumed // MEASURE
-    public static let toastMaxWidth: CGFloat = 420 // source: assumed // MEASURE
-    public static let tooltipOffset: CGFloat = 6 // source: assumed // MEASURE
-    public static let menuMinWidth: CGFloat = 200 // source: assumed // MEASURE
-    public static let settingsRowMinHeight: CGFloat = 56 // source: assumed // MEASURE
+    // Cards
+    public static let featurePadding: CGFloat = 28 // source: board
+    public static let featureGap: CGFloat = 32 // source: board
+    public static let featureSamplesWidth: CGFloat = 320 // source: board
+    public static let samplePadding = CGSize(width: 12, height: 10) // source: board
+    public static let paperToastPadding = CGSize(width: 14, height: 10) // source: board
+    public static let paperToastIcon: CGFloat = 16 // source: board
+    public static let paperToastBottom: CGFloat = 22 // source: board
     public static let emptyStateMaxWidth: CGFloat = 380 // source: assumed // MEASURE
-    public static let onboardingColumn: CGFloat = 560 // source: assumed // MEASURE
-    public static let brandMarkSidebar: CGFloat = 22 // source: assumed // MEASURE
-    public static let brandMarkLarge: CGFloat = 56 // source: assumed // MEASURE
-    public static let brandMarkAspect: CGFloat = 1002.0 / 378.0 // source: logo
-    public static let pressScale: CGFloat = 0.98 // source: assumed // MEASURE
-    public static let pageRise: CGFloat = 6 // source: assumed // MEASURE
+    public static let dialogWidth: CGFloat = 440 // source: assumed (Help & setup sheet) // MEASURE
+    public static let popoverWidth: CGFloat = 300 // source: assumed (bell popover) // MEASURE
+    public static let menuMinWidth: CGFloat = 200 // source: assumed // MEASURE
+
+    // History rows (Home)
+    public static let historyTimeColumn: CGFloat = 52 // source: board
+    public static let historyTileColumn: CGFloat = 24 // source: board
+    public static let historyMetaColumn: CGFloat = 112 // source: board
+    public static let historyColumnGap: CGFloat = 14 // source: board
+    public static let historyRowPadding = CGSize(width: 16, height: 13) // source: board
+
+    // Dictionary rows
+    public static let dictionaryRowHeight: CGFloat = 46 // source: board
+    public static let dictionaryWordColumn: CGFloat = 200 // source: board
+    public static let dictionaryTagColumn: CGFloat = 84 // source: board
+    public static let dictionaryUsesColumn: CGFloat = 72 // source: board
+    public static let dictionaryActionsColumn: CGFloat = 64 // source: board
+    public static let searchFieldWidth: CGFloat = 320 // source: board
+
+    // Snippets, Style, Settings
+    public static let snippetPadding: CGFloat = 16 // source: board
+    public static let expansionPadding = CGSize(width: 12, height: 10) // source: board
+    public static let styleCardPadding: CGFloat = 14 // source: board
+    public static let cleanupCardPadding = CGSize(width: 16, height: 14) // source: board
+    public static let cardGap: CGFloat = 12 // source: board
+    public static let settingsColumnGap: CGFloat = 24 // source: board
+    public static let settingsRowPadding = CGSize(width: 14, height: 12) // source: board
+    public static let infoCardPadding: CGFloat = 14 // source: board
+    public static let arrowIcon: CGFloat = 14 // source: board
 }
 
-/// The Flow Bar. H is the pill height; every absolute size assumes H = 28 (§3.5).
+/// Onboarding (§5.4).
+public enum OnboardingGeometry {
+    public static let step = CGSize(width: 400, height: 560) // source: assumed // MEASURE
+    public static let padding: CGFloat = 28 // source: board
+    public static let gap: CGFloat = 20 // source: board
+    public static let progress = CGSize(width: 120, height: 2) // source: board
+    public static let wellHeight: CGFloat = 210 // source: board (200-220)
+    public static let appIcon: CGFloat = 128 // source: board
+    public static let holdKeyHeight: CGFloat = 56 // source: board
+    public static let meterBars = 18 // source: board
+    public static let meterBarWidth: CGFloat = 8 // source: board
+    public static let meterBarGap: CGFloat = 4 // source: board
+    public static let meterHeight: CGFloat = 64 // source: board
+    public static let meterLowest: CGFloat = 0.30 // source: board (bar heights ramp 30-100%)
+    public static let meterClayFrom: Double = 2.0 / 3 // source: board (lit bars in the last third are clay)
+}
+
+/// The Flow Bar (§3.5, §5.1).
 public enum FlowGeometry {
-    public static let pillHeight: CGFloat = 28 // source: assumed (scale) // MEASURE
-    public static let idleSize = CGSize(width: 36, height: 6) // source: assumed // MEASURE
-    public static let hoverWidth: CGFloat = 68 // source: wis (2.33 H), absolute assumed // MEASURE
-    public static let activeWidth: CGFloat = 102 // source: wis (3.54 H), absolute assumed // MEASURE
-    public static let buttonDiameter: CGFloat = 18 // source: wis (0.60 H), absolute assumed // MEASURE
-    public static let buttonPadding: CGFloat = 5 // source: wis (0.19 H), absolute assumed // MEASURE
-    public static let border: CGFloat = 1 // source: wis
-    public static let tooltipHeight: CGFloat = 30 // source: wis (1.07 H), absolute assumed // MEASURE
-    public static let tooltipGap: CGFloat = 4 // source: wis (0.14 H), absolute assumed // MEASURE
-    public static let tooltipPaddingH: CGFloat = 12 // source: assumed // MEASURE
-
-    public static let idleSquares = 14 // source: wis
-    public static let squareSide: CGFloat = 1.75 // source: wis
-    public static let squarePitch: CGFloat = 2.7 // source: wis
-    public static let bars = 10 // source: wis
-    public static let barWidth: CGFloat = 1.75 // source: wis
-    public static let barPitch: CGFloat = 3.9 // source: wis
-    public static let barMaxHeight: CGFloat = 11 // source: wis
-    public static let glyphStroke: CGFloat = 1.5 // source: assumed // MEASURE
-
-    public static let alertSize = CGSize(width: 378, height: 139) // source: wis, absolute assumed // MEASURE
-    public static let alertRadius: CGFloat = 28 // source: wis (estimated) // MEASURE
-    public static let alertPadding: CGFloat = 28 // source: wis, absolute assumed // MEASURE
-    public static let alertIcon: CGFloat = 17 // source: wis, absolute assumed // MEASURE
-    public static let alertButtonHeight: CGFloat = 32 // source: wis, absolute assumed // MEASURE
-    public static let alertButtonRadius: CGFloat = 10 // source: wis, absolute assumed // MEASURE
-    public static let alertButtonGap: CGFloat = 9.5 // source: wis, absolute assumed // MEASURE
-    public static let alertButtonWidths: [CGFloat] = [135, 100] // source: wis, absolute assumed // MEASURE
-
-    public static let toastSize = CGSize(width: 273, height: 47) // source: wis, absolute assumed // MEASURE
-    public static let toastRadius: CGFloat = 14 // source: wis (estimated) // MEASURE
-    public static let toastPaddingV: CGFloat = 9 // source: wis, absolute assumed // MEASURE
-    public static let toastPaddingH: CGFloat = 25 // source: wis, absolute assumed // MEASURE
-    public static let toastButtonSize = CGSize(width: 50, height: 30) // source: wis, absolute assumed // MEASURE
-    public static let countdownRing: CGFloat = 16 // source: assumed // MEASURE
-    public static let countdownStroke: CGFloat = 2 // source: assumed // MEASURE
-
+    /// Gap between the bar and the Dock (or the bottom of the visible frame).
+    public static let bottomMargin: CGFloat = 8 // source: board
+    public static let idleSize = CGSize(width: 52, height: 12) // source: board
+    public static let idleDash = CGSize(width: 20, height: 1.5) // source: board
+    public static let idleDashRadius: CGFloat = 2 // source: board
+    public static let hoverSize = CGSize(width: 76, height: 28) // source: board
+    public static let stillWave = CGSize(width: 44, height: 12) // source: board
+    public static let stillWaveLevel: Double = 0.35 // source: board
+    public static let tooltipHeight: CGFloat = 28 // source: board
+    public static let tooltipPaddingH: CGFloat = 10 // source: board
+    public static let tooltipGap: CGFloat = 6 // source: board
+    public static let tooltipKeyGap: CGFloat = 6 // source: assumed // MEASURE
+    public static let inlineKeyHeight: CGFloat = 18 // source: board
+    public static let inlineKeyPaddingH: CGFloat = 5 // source: assumed // MEASURE
+    public static let pasteKeyHeight: CGFloat = 20 // source: board
+    public static let activeHeight: CGFloat = 36 // source: board
+    public static let liveDot: CGFloat = 6 // source: board
+    public static let waveHold = CGSize(width: 112, height: 22) // source: board
+    public static let waveHandsFree = CGSize(width: 96, height: 22) // source: board
+    public static let holdPaddingH: CGFloat = 16 // source: board
+    public static let handsFreePaddingH: CGFloat = 6 // source: board
+    public static let contentGap: CGFloat = 10 // source: board
+    public static let roundButton: CGFloat = 24 // source: board
+    public static let cancelGlyph: CGFloat = 12 // source: board
+    public static let cancelStroke: CGFloat = 2.2 // source: board
+    public static let stopSquare: CGFloat = 8 // source: board
+    public static let stopSquareRadius: CGFloat = 2 // source: board
+    public static let processingSize = CGSize(width: 144, height: 36) // source: board
+    public static let dots = 5 // source: board
+    public static let dot: CGFloat = 5 // source: board
+    public static let dotGap: CGFloat = 3.75 // source: board
+    public static let insertedPadding: CGFloat = 16 // source: board (right)
+    public static let insertedPaddingLeft: CGFloat = 12 // source: board
+    public static let insertedGap: CGFloat = 8 // source: board
+    public static let check: CGFloat = 16 // source: board
+    public static let checkStroke: CGFloat = 2 // source: board
+    public static let cardRadius: CGFloat = 16 // source: board
+    /// Card insets (top, trailing, bottom, leading) per state.
+    public static let cancelledInsets = (top: CGFloat(8), trailing: CGFloat(8), bottom: CGFloat(8), leading: CGFloat(12)) // source: board
+    public static let errorInsets = (top: CGFloat(6), trailing: CGFloat(6), bottom: CGFloat(6), leading: CGFloat(12)) // source: board
+    public static let pasteHeight: CGFloat = 40 // source: board
+    public static let pastePadding: CGFloat = 14 // source: board (right)
+    public static let pastePaddingLeft: CGFloat = 12 // source: board
+    public static let noAudioWidth: CGFloat = 276 // source: board
+    public static let noAudioPadding: CGFloat = 10 // source: board
+    public static let cardIcon: CGFloat = 16 // source: board
+    public static let buttonHeight: CGFloat = 28 // source: board (26-28)
+    public static let buttonHeightSmall: CGFloat = 26 // source: board
+    public static let buttonRadius: CGFloat = 8 // source: board
+    public static let buttonPaddingH: CGFloat = 10 // source: board
+    public static let buttonIcon: CGFloat = 12 // source: board
+    public static let buttonIconGap: CGFloat = 5 // source: assumed // MEASURE
+    public static let textGap: CGFloat = 1 // source: assumed (title to sub-line) // MEASURE
+    public static let ring: CGFloat = 22 // source: board
+    public static let ringStroke: CGFloat = 2 // source: board
+    public static let ring1pt: CGFloat = 1 // source: board (every surface's inset edge)
     /// Room around the drawn shapes inside the fixed panel.
     public static let canvasMargin: CGFloat = 16 // source: assumed // MEASURE
-    /// An alert grows past 139 for a long body; the panel reserves this much.
-    public static let alertMaxHeight: CGFloat = 175 // source: assumed (139 plus two body lines) // MEASURE
-    public static let alertTitleGap: CGFloat = 4 // source: assumed // MEASURE
-    public static let alertBodyGap: CGFloat = 13 // source: assumed // MEASURE
-    public static let alertClose: CGFloat = 12 // source: assumed // MEASURE
-    public static let iconGap: CGFloat = 10 // source: assumed // MEASURE
-    public static let toastMaxWidth: CGFloat = 420 // source: assumed // MEASURE
-    public static let toastGap: CGFloat = 12 // source: assumed // MEASURE
-    public static let keycap: CGFloat = 20 // source: assumed // MEASURE
-    public static let keycapRadius: CGFloat = 5 // source: assumed // MEASURE
-    public static let keycapPaddingH: CGFloat = 5 // source: assumed // MEASURE
-    public static let keycapGap: CGFloat = 3 // source: assumed // MEASURE
-    /// The white rounded square in the stop circle, and the X in the cancel circle.
-    public static let stopGlyph: CGFloat = 7 // source: assumed // MEASURE
-    public static let stopGlyphRadius: CGFloat = 1.5 // source: assumed // MEASURE
-    public static let cancelGlyph: CGFloat = 7 // source: assumed // MEASURE
-    public static let checkGlyph: CGFloat = 14 // source: assumed // MEASURE
-    /// The idle pill's hover target: the hover pill's size, so the tiny pill is easy to reach.
+    /// The panel's fixed width and the tallest card it reserves (the no-audio alert with two lines).
+    public static let canvasCardWidth: CGFloat = 420 // source: assumed // MEASURE
+    public static let canvasCardHeight: CGFloat = 96 // source: assumed // MEASURE
+    /// The pill's hover target extends this far past its drawn edge.
     public static let hoverTargetSlop: CGFloat = 2 // source: assumed // MEASURE
 }

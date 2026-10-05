@@ -19,9 +19,9 @@ public struct FocusRing: ViewModifier {
     public func body(content: Content) -> some View {
         content.overlay {
             if visible {
-                let outset = HubGeometry.focusRingGap + HubGeometry.focusRingWidth / 2
+                let outset = V1Hub.focusRingGap + V1Hub.focusRingWidth / 2
                 RoundedRectangle(cornerRadius: radius + outset, style: .continuous)
-                    .stroke(theme.colors.focusRing.color, lineWidth: HubGeometry.focusRingWidth)
+                    .stroke(theme.v1.focusRing.color, lineWidth: V1Hub.focusRingWidth)
                     .padding(-outset)
                     .allowsHitTesting(false)
             }
@@ -50,8 +50,8 @@ struct PressScale: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .scaleEffect(pressed ? theme.motion.scale(HubGeometry.pressScale) : 1)
-            .animation(theme.motion.easeOut(MotionTokens.press), value: pressed)
+            .scaleEffect(pressed ? theme.motion.scale(V1Hub.pressScale) : 1)
+            .animation(theme.motion.easeOut(V1Motion.press), value: pressed)
     }
 }
 
@@ -63,7 +63,7 @@ public struct SerifTitle: View {
     let trail: String
     let style: TextStyleToken
 
-    public init(_ lead: String, italic: String, trail: String = "", style: TextStyleToken = TypeTokens.pageTitle) {
+    public init(_ lead: String, italic: String, trail: String = "", style: TextStyleToken = V1Type.pageTitle) {
         self.lead = lead
         self.italic = italic
         self.trail = trail
@@ -72,7 +72,7 @@ public struct SerifTitle: View {
 
     public var body: some View {
         (Text(lead).font(theme.font(style)) + Text(italic).font(theme.font(style.italicized)) + Text(trail).font(theme.font(style)))
-            .foregroundStyle(theme.colors.textTitle.color)
+            .foregroundStyle(theme.v1.textTitle.color)
             .lineSpacing(max(0, style.lineHeight - style.size) * theme.textScale)
             .accessibilityAddTraits(.isHeader)
             .accessibilityLabel(lead + italic + trail)
@@ -90,8 +90,8 @@ public struct MSectionCaption: View {
 
     public var body: some View {
         Text(text)
-            .textStyle(TypeTokens.section)
-            .foregroundStyle(theme.colors.textSecondary.color)
+            .textStyle(V1Type.section)
+            .foregroundStyle(theme.v1.textSecondary.color)
             .accessibilityAddTraits(.isHeader)
     }
 }
@@ -99,17 +99,17 @@ public struct MSectionCaption: View {
 /// A 1 pt horizontal or vertical rule.
 public struct Hairline: View {
     @Environment(\.theme) private var theme
-    let color: KeyPath<ThemeColors, ColorToken>
+    let color: KeyPath<V1ThemeColors, ColorToken>
     let vertical: Bool
 
-    public init(_ color: KeyPath<ThemeColors, ColorToken> = \.borderDivider, vertical: Bool = false) {
+    public init(_ color: KeyPath<V1ThemeColors, ColorToken> = \.borderDivider, vertical: Bool = false) {
         self.color = color
         self.vertical = vertical
     }
 
     public var body: some View {
         Rectangle()
-            .fill(theme.colors[keyPath: color].color)
-            .frame(width: vertical ? HubGeometry.hairline : nil, height: vertical ? nil : HubGeometry.hairline)
+            .fill(theme.v1[keyPath: color].color)
+            .frame(width: vertical ? V1Hub.hairline : nil, height: vertical ? nil : V1Hub.hairline)
     }
 }

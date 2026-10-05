@@ -51,14 +51,14 @@ struct GalleryColumn: View {
     }
 
     var body: some View {
-        let c = theme.colors
+        let c = theme.v1
         VStack(alignment: .leading, spacing: 28) {
-            Text(title).textStyle(TypeTokens.heading).foregroundStyle(c.textTitle.color)
+            Text(title).textStyle(V1Type.heading).foregroundStyle(c.textTitle.color)
 
             GallerySection("Brand mark") {
                 HStack(alignment: .bottom, spacing: 24) {
-                    BrandMark(height: HubGeometry.brandMarkSidebar)
-                    BrandMark(height: HubGeometry.brandMarkLarge)
+                    BrandMark(height: V1Hub.brandMarkSidebar)
+                    BrandMark(height: V1Hub.brandMarkLarge)
                     MBadge("Personal", kind: .plan)
                 }
             }
@@ -69,7 +69,7 @@ struct GalleryColumn: View {
                         VStack(spacing: 4) {
                             IconView(icon, size: 16, color: c.textPrimary.color)
                             IconView(icon, size: 24, color: c.textPrimary.color)
-                            Text(icon.rawValue).textStyle(TypeTokens.meta).foregroundStyle(c.textSecondary.color).lineLimit(1).minimumScaleFactor(0.6)
+                            Text(icon.rawValue).textStyle(V1Type.meta).foregroundStyle(c.textSecondary.color).lineLimit(1).minimumScaleFactor(0.6)
                         }
                     }
                 }
@@ -78,11 +78,11 @@ struct GalleryColumn: View {
             GallerySection("Type") {
                 VStack(alignment: .leading, spacing: 6) {
                     SerifTitle("Welcome back, ", italic: "Swarit")
-                    SerifTitle("Make Murmur sound like ", italic: "you", style: TypeTokens.featureTitle)
-                    Text("Formal.").textStyle(TypeTokens.heading).foregroundStyle(c.textTitle.color)
-                    Text("Body: Murmur adapts to messages, work chats, emails, and other apps.").textStyle(TypeTokens.body).foregroundStyle(c.textBody.color)
-                    Text("Row: Can you send me the slides before the 3 pm sync?").textStyle(TypeTokens.row).foregroundStyle(c.textBody.color)
-                    Text("Meta: 11:42 AM").textStyle(TypeTokens.meta).foregroundStyle(c.textSecondary.color)
+                    SerifTitle("Make Murmur sound like ", italic: "you", style: V1Type.featureTitle)
+                    Text("Formal.").textStyle(V1Type.heading).foregroundStyle(c.textTitle.color)
+                    Text("Body: Murmur adapts to messages, work chats, emails, and other apps.").textStyle(V1Type.body).foregroundStyle(c.textBody.color)
+                    Text("Row: Can you send me the slides before the 3 pm sync?").textStyle(V1Type.row).foregroundStyle(c.textBody.color)
+                    Text("Meta: 11:42 AM").textStyle(V1Type.meta).foregroundStyle(c.textSecondary.color)
                     MSectionCaption("Today")
                 }
             }
@@ -99,7 +99,7 @@ struct GalleryColumn: View {
                         VStack(alignment: .leading, spacing: 2) {
                             RoundedRectangle(cornerRadius: 6).fill(token.color).frame(width: 80, height: 28)
                                 .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(c.borderPanel.color))
-                            Text(name).textStyle(TypeTokens.meta).foregroundStyle(c.textSecondary.color).lineLimit(1).minimumScaleFactor(0.6)
+                            Text(name).textStyle(V1Type.meta).foregroundStyle(c.textSecondary.color).lineLimit(1).minimumScaleFactor(0.6)
                         }
                     }
                 }
@@ -162,28 +162,28 @@ struct GalleryColumn: View {
                     HStack(alignment: .top, spacing: 12) {
                         MSelectableCard(selected: true, label: "Formal.") {} content: {
                             VStack(alignment: .leading, spacing: 6) {
-                                Text("Formal.").textStyle(TypeTokens.heading).foregroundStyle(c.textTitle.color)
-                                Text("Hey, are you free for lunch tomorrow?").textStyle(TypeTokens.body).foregroundStyle(c.textBody.color)
+                                Text("Formal.").textStyle(V1Type.heading).foregroundStyle(c.textTitle.color)
+                                Text("Hey, are you free for lunch tomorrow?").textStyle(V1Type.body).foregroundStyle(c.textBody.color)
                             }
                         }
                         MSelectableCard(selected: false, label: "Casual") {} content: {
                             VStack(alignment: .leading, spacing: 6) {
-                                Text("Casual").textStyle(TypeTokens.heading).foregroundStyle(c.textTitle.color)
-                                Text("Hey are you free for lunch tomorrow").textStyle(TypeTokens.body).foregroundStyle(c.textBody.color)
+                                Text("Casual").textStyle(V1Type.heading).foregroundStyle(c.textTitle.color)
+                                Text("Hey are you free for lunch tomorrow").textStyle(V1Type.body).foregroundStyle(c.textBody.color)
                             }
                         }
                         .environment(\.forcedInteraction, .hover)
                         MSelectableCard(selected: false, label: "very casual") {} content: {
-                            Text("very casual").textStyle(TypeTokens.heading).foregroundStyle(c.textTitle.color)
+                            Text("very casual").textStyle(V1Type.heading).foregroundStyle(c.textTitle.color)
                         }
                         .environment(\.forcedInteraction, .focused)
                     }
                     .frame(height: 120)
-                    MFeatureCard(title: SerifTitle("Make Murmur sound like ", italic: "you", style: TypeTokens.featureTitle),
+                    MFeatureCard(title: SerifTitle("Make Murmur sound like ", italic: "you", style: V1Type.featureTitle),
                                  buttonTitle: "Start now", onDismiss: {}) {
                         Text("Murmur adapts to how you write in ") + Text("messages, work chats, emails, and other apps").fontWeight(.medium) + Text(".")
                     }
-                    MCard { Text("A plain card.").textStyle(TypeTokens.body).foregroundStyle(c.textBody.color) }
+                    MCard { Text("A plain card.").textStyle(V1Type.body).foregroundStyle(c.textBody.color) }
                 }
             }
 
@@ -208,7 +208,7 @@ struct GalleryColumn: View {
                             .environment(\.forcedInteraction, state).disabled(state == .disabled)
                     }
                 }
-                .frame(width: HubGeometry.sidebarItemWidth)
+                .frame(width: V1Hub.sidebarItemWidth)
             }
 
             GallerySection("List rows") {
@@ -217,7 +217,7 @@ struct GalleryColumn: View {
                     Hairline()
                     MListRow(time: "11:12 AM", text: "Thanks for the quick turnaround, this looks great. Let's ship it on Friday.",
                              actions: [RowAction(.copy, "Copy") {}, RowAction(.paste, "Paste") {}, RowAction(.trash, "Delete") {}]) {
-                        Text("Mail").textStyle(TypeTokens.meta).foregroundStyle(c.textSecondary.color)
+                        Text("Mail").textStyle(V1Type.meta).foregroundStyle(c.textSecondary.color)
                     }
                     .environment(\.forcedInteraction, .hover)
                     Hairline()
@@ -237,7 +237,7 @@ struct GalleryColumn: View {
             GallerySection("Dialog, toast, tooltip") {
                 VStack(alignment: .leading, spacing: 12) {
                     MDialog(title: "Delete all History?", confirmTitle: "Delete", destructive: true, onCancel: {}, onConfirm: {}) {
-                        Text("This cannot be undone. Your dictionary and snippets stay.").textStyle(TypeTokens.body).foregroundStyle(c.textBody.color)
+                        Text("This cannot be undone. Your dictionary and snippets stay.").textStyle(V1Type.body).foregroundStyle(c.textBody.color)
                     }
                     .frame(height: 230)
                     MToast("Copied.", icon: .check)
@@ -273,12 +273,12 @@ struct FlowGalleryCell: View {
     var body: some View {
         let canvas = FlowBarController.canvas
         VStack(alignment: .leading, spacing: 4) {
-            Text(name).textStyle(TypeTokens.meta).foregroundStyle(theme.colors.textSecondary.color)
+            Text(name).textStyle(V1Type.meta).foregroundStyle(theme.v1.textSecondary.color)
             FlowBarView(model: model)
                 .frame(width: canvas.width, height: canvas.height)
                 .scaleEffect(Self.scale, anchor: .topLeading)
                 .frame(width: canvas.width * Self.scale, height: canvas.height * Self.scale, alignment: .topLeading)
-                .background(theme.colors.bgWindow.color)
+                .background(theme.v1.bgWindow.color)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
         }
     }

@@ -7,19 +7,19 @@ public struct FlowSquaresMotif: View {
     public init() {}
 
     public var body: some View {
-        let width = FlowGeometry.hoverWidth, height = FlowGeometry.pillHeight
+        let width = V1Flow.hoverWidth, height = V1Flow.pillHeight
         Canvas { context, size in
-            let count = FlowGeometry.idleSquares
-            let total = CGFloat(count - 1) * FlowGeometry.squarePitch + FlowGeometry.squareSide
-            let x0 = (size.width - total) / 2, y = (size.height - FlowGeometry.squareSide) / 2
+            let count = V1Flow.idleSquares
+            let total = CGFloat(count - 1) * V1Flow.squarePitch + V1Flow.squareSide
+            let x0 = (size.width - total) / 2, y = (size.height - V1Flow.squareSide) / 2
             for i in 0..<count {
-                let rect = CGRect(x: x0 + CGFloat(i) * FlowGeometry.squarePitch, y: y, width: FlowGeometry.squareSide, height: FlowGeometry.squareSide)
-                context.fill(Path(rect), with: .color(theme.flow.dot.color))
+                let rect = CGRect(x: x0 + CGFloat(i) * V1Flow.squarePitch, y: y, width: V1Flow.squareSide, height: V1Flow.squareSide)
+                context.fill(Path(rect), with: .color(theme.v1flow.dot.color))
             }
         }
         .frame(width: width, height: height)
-        .background(Capsule(style: .circular).fill(theme.flow.fill.color))
-        .overlay(Capsule(style: .circular).strokeBorder(theme.flow.border.color, lineWidth: FlowGeometry.border))
+        .background(Capsule(style: .circular).fill(theme.v1flow.fill.color))
+        .overlay(Capsule(style: .circular).strokeBorder(theme.v1flow.border.color, lineWidth: V1Flow.border))
         .accessibilityHidden(true)
     }
 }
@@ -38,17 +38,17 @@ public struct MEmptyState: View {
     }
 
     public var body: some View {
-        VStack(spacing: Spacing.lg) {
+        VStack(spacing: V1Spacing.lg) {
             FlowSquaresMotif()
             Text(text)
-                .textStyle(TypeTokens.body)
-                .foregroundStyle(theme.colors.textSecondary.color)
+                .textStyle(V1Type.body)
+                .foregroundStyle(theme.v1.textSecondary.color)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: HubGeometry.emptyStateMaxWidth)
+                .frame(maxWidth: V1Hub.emptyStateMaxWidth)
                 .fixedSize(horizontal: false, vertical: true)
             if let buttonTitle { MButton(buttonTitle, kind: .primary, action: action) }
         }
-        .padding(Spacing.x5)
+        .padding(V1Spacing.x5)
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
     }

@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 /// The Flow Bar's live-tunable tokens (spec rule 5, UI_REDESIGN.md §3.5 and §5.1). Defaults come from
-/// the redesign's static tokens (`FlowGeometry`, `FlowBarColors`, `MotionTokens`, `TypeTokens`), so
+/// the redesign's static tokens (`V1Flow`, `V1FlowBarColors`, `V1Motion`, `TypeTokens`), so
 /// there is one source of truth; the debug panel overrides them at runtime through `LiveTokens`.
 /// Names from before the redesign are kept (saved overrides keep decoding); the bar is identical in
 /// light and dark, so each light/dark color pair defaults to the same value.
@@ -19,21 +19,21 @@ public struct Tokens: Codable, Equatable, Sendable {
     // MARK: Pill geometry (points). H = activeHeight.
 
     /// The resting pill (not hovered).
-    public var idleWidth: Double = FlowGeometry.idleSize.width
-    public var idleHeight: Double = FlowGeometry.idleSize.height
+    public var idleWidth: Double = V1Flow.idleSize.width
+    public var idleHeight: Double = V1Flow.idleSize.height
     /// Hovered idle pill, showing the idle squares.
-    public var hoverWidth: Double = FlowGeometry.hoverWidth
+    public var hoverWidth: Double = V1Flow.hoverWidth
     /// Hold-to-talk, processing and inserted pill width (assumed: the hover size).
-    public var activeWidth: Double = FlowGeometry.hoverWidth
-    public var activeHeight: Double = FlowGeometry.pillHeight
+    public var activeWidth: Double = V1Flow.hoverWidth
+    public var activeHeight: Double = V1Flow.pillHeight
     /// Hands-free pill: cancel circle, waveform, stop circle.
-    public var handsFreeWidth: Double = FlowGeometry.activeWidth
+    public var handsFreeWidth: Double = V1Flow.activeWidth
     /// Round buttons on the hands-free pill, and the padding around them.
-    public var buttonDiameter: Double = FlowGeometry.buttonDiameter
-    public var buttonPadding: Double = FlowGeometry.buttonPadding
+    public var buttonDiameter: Double = V1Flow.buttonDiameter
+    public var buttonPadding: Double = V1Flow.buttonPadding
     /// Pill corner radius (half the height: a capsule).
-    public var cornerRadius: Double = FlowGeometry.pillHeight / 2
-    public var borderWidth: Double = FlowGeometry.border
+    public var cornerRadius: Double = V1Flow.pillHeight / 2
+    public var borderWidth: Double = V1Flow.border
     /// Gap between the bar and the Dock (or the bottom of the visible frame).
     public var bottomMargin: Double = 10 // source: assumed // MEASURE
     /// Extra lift in a full-screen app's Space, where the Dock is hidden.
@@ -43,36 +43,36 @@ public struct Tokens: Codable, Equatable, Sendable {
 
     // MARK: Tooltip, alert and toast
 
-    public var tooltipHeight: Double = FlowGeometry.tooltipHeight
+    public var tooltipHeight: Double = V1Flow.tooltipHeight
     /// Gap between the pill and the tooltip, alert or toast above it.
-    public var tooltipGap: Double = FlowGeometry.tooltipGap
+    public var tooltipGap: Double = V1Flow.tooltipGap
     /// Alert (transcription error, no audio).
-    public var noticeWidth: Double = FlowGeometry.alertSize.width
-    public var noticeHeight: Double = FlowGeometry.alertSize.height
-    public var alertRadius: Double = FlowGeometry.alertRadius
-    public var alertPadding: Double = FlowGeometry.alertPadding
+    public var noticeWidth: Double = V1Flow.alertSize.width
+    public var noticeHeight: Double = V1Flow.alertSize.height
+    public var alertRadius: Double = V1Flow.alertRadius
+    public var alertPadding: Double = V1Flow.alertPadding
     /// Toast (paste error, cancelled, no text box, info).
-    public var toastWidth: Double = FlowGeometry.toastSize.width
-    public var toastHeight: Double = FlowGeometry.toastSize.height
-    public var toastRadius: Double = FlowGeometry.toastRadius
+    public var toastWidth: Double = V1Flow.toastSize.width
+    public var toastHeight: Double = V1Flow.toastSize.height
+    public var toastRadius: Double = V1Flow.toastRadius
 
     // MARK: Waveform and idle squares
 
-    public var waveformBars: Int = FlowGeometry.bars
-    public var waveformBarWidth: Double = FlowGeometry.barWidth
-    public var waveformBarGap: Double = FlowGeometry.barPitch - FlowGeometry.barWidth
+    public var waveformBars: Int = V1Flow.bars
+    public var waveformBarWidth: Double = V1Flow.barWidth
+    public var waveformBarGap: Double = V1Flow.barPitch - V1Flow.barWidth
     /// A silent bar is a square (as tall as it is wide), so silence looks like the idle squares.
-    public var waveformMinHeight: Double = FlowGeometry.barWidth
-    public var waveformMaxHeight: Double = FlowGeometry.barMaxHeight
-    public var idleSquares: Int = FlowGeometry.idleSquares
-    public var squareSide: Double = FlowGeometry.squareSide
-    public var squarePitch: Double = FlowGeometry.squarePitch
+    public var waveformMinHeight: Double = V1Flow.barWidth
+    public var waveformMaxHeight: Double = V1Flow.barMaxHeight
+    public var idleSquares: Int = V1Flow.idleSquares
+    public var squareSide: Double = V1Flow.squareSide
+    public var squarePitch: Double = V1Flow.squarePitch
     /// Level (dBFS) that maps to a silent and to a full bar.
     public var waveformFloorDb: Double = -55 // source: assumed // MEASURE
     public var waveformCeilingDb: Double = -12 // source: assumed // MEASURE
     /// One-pole smoothing time constants toward a rising and a falling level, seconds.
-    public var waveformAttack: Double = MotionTokens.waveAttack
-    public var waveformRelease: Double = MotionTokens.waveRelease
+    public var waveformAttack: Double = V1Motion.waveAttack
+    public var waveformRelease: Double = V1Motion.waveRelease
     /// How often the bars scroll one step (the newest level enters on the right), per second.
     public var waveformSampleRate: Double = 30 // source: assumed // MEASURE
     /// How much shorter the outer bars are than the middle ones (0 = all equal), so it reads as a voice.
@@ -84,44 +84,44 @@ public struct Tokens: Codable, Equatable, Sendable {
 
     // MARK: Color (light, dark), as hex RGBA; identical pairs
 
-    public var surfaceLight: String = FlowBarColors.standard.fill.hex
-    public var surfaceDark: String = FlowBarColors.standard.fill.hex
-    public var waveformLight: String = FlowBarColors.standard.bar.hex
-    public var waveformDark: String = FlowBarColors.standard.bar.hex
-    public var idleLight: String = FlowBarColors.standard.fill.hex
-    public var idleDark: String = FlowBarColors.standard.fill.hex
-    public var dotLight: String = FlowBarColors.standard.dot.hex
-    public var dotDark: String = FlowBarColors.standard.dot.hex
-    public var stopLight: String = FlowBarColors.standard.stop.hex
-    public var stopDark: String = FlowBarColors.standard.stop.hex
-    public var cancelLight: String = FlowBarColors.standard.xCircle.hex
-    public var cancelDark: String = FlowBarColors.standard.xCircle.hex
-    public var cancelGlyphLight: String = FlowBarColors.standard.xGlyph.hex
-    public var cancelGlyphDark: String = FlowBarColors.standard.xGlyph.hex
-    public var errorLight: String = FlowBarColors.standard.iconError.hex
-    public var errorDark: String = FlowBarColors.standard.iconError.hex
-    public var infoLight: String = FlowBarColors.standard.iconInfo.hex
-    public var infoDark: String = FlowBarColors.standard.iconInfo.hex
+    public var surfaceLight: String = V1FlowBarColors.standard.fill.hex
+    public var surfaceDark: String = V1FlowBarColors.standard.fill.hex
+    public var waveformLight: String = V1FlowBarColors.standard.bar.hex
+    public var waveformDark: String = V1FlowBarColors.standard.bar.hex
+    public var idleLight: String = V1FlowBarColors.standard.fill.hex
+    public var idleDark: String = V1FlowBarColors.standard.fill.hex
+    public var dotLight: String = V1FlowBarColors.standard.dot.hex
+    public var dotDark: String = V1FlowBarColors.standard.dot.hex
+    public var stopLight: String = V1FlowBarColors.standard.stop.hex
+    public var stopDark: String = V1FlowBarColors.standard.stop.hex
+    public var cancelLight: String = V1FlowBarColors.standard.xCircle.hex
+    public var cancelDark: String = V1FlowBarColors.standard.xCircle.hex
+    public var cancelGlyphLight: String = V1FlowBarColors.standard.xGlyph.hex
+    public var cancelGlyphDark: String = V1FlowBarColors.standard.xGlyph.hex
+    public var errorLight: String = V1FlowBarColors.standard.iconError.hex
+    public var errorDark: String = V1FlowBarColors.standard.iconError.hex
+    public var infoLight: String = V1FlowBarColors.standard.iconInfo.hex
+    public var infoDark: String = V1FlowBarColors.standard.iconInfo.hex
     /// The inserted check.
-    public var successLight: String = FlowBarColors.standard.bar.hex
-    public var successDark: String = FlowBarColors.standard.bar.hex
+    public var successLight: String = V1FlowBarColors.standard.bar.hex
+    public var successDark: String = V1FlowBarColors.standard.bar.hex
     /// Command Mode's mark on the bar: the clay (rule 11, one accent).
-    public var commandLight: String = FlowBarColors.standard.stop.hex
-    public var commandDark: String = FlowBarColors.standard.stop.hex
-    public var textLight: String = FlowBarColors.standard.text.hex
-    public var textDark: String = FlowBarColors.standard.text.hex
-    public var secondaryTextLight: String = FlowBarColors.standard.dot.hex
-    public var secondaryTextDark: String = FlowBarColors.standard.dot.hex
-    public var borderLight: String = FlowBarColors.standard.border.hex
-    public var borderDark: String = FlowBarColors.standard.border.hex
-    public var tooltipLight: String = FlowBarColors.standard.tooltip.hex
-    public var tooltipDark: String = FlowBarColors.standard.tooltip.hex
-    public var alertBorderLight: String = FlowBarColors.standard.alertBorder.hex
-    public var alertBorderDark: String = FlowBarColors.standard.alertBorder.hex
-    public var alertButtonLight: String = FlowBarColors.standard.button.hex
-    public var alertButtonDark: String = FlowBarColors.standard.button.hex
-    public var alertButtonHoverLight: String = FlowBarColors.standard.buttonHover.hex
-    public var alertButtonHoverDark: String = FlowBarColors.standard.buttonHover.hex
+    public var commandLight: String = V1FlowBarColors.standard.stop.hex
+    public var commandDark: String = V1FlowBarColors.standard.stop.hex
+    public var textLight: String = V1FlowBarColors.standard.text.hex
+    public var textDark: String = V1FlowBarColors.standard.text.hex
+    public var secondaryTextLight: String = V1FlowBarColors.standard.dot.hex
+    public var secondaryTextDark: String = V1FlowBarColors.standard.dot.hex
+    public var borderLight: String = V1FlowBarColors.standard.border.hex
+    public var borderDark: String = V1FlowBarColors.standard.border.hex
+    public var tooltipLight: String = V1FlowBarColors.standard.tooltip.hex
+    public var tooltipDark: String = V1FlowBarColors.standard.tooltip.hex
+    public var alertBorderLight: String = V1FlowBarColors.standard.alertBorder.hex
+    public var alertBorderDark: String = V1FlowBarColors.standard.alertBorder.hex
+    public var alertButtonLight: String = V1FlowBarColors.standard.button.hex
+    public var alertButtonDark: String = V1FlowBarColors.standard.button.hex
+    public var alertButtonHoverLight: String = V1FlowBarColors.standard.buttonHover.hex
+    public var alertButtonHoverDark: String = V1FlowBarColors.standard.buttonHover.hex
 
     // MARK: Material (flat: no blur, shadow off by default; rule 7)
 
@@ -133,32 +133,32 @@ public struct Tokens: Codable, Equatable, Sendable {
 
     // MARK: Motion (seconds, spring response and damping)
 
-    public var appearResponse: Double = MotionTokens.barAppear.response
-    public var appearDamping: Double = MotionTokens.barAppear.damping
-    public var appearScale: Double = MotionTokens.barAppearScale
-    public var disappearDuration: Double = MotionTokens.barDisappear
+    public var appearResponse: Double = V1Motion.barAppear.response
+    public var appearDamping: Double = V1Motion.barAppear.damping
+    public var appearScale: Double = V1Motion.barAppearScale
+    public var disappearDuration: Double = V1Motion.barDisappear
     /// Idle ↔ hover ↔ hands-free.
-    public var springResponse: Double = MotionTokens.barExpand.response
-    public var springDamping: Double = MotionTokens.barExpand.damping
-    public var buttonsIn: Double = MotionTokens.barButtonsIn
+    public var springResponse: Double = V1Motion.barExpand.response
+    public var springDamping: Double = V1Motion.barExpand.damping
+    public var buttonsIn: Double = V1Motion.barButtonsIn
     /// One cycle of the processing shimmer.
-    public var processingLoopPeriod: Double = MotionTokens.processingPeriod
-    public var checkDraw: Double = MotionTokens.insertedCheck
+    public var processingLoopPeriod: Double = V1Motion.processingPeriod
+    public var checkDraw: Double = V1Motion.insertedCheck
     /// How long the inserted check stays.
-    public var confirmationHold: Double = MotionTokens.insertedHold
+    public var confirmationHold: Double = V1Motion.insertedHold
     /// How long the cancelled toast stays (spec: about 3 s).
     public var cancelledToastDuration: Double = 3.0 // source: assumed // MEASURE
     /// How long other toasts count down.
     public var noticeDuration: Double = 6.0 // source: assumed // MEASURE
-    public var toastIn: Double = MotionTokens.toastIn
-    public var toastRise: Double = MotionTokens.toastRise
-    public var toastOut: Double = MotionTokens.toastOut
-    public var tooltipDelay: Double = MotionTokens.tooltipDelay
+    public var toastIn: Double = V1Motion.toastIn
+    public var toastRise: Double = V1Motion.toastRise
+    public var toastOut: Double = V1Motion.toastOut
+    public var tooltipDelay: Double = V1Motion.tooltipDelay
 
     // MARK: Type
 
-    public var labelSize: Double = TypeTokens.flowText.size
-    public var alertTextSize: Double = TypeTokens.flowAlert.size
+    public var labelSize: Double = V1Type.flowText.size
+    public var alertTextSize: Double = V1Type.flowAlert.size
 
     public init() {}
 

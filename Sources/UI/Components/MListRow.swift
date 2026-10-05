@@ -40,42 +40,42 @@ public struct MListRow<Detail: View>: View {
     }
 
     public var body: some View {
-        let c = theme.colors
+        let c = theme.v1
         let showActions = hovering || forced == .hover || selected
         HStack(alignment: .firstTextBaseline, spacing: 0) {
             Text(time)
-                .textStyle(TypeTokens.meta)
+                .textStyle(V1Type.meta)
                 .foregroundStyle(c.textSecondary.color)
                 .monospacedDigit()
-                .frame(width: HubGeometry.rowTextColumn - HubGeometry.rowTimeColumn, alignment: .leading)
-            VStack(alignment: .leading, spacing: Spacing.xxs) {
-                HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
+                .frame(width: V1Hub.rowTextColumn - V1Hub.rowTimeColumn, alignment: .leading)
+            VStack(alignment: .leading, spacing: V1Spacing.xxs) {
+                HStack(alignment: .firstTextBaseline, spacing: V1Spacing.xs) {
                     Text(text)
-                        .textStyle(TypeTokens.row)
+                        .textStyle(V1Type.row)
                         .foregroundStyle(silent ? c.textDisabled.color : c.textBody.color)
                         .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
                     if silent {
-                        IconView(.info, size: HubGeometry.iconGlyph, color: c.textSecondary.color)
+                        IconView(.info, size: V1Hub.iconGlyph, color: c.textSecondary.color)
                             .help("Audio is silent.")
                             .accessibilityLabel("Audio is silent.")
                     }
                 }
-                .frame(maxWidth: HubGeometry.rowTextWrap, alignment: .leading)
+                .frame(maxWidth: V1Hub.rowTextWrap, alignment: .leading)
                 detail
             }
-            Spacer(minLength: Spacing.md)
-            HStack(spacing: Spacing.xxs) {
+            Spacer(minLength: V1Spacing.md)
+            HStack(spacing: V1Spacing.xxs) {
                 ForEach(actions) { MIconButton($0.icon, label: $0.label, action: $0.action) }
             }
             .opacity(showActions ? 1 : 0)
-            .animation(theme.motion.easeOut(MotionTokens.rowActionsFade), value: showActions)
+            .animation(theme.motion.easeOut(V1Motion.rowActionsFade), value: showActions)
             .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] }
         }
-        .padding(.leading, HubGeometry.rowTimeColumn)
-        .padding(.trailing, Spacing.sm)
-        .padding(.vertical, Spacing.md)
-        .frame(minHeight: HubGeometry.rowHeight)
+        .padding(.leading, V1Hub.rowTimeColumn)
+        .padding(.trailing, V1Spacing.sm)
+        .padding(.vertical, V1Spacing.md)
+        .frame(minHeight: V1Hub.rowHeight)
         .background(selected ? c.bgHover.color : .clear)
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
@@ -93,10 +93,10 @@ public struct MList<Content: View>: View {
     }
 
     public var body: some View {
-        let shape = RoundedRectangle(cornerRadius: HubGeometry.listRadius, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: V1Hub.listRadius, style: .continuous)
         VStack(spacing: 0) { content }
-            .background(shape.fill(theme.colors.bgCard.color))
+            .background(shape.fill(theme.v1.bgCard.color))
             .clipShape(shape)
-            .overlay(shape.strokeBorder(theme.colors.borderPanel.color, lineWidth: HubGeometry.hairline))
+            .overlay(shape.strokeBorder(theme.v1.borderPanel.color, lineWidth: V1Hub.hairline))
     }
 }

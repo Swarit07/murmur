@@ -23,18 +23,18 @@ public struct MSidebarItem: View {
 
     public var body: some View {
         let state = resolvedState(forced: forced, enabled: isEnabled, pressed: false, focused: focused, hovering: hovering)
-        let c = theme.colors
-        let shape = RoundedRectangle(cornerRadius: HubGeometry.sidebarItemRadius, style: .continuous)
+        let c = theme.v1
+        let shape = RoundedRectangle(cornerRadius: V1Hub.sidebarItemRadius, style: .continuous)
         let ink = state == .disabled ? c.textDisabled.color : c.textPrimary.color
         Button(action: action) {
-            HStack(spacing: HubGeometry.sidebarIconGap) {
-                IconView(icon, size: HubGeometry.sidebarIcon, color: ink)
-                Text(title).textStyle(TypeTokens.nav).foregroundStyle(ink).lineLimit(1)
+            HStack(spacing: V1Hub.sidebarIconGap) {
+                IconView(icon, size: V1Hub.sidebarIcon, color: ink)
+                Text(title).textStyle(V1Type.nav).foregroundStyle(ink).lineLimit(1)
                 Spacer(minLength: 0)
             }
-            .padding(.leading, HubGeometry.sidebarItemInset)
-            .frame(height: HubGeometry.sidebarItemHeight)
-            .background(shape.fill(selected ? c.bgHover.color : (state == .hover ? c.bgHover.color.opacity(OpacityTokens.hoverHalf) : .clear)))
+            .padding(.leading, V1Hub.sidebarItemInset)
+            .frame(height: V1Hub.sidebarItemHeight)
+            .background(shape.fill(selected ? c.bgHover.color : (state == .hover ? c.bgHover.color.opacity(V1Opacity.hoverHalf) : .clear)))
             .contentShape(shape)
         }
         .buttonStyle(.plain)
@@ -42,8 +42,8 @@ public struct MSidebarItem: View {
         .focused($focused)
         .focusEffectDisabled()
         .onHover { hovering = $0 }
-        .focusRing(state == .focused, radius: HubGeometry.sidebarItemRadius)
-        .animation(theme.motion.easeOut(MotionTokens.hover), value: state)
+        .focusRing(state == .focused, radius: V1Hub.sidebarItemRadius)
+        .animation(theme.motion.easeOut(V1Motion.hover), value: state)
         .accessibilityLabel(title)
         .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
     }

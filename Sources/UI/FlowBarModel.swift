@@ -258,7 +258,7 @@ public final class FlowBarModel {
     /// The pill's mouse target: the idle pill is tiny, so it answers over the hover pill's area.
     public var pillTarget: CGSize {
         let t = LiveTokens.shared.value
-        let slop = FlowGeometry.hoverTargetSlop * 2
+        let slop = V1Flow.hoverTargetSlop * 2
         switch pill {
         case .none: return .zero
         case .idle, .hover: return CGSize(width: t.hoverWidth + slop, height: t.activeHeight + slop)
@@ -270,8 +270,8 @@ public final class FlowBarModel {
     public var tooltipSize: CGSize {
         guard tooltipVisible else { return .zero }
         let t = LiveTokens.shared.value
-        let font = TypeTokens.nsFont(TypeTokens.flowText)
-        let width = (tooltipText as NSString).size(withAttributes: [.font: font]).width + FlowGeometry.tooltipPaddingH * 2
+        let font = V1Type.nsFont(V1Type.flowText)
+        let width = (tooltipText as NSString).size(withAttributes: [.font: font]).width + V1Flow.tooltipPaddingH * 2
         return CGSize(width: width.rounded(.up), height: t.tooltipHeight)
     }
 

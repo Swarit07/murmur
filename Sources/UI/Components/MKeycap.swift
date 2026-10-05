@@ -11,17 +11,17 @@ public struct MKeycap: View {
     }
 
     public var body: some View {
-        let c = theme.colors
-        let shape = RoundedRectangle(cornerRadius: HubGeometry.keycapRadius, style: .continuous)
+        let c = theme.v1
+        let shape = RoundedRectangle(cornerRadius: V1Hub.keycapRadius, style: .continuous)
         Text(text)
-            .textStyle(TypeTokens.keycap)
+            .textStyle(V1Type.keycap)
             .lineLimit(1)
             .fixedSize()
             .foregroundStyle(isEnabled ? c.textPrimary.color : c.textDisabled.color)
-            .padding(.horizontal, Spacing.xs)
-            .frame(minWidth: HubGeometry.keycapMin, minHeight: HubGeometry.keycapMin)
+            .padding(.horizontal, V1Spacing.xs)
+            .frame(minWidth: V1Hub.keycapMin, minHeight: V1Hub.keycapMin)
             .background(shape.fill(c.bgCard.color))
-            .overlay(shape.strokeBorder(c.borderControl.color, lineWidth: HubGeometry.hairline))
+            .overlay(shape.strokeBorder(c.borderControl.color, lineWidth: V1Hub.hairline))
     }
 }
 
@@ -34,7 +34,7 @@ public struct MShortcut: View {
     }
 
     public var body: some View {
-        HStack(spacing: Spacing.xxs) {
+        HStack(spacing: V1Spacing.xxs) {
             ForEach(keys.indices, id: \.self) { MKeycap(keys[$0]) }
         }
         .fixedSize()

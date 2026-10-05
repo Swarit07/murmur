@@ -19,23 +19,23 @@ public struct MToggle: View {
 
     public var body: some View {
         let state = resolvedState(forced: forced, enabled: isEnabled, pressed: false, focused: focused, hovering: hovering)
-        let c = theme.colors
-        let size = HubGeometry.toggleSize
-        let knob = size.height - HubGeometry.toggleKnobInset * 2
+        let c = theme.v1
+        let size = V1Hub.toggleSize
+        let knob = size.height - V1Hub.toggleKnobInset * 2
         let track = Capsule(style: .circular)
         Button { isOn.toggle() } label: {
             ZStack(alignment: isOn ? .trailing : .leading) {
                 track.fill(isOn ? c.accentClay.color : c.bgHover.color)
-                    .overlay { if !isOn { track.strokeBorder(c.borderControl.color, lineWidth: HubGeometry.hairline) } }
+                    .overlay { if !isOn { track.strokeBorder(c.borderControl.color, lineWidth: V1Hub.hairline) } }
                 Circle()
                     .fill(c.buttonText.color)
                     .frame(width: knob, height: knob)
-                    .padding(HubGeometry.toggleKnobInset)
+                    .padding(V1Hub.toggleKnobInset)
             }
             .frame(width: size.width, height: size.height)
-            .opacity(state == .disabled ? OpacityTokens.disabled : 1)
+            .opacity(state == .disabled ? V1Opacity.disabled : 1)
             // Reduce Motion: the knob jumps and only the track color fades.
-            .animation(theme.motion.reduce ? theme.motion.easeInOut(MotionTokens.reducedFade) : theme.motion.spring(MotionTokens.toggleKnob), value: isOn)
+            .animation(theme.motion.reduce ? theme.motion.easeInOut(V1Motion.reducedFade) : theme.motion.spring(V1Motion.toggleKnob), value: isOn)
             .transaction { if theme.motion.reduce { $0.disablesAnimations = false } }
         }
         .buttonStyle(.plain)

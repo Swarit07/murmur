@@ -194,7 +194,7 @@ public struct IconView: View {
     let color: Color
     let filled: Bool
 
-    public init(_ icon: Icon, size: CGFloat = HubGeometry.iconGlyph, color: Color, filled: Bool = false) {
+    public init(_ icon: Icon, size: CGFloat = V1Hub.iconGlyph, color: Color, filled: Bool = false) {
         self.icon = icon
         self.size = size
         self.color = color

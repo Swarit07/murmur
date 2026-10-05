@@ -33,8 +33,8 @@ struct FlowBarCanvas: View {
                             removal: .opacity.animation(motion.easeIn(t.toastOut))))
                 } else if model.tooltipVisible {
                     FlowTooltip(text: model.tooltipText)
-                        .transition(.asymmetric(insertion: .opacity.animation(motion.easeOut(MotionTokens.hover)),
-                                                removal: .opacity.animation(motion.easeIn(MotionTokens.tooltipOut))))
+                        .transition(.asymmetric(insertion: .opacity.animation(motion.easeOut(V1Motion.hover)),
+                                                removal: .opacity.animation(motion.easeIn(V1Motion.tooltipOut))))
                 }
             }
             if model.pill != .none {
@@ -46,10 +46,10 @@ struct FlowBarCanvas: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-        .padding(.bottom, FlowGeometry.canvasMargin)
+        .padding(.bottom, V1Flow.canvasMargin)
         .animation(motion.spring(SpringToken(response: t.springResponse, damping: t.springDamping)), value: model.pill)
         .animation(motion.easeOut(t.toastIn), value: model.notice)
-        .animation(motion.easeOut(MotionTokens.hover), value: model.tooltipVisible)
+        .animation(motion.easeOut(V1Motion.hover), value: model.tooltipVisible)
     }
 }
 
@@ -85,7 +85,7 @@ struct FlowPillView: View {
                 }
                 .padding(.horizontal, t.buttonPadding)
                 .transition(.opacity.combined(with: .scale(scale: motion.scale(t.appearScale)))
-                    .animation(motion.easeOut(t.buttonsIn).delay(motion.seconds(t.springResponse * MotionTokens.barButtonsAt))))
+                    .animation(motion.easeOut(t.buttonsIn).delay(motion.seconds(t.springResponse * V1Motion.barButtonsAt))))
             }
         }
         .frame(width: size.width, height: size.height)
@@ -133,7 +133,7 @@ struct PillTarget: Shape {
     let target: CGSize
 
     func path(in rect: CGRect) -> Path {
-        let slop = FlowGeometry.hoverTargetSlop
+        let slop = V1Flow.hoverTargetSlop
         return Path(CGRect(x: rect.midX - target.width / 2, y: rect.maxY + slop - target.height, width: target.width, height: target.height))
     }
 }
@@ -242,7 +242,7 @@ struct FlowWaveform: View {
     /// How bright each square is in the processing shimmer, 0…1.
     static func shimmer(count: Int, now: TimeInterval, motion: Motion, width: Double) -> [Double] {
         if motion.reduce {
-            let period = motion.seconds(MotionTokens.processingPeriodReduced)
+            let period = motion.seconds(V1Motion.processingPeriodReduced)
             let pulse = 0.5 - 0.5 * cos(2 * .pi * now / period)
             return Array(repeating: pulse, count: count)
         }
@@ -266,8 +266,8 @@ struct FlowCheck: View {
     var body: some View {
         IconShape(.check)
             .trim(from: 0, to: drawn ? 1 : 0)
-            .stroke(Color.token(t.successLight, t.successDark), style: StrokeStyle(lineWidth: FlowGeometry.glyphStroke, lineCap: .round, lineJoin: .round))
-            .frame(width: FlowGeometry.checkGlyph, height: FlowGeometry.checkGlyph)
+            .stroke(Color.token(t.successLight, t.successDark), style: StrokeStyle(lineWidth: V1Flow.glyphStroke, lineCap: .round, lineJoin: .round))
+            .frame(width: V1Flow.checkGlyph, height: V1Flow.checkGlyph)
             .onAppear { withAnimation(theme.motion.easeOut(t.checkDraw)) { drawn = true } }
             .accessibilityHidden(true)
     }
@@ -288,12 +288,12 @@ struct FlowRoundButton: View {
                 switch kind {
                 case .cancel:
                     IconShape(.close)
-                        .stroke(Color.token(t.cancelGlyphLight, t.cancelGlyphDark), style: StrokeStyle(lineWidth: FlowGeometry.glyphStroke, lineCap: .round))
-                        .frame(width: FlowGeometry.cancelGlyph, height: FlowGeometry.cancelGlyph)
+                        .stroke(Color.token(t.cancelGlyphLight, t.cancelGlyphDark), style: StrokeStyle(lineWidth: V1Flow.glyphStroke, lineCap: .round))
+                        .frame(width: V1Flow.cancelGlyph, height: V1Flow.cancelGlyph)
                 case .stop:
-                    RoundedRectangle(cornerRadius: FlowGeometry.stopGlyphRadius, style: .continuous)
+                    RoundedRectangle(cornerRadius: V1Flow.stopGlyphRadius, style: .continuous)
                         .fill(Color.token(t.textLight, t.textDark))
-                        .frame(width: FlowGeometry.stopGlyph, height: FlowGeometry.stopGlyph)
+                        .frame(width: V1Flow.stopGlyph, height: V1Flow.stopGlyph)
                 }
             }
             .frame(width: t.buttonDiameter, height: t.buttonDiameter)
@@ -314,11 +314,11 @@ struct FlowTooltip: View {
 
     var body: some View {
         Text(text)
-            .modifier(FlowText(style: TypeTokens.flowText, size: t.labelSize))
+            .modifier(FlowText(style: V1Type.flowText, size: t.labelSize))
             .foregroundStyle(Color.token(t.textLight, t.textDark))
             .lineLimit(1)
             .fixedSize()
-            .padding(.horizontal, FlowGeometry.tooltipPaddingH)
+            .padding(.horizontal, V1Flow.tooltipPaddingH)
             .frame(height: t.tooltipHeight)
             .background(Capsule(style: .circular).fill(Color.token(t.tooltipLight, t.tooltipDark)))
             .accessibilityLabel(text)
@@ -387,7 +387,7 @@ struct FlowNoticeIcon: View {
     private var t: Tokens { LiveTokens.shared.value }
 
     var body: some View {
-        IconView(.warning, size: FlowGeometry.alertIcon,
+        IconView(.warning, size: V1Flow.alertIcon,
                  color: error ? Color.token(t.errorLight, t.errorDark) : Color.token(t.infoLight, t.infoDark))
     }
 }
@@ -396,7 +396,7 @@ struct FlowNoticeIcon: View {
 struct FlowCardButton: View {
     let title: String
     var width: CGFloat?
-    var height: CGFloat = FlowGeometry.alertButtonHeight
+    var height: CGFloat = V1Flow.alertButtonHeight
     let action: () -> Void
     @Environment(\.theme) private var theme
     @State private var hovering = false
@@ -405,21 +405,21 @@ struct FlowCardButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .modifier(FlowText(style: TypeTokens.flowText, size: t.labelSize))
+                .modifier(FlowText(style: V1Type.flowText, size: t.labelSize))
                 .foregroundStyle(Color.token(t.textLight, t.textDark))
                 .lineLimit(1)
                 .fixedSize()
-                .padding(.horizontal, FlowGeometry.keycapPaddingH * 2)
-                .frame(minWidth: width ?? FlowGeometry.toastButtonSize.width)
+                .padding(.horizontal, V1Flow.keycapPaddingH * 2)
+                .frame(minWidth: width ?? V1Flow.toastButtonSize.width)
                 .frame(width: width, height: height)
-                .background(RoundedRectangle(cornerRadius: FlowGeometry.alertButtonRadius, style: .continuous)
+                .background(RoundedRectangle(cornerRadius: V1Flow.alertButtonRadius, style: .continuous)
                     .fill(hovering ? Color.token(t.alertButtonHoverLight, t.alertButtonHoverDark) : Color.token(t.alertButtonLight, t.alertButtonDark)))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .focusable(false)
         .onHover { hovering = $0 }
-        .animation(theme.motion.easeOut(MotionTokens.hover), value: hovering)
+        .animation(theme.motion.easeOut(V1Motion.hover), value: hovering)
         .accessibilityLabel(title)
     }
 }
@@ -454,19 +454,19 @@ struct FlowAlert: View {
     }
 
     var body: some View {
-        let indent = FlowGeometry.alertIcon + FlowGeometry.iconGap
+        let indent = V1Flow.alertIcon + V1Flow.iconGap
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center, spacing: FlowGeometry.iconGap) {
+            HStack(alignment: .center, spacing: V1Flow.iconGap) {
                 FlowNoticeIcon(error: true)
                 Text(copy.title)
-                    .modifier(FlowText(style: TypeTokens.flowAlert.weight(600), size: t.alertTextSize))
+                    .modifier(FlowText(style: V1Type.flowAlert.weight(600), size: t.alertTextSize))
                     .foregroundStyle(Color.token(t.textLight, t.textDark))
                     .lineLimit(1)
-                Spacer(minLength: FlowGeometry.iconGap)
+                Spacer(minLength: V1Flow.iconGap)
                 Button { model.onAction?(.dismiss, notice) } label: {
                     IconShape(.close)
-                        .stroke(Color.token(t.secondaryTextLight, t.secondaryTextDark), style: StrokeStyle(lineWidth: FlowGeometry.glyphStroke, lineCap: .round))
-                        .frame(width: FlowGeometry.alertClose, height: FlowGeometry.alertClose)
+                        .stroke(Color.token(t.secondaryTextLight, t.secondaryTextDark), style: StrokeStyle(lineWidth: V1Flow.glyphStroke, lineCap: .round))
+                        .frame(width: V1Flow.alertClose, height: V1Flow.alertClose)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -475,22 +475,22 @@ struct FlowAlert: View {
             }
             if !copy.body.isEmpty {
                 Text(copy.body)
-                    .modifier(FlowText(style: TypeTokens.flowText, size: t.labelSize))
+                    .modifier(FlowText(style: V1Type.flowText, size: t.labelSize))
                     .foregroundStyle(Color.token(t.secondaryTextLight, t.secondaryTextDark))
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.leading, indent)
-                    .padding(.top, FlowGeometry.alertTitleGap)
+                    .padding(.top, V1Flow.alertTitleGap)
             }
-            HStack(spacing: FlowGeometry.alertButtonGap) {
+            HStack(spacing: V1Flow.alertButtonGap) {
                 ForEach(Array(notice.actions.enumerated()), id: \.offset) { index, action in
-                    FlowCardButton(title: action.title, width: FlowGeometry.alertButtonWidths[min(index, FlowGeometry.alertButtonWidths.count - 1)]) {
+                    FlowCardButton(title: action.title, width: V1Flow.alertButtonWidths[min(index, V1Flow.alertButtonWidths.count - 1)]) {
                         model.onAction?(action, notice)
                     }
                 }
             }
             .padding(.leading, indent)
-            .padding(.top, FlowGeometry.alertBodyGap)
+            .padding(.top, V1Flow.alertBodyGap)
         }
         .padding(t.alertPadding)
         .frame(width: t.noticeWidth, alignment: .leading)
@@ -522,41 +522,41 @@ struct FlowToast: View {
 
     /// The text's width: its natural width, capped so the toast stays within its maximum.
     var textWidth: CGFloat {
-        let style = FlowText.style(TypeTokens.flowText, size: t.labelSize)
-        let natural = (text as NSString).size(withAttributes: [.font: TypeTokens.nsFont(style, scale: theme.textScale)]).width.rounded(.up)
-        var reserved = FlowGeometry.toastPaddingH * 2 + FlowGeometry.alertIcon + FlowGeometry.iconGap
-        reserved += CGFloat(buttons.count) * (FlowGeometry.toastButtonSize.width + FlowGeometry.toastGap)
-        if notice.actions.contains(.openHistory) { reserved += FlowGeometry.toastButtonSize.width * 2 }
-        if notice.kind == .noTextBox { reserved += (FlowGeometry.keycap + FlowGeometry.keycapGap) * 3 + FlowGeometry.toastGap }
-        if notice.countdown != nil { reserved += FlowGeometry.countdownRing + FlowGeometry.toastGap }
-        return min(natural, max(FlowGeometry.toastButtonSize.width, FlowGeometry.toastMaxWidth - reserved))
+        let style = FlowText.style(V1Type.flowText, size: t.labelSize)
+        let natural = (text as NSString).size(withAttributes: [.font: V1Type.nsFont(style, scale: theme.textScale)]).width.rounded(.up)
+        var reserved = V1Flow.toastPaddingH * 2 + V1Flow.alertIcon + V1Flow.iconGap
+        reserved += CGFloat(buttons.count) * (V1Flow.toastButtonSize.width + V1Flow.toastGap)
+        if notice.actions.contains(.openHistory) { reserved += V1Flow.toastButtonSize.width * 2 }
+        if notice.kind == .noTextBox { reserved += (V1Flow.keycap + V1Flow.keycapGap) * 3 + V1Flow.toastGap }
+        if notice.countdown != nil { reserved += V1Flow.countdownRing + V1Flow.toastGap }
+        return min(natural, max(V1Flow.toastButtonSize.width, V1Flow.toastMaxWidth - reserved))
     }
 
     var body: some View {
-        HStack(spacing: FlowGeometry.toastGap) {
-            HStack(spacing: FlowGeometry.iconGap) {
+        HStack(spacing: V1Flow.toastGap) {
+            HStack(spacing: V1Flow.iconGap) {
                 FlowNoticeIcon(error: notice.kind == .pasteError)
                 Text(text)
-                    .modifier(FlowText(style: TypeTokens.flowText, size: t.labelSize))
+                    .modifier(FlowText(style: V1Type.flowText, size: t.labelSize))
                     .foregroundStyle(Color.token(t.textLight, t.textDark))
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(width: textWidth, alignment: .leading)
             }
             if notice.kind == .noTextBox {
-                HStack(spacing: FlowGeometry.keycapGap) {
+                HStack(spacing: V1Flow.keycapGap) {
                     ForEach(["⌃", "⌘", "V"], id: \.self) { FlowKeycap(label: $0) }
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Control Command V")
             }
             ForEach(buttons, id: \.self) { action in
-                FlowCardButton(title: action.title, height: FlowGeometry.toastButtonSize.height) { model.onAction?(action, notice) }
+                FlowCardButton(title: action.title, height: V1Flow.toastButtonSize.height) { model.onAction?(action, notice) }
             }
             if notice.actions.contains(.openHistory) {
                 Button { model.onAction?(.openHistory, notice) } label: {
                     Text(FlowBarNotice.Action.openHistory.title)
-                        .modifier(FlowText(style: TypeTokens.flowText, size: t.labelSize))
+                        .modifier(FlowText(style: V1Type.flowText, size: t.labelSize))
                         .foregroundStyle(Color.token(t.secondaryTextLight, t.secondaryTextDark))
                         .underline()
                         .fixedSize()
@@ -569,8 +569,8 @@ struct FlowToast: View {
                 FlowCountdownRing(remaining: model.countdownRemaining)
             }
         }
-        .padding(.vertical, FlowGeometry.toastPaddingV)
-        .padding(.horizontal, FlowGeometry.toastPaddingH)
+        .padding(.vertical, V1Flow.toastPaddingV)
+        .padding(.horizontal, V1Flow.toastPaddingH)
         .frame(minWidth: t.toastWidth, minHeight: t.toastHeight)
         .modifier(FlowCardSurface(radius: t.toastRadius))
         .accessibilityElement(children: .contain)
@@ -585,14 +585,14 @@ struct FlowKeycap: View {
 
     var body: some View {
         Text(label)
-            .modifier(FlowText(style: TypeTokens.flowText, size: t.labelSize))
+            .modifier(FlowText(style: V1Type.flowText, size: t.labelSize))
             .foregroundStyle(Color.token(t.textLight, t.textDark))
             .fixedSize()
-            .padding(.horizontal, FlowGeometry.keycapPaddingH)
-            .frame(minWidth: FlowGeometry.keycap, minHeight: FlowGeometry.keycap)
-            .background(RoundedRectangle(cornerRadius: FlowGeometry.keycapRadius, style: .continuous)
+            .padding(.horizontal, V1Flow.keycapPaddingH)
+            .frame(minWidth: V1Flow.keycap, minHeight: V1Flow.keycap)
+            .background(RoundedRectangle(cornerRadius: V1Flow.keycapRadius, style: .continuous)
                 .fill(Color.token(t.alertButtonLight, t.alertButtonDark)))
-            .overlay(RoundedRectangle(cornerRadius: FlowGeometry.keycapRadius, style: .continuous)
+            .overlay(RoundedRectangle(cornerRadius: V1Flow.keycapRadius, style: .continuous)
                 .strokeBorder(Color.token(t.alertBorderLight, t.alertBorderDark), lineWidth: t.borderWidth))
     }
 }
@@ -605,14 +605,14 @@ struct FlowCountdownRing: View {
 
     var body: some View {
         ZStack {
-            Circle().stroke(Color.token(t.alertBorderLight, t.alertBorderDark), lineWidth: FlowGeometry.countdownStroke)
+            Circle().stroke(Color.token(t.alertBorderLight, t.alertBorderDark), lineWidth: V1Flow.countdownStroke)
             Circle()
                 .trim(from: 0, to: remaining)
-                .stroke(Color.token(t.secondaryTextLight, t.secondaryTextDark), style: StrokeStyle(lineWidth: FlowGeometry.countdownStroke, lineCap: .round))
+                .stroke(Color.token(t.secondaryTextLight, t.secondaryTextDark), style: StrokeStyle(lineWidth: V1Flow.countdownStroke, lineCap: .round))
                 .rotationEffect(.degrees(-90))
         }
-        .frame(width: FlowGeometry.countdownRing, height: FlowGeometry.countdownRing)
-        .animation(theme.motion.easeOut(MotionTokens.hover / 2), value: remaining)
+        .frame(width: V1Flow.countdownRing, height: V1Flow.countdownRing)
+        .animation(theme.motion.easeOut(V1Motion.hover / 2), value: remaining)
         .accessibilityHidden(true)
     }
 }

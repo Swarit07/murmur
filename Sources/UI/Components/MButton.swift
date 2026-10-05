@@ -53,15 +53,15 @@ struct MButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         let state = resolvedState(forced: forced, enabled: enabled, pressed: configuration.isPressed, focused: focused, hovering: hovering)
-        let c = theme.colors
+        let c = theme.v1
         let height = switch size {
-        case .sm: HubGeometry.buttonHeightSmall
-        case .md: HubGeometry.buttonHeight
-        case .lg: HubGeometry.buttonHeightLarge
+        case .sm: V1Hub.buttonHeightSmall
+        case .md: V1Hub.buttonHeight
+        case .lg: V1Hub.buttonHeightLarge
         }
         let fill: Color = switch kind {
         case .primary:
-            state == .disabled ? c.accentClay.color.opacity(OpacityTokens.disabled)
+            state == .disabled ? c.accentClay.color.opacity(V1Opacity.disabled)
                 : state == .pressed ? c.accentClayPressed.color : state == .hover ? c.accentClayHover.color : c.accentClay.color
         case .secondary, .destructive:
             state == .hover || state == .pressed ? c.bgHover.color : c.bgCard.color
@@ -73,25 +73,25 @@ struct MButtonStyle: ButtonStyle {
         case .destructive: state == .disabled ? c.textDisabled.color : c.dangerText.color
         case .secondary, .ghost: state == .disabled ? c.textDisabled.color : c.textPrimary.color
         }
-        let shape = RoundedRectangle(cornerRadius: HubGeometry.buttonRadius, style: .continuous)
-        return HStack(spacing: Spacing.xs) {
-            if let icon { IconView(icon, size: HubGeometry.iconGlyph, color: foreground) }
-            Text(title).textStyle(TypeTokens.button).lineLimit(1)
+        let shape = RoundedRectangle(cornerRadius: V1Hub.buttonRadius, style: .continuous)
+        return HStack(spacing: V1Spacing.xs) {
+            if let icon { IconView(icon, size: V1Hub.iconGlyph, color: foreground) }
+            Text(title).textStyle(V1Type.button).lineLimit(1)
         }
         .foregroundStyle(foreground)
-        .padding(.horizontal, HubGeometry.buttonPaddingH)
-        .frame(minWidth: kind == .ghost ? nil : (size == .sm ? HubGeometry.buttonMinWidthSmall : HubGeometry.buttonMinWidth))
+        .padding(.horizontal, V1Hub.buttonPaddingH)
+        .frame(minWidth: kind == .ghost ? nil : (size == .sm ? V1Hub.buttonMinWidthSmall : V1Hub.buttonMinWidth))
         .frame(height: height)
         .background(shape.fill(fill))
         .overlay {
             if kind == .secondary || kind == .destructive {
-                shape.strokeBorder(c.borderControl.color.opacity(state == .disabled ? OpacityTokens.disabled : 1), lineWidth: HubGeometry.hairline)
+                shape.strokeBorder(c.borderControl.color.opacity(state == .disabled ? V1Opacity.disabled : 1), lineWidth: V1Hub.hairline)
             }
         }
         .contentShape(shape)
         .modifier(PressScale(pressed: state == .pressed))
-        .focusRing(state == .focused, radius: HubGeometry.buttonRadius)
-        .animation(theme.motion.easeOut(MotionTokens.hover), value: state)
+        .focusRing(state == .focused, radius: V1Hub.buttonRadius)
+        .animation(theme.motion.easeOut(V1Motion.hover), value: state)
     }
 }
 
@@ -135,14 +135,14 @@ struct MIconButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         let state = resolvedState(forced: forced, enabled: enabled, pressed: configuration.isPressed, focused: focused, hovering: hovering)
-        let c = theme.colors
-        let shape = RoundedRectangle(cornerRadius: HubGeometry.iconButtonRadius, style: .continuous)
-        return IconView(icon, size: HubGeometry.iconGlyph, color: state == .disabled ? c.textDisabled.color : c.textPrimary.color)
-            .frame(width: HubGeometry.iconButton, height: HubGeometry.iconButton)
+        let c = theme.v1
+        let shape = RoundedRectangle(cornerRadius: V1Hub.iconButtonRadius, style: .continuous)
+        return IconView(icon, size: V1Hub.iconGlyph, color: state == .disabled ? c.textDisabled.color : c.textPrimary.color)
+            .frame(width: V1Hub.iconButton, height: V1Hub.iconButton)
             .background(shape.fill(state == .hover || state == .pressed ? c.bgHover.color : .clear))
             .contentShape(shape)
             .modifier(PressScale(pressed: state == .pressed))
-            .focusRing(state == .focused, radius: HubGeometry.iconButtonRadius)
-            .animation(theme.motion.easeOut(MotionTokens.hover), value: state)
+            .focusRing(state == .focused, radius: V1Hub.iconButtonRadius)
+            .animation(theme.motion.easeOut(V1Motion.hover), value: state)
     }
 }

@@ -16,7 +16,8 @@ public struct Theme: Sendable {
     public static func make(scheme: ColorScheme, increaseContrast: Bool = false, reduceMotion: Bool = false,
                             reduceTransparency: Bool = false, textScale: Double = TypeTokens.scaleDefault, timeScale: Double = 1) -> Theme {
         let base = scheme == .dark ? ThemeColors.dark : ThemeColors.light
-        return Theme(scheme: scheme, colors: increaseContrast ? base.increasedContrast : base, flow: .standard,
+        let flow = FlowBarColors.forAppearance(dark: scheme == .dark)
+        return Theme(scheme: scheme, colors: increaseContrast ? base.increasedContrast : base, flow: increaseContrast ? flow.increasedContrast : flow,
                      textScale: textScale, motion: Motion(reduce: reduceMotion, timeScale: timeScale),
                      increaseContrast: increaseContrast, reduceTransparency: reduceTransparency)
     }

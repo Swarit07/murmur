@@ -6,18 +6,18 @@ public struct MCard<Content: View>: View {
     let padding: CGFloat
     let content: Content
 
-    public init(padding: CGFloat = HubGeometry.cardPadding, @ViewBuilder content: () -> Content) {
+    public init(padding: CGFloat = V1Hub.cardPadding, @ViewBuilder content: () -> Content) {
         self.padding = padding
         self.content = content()
     }
 
     public var body: some View {
-        let shape = RoundedRectangle(cornerRadius: HubGeometry.cardRadius, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: V1Hub.cardRadius, style: .continuous)
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(shape.fill(theme.colors.bgCard.color))
-            .overlay(shape.strokeBorder(theme.colors.borderPanel.color, lineWidth: HubGeometry.hairline))
+            .background(shape.fill(theme.v1.bgCard.color))
+            .overlay(shape.strokeBorder(theme.v1.borderPanel.color, lineWidth: V1Hub.hairline))
     }
 }
 
@@ -44,16 +44,16 @@ public struct MSelectableCard<Content: View>: View {
 
     public var body: some View {
         let state = resolvedState(forced: forced, enabled: isEnabled, pressed: false, focused: focused, hovering: hovering)
-        let c = theme.colors
-        let shape = RoundedRectangle(cornerRadius: HubGeometry.cardRadius, style: .continuous)
+        let c = theme.v1
+        let shape = RoundedRectangle(cornerRadius: V1Hub.cardRadius, style: .continuous)
         Button(action: action) {
             content
-                .padding(HubGeometry.cardPadding)
+                .padding(V1Hub.cardPadding)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .background(shape.fill(selected ? c.accentClayTint.color : (state == .hover ? c.bgHover.color : c.bgCard.color)))
                 .overlay(shape.strokeBorder(selected ? c.accentClay.color : c.borderPanel.color,
-                                            lineWidth: selected ? HubGeometry.selectedBorder : HubGeometry.hairline))
-                .opacity(state == .disabled ? OpacityTokens.disabled : 1)
+                                            lineWidth: selected ? V1Hub.selectedBorder : V1Hub.hairline))
+                .opacity(state == .disabled ? V1Opacity.disabled : 1)
                 .contentShape(shape)
         }
         .buttonStyle(.plain)
@@ -61,8 +61,8 @@ public struct MSelectableCard<Content: View>: View {
         .focused($focused)
         .focusEffectDisabled()
         .onHover { hovering = $0 }
-        .focusRing(state == .focused, radius: HubGeometry.cardRadius)
-        .animation(theme.motion.easeOut(MotionTokens.hover), value: state)
+        .focusRing(state == .focused, radius: V1Hub.cardRadius)
+        .animation(theme.motion.easeOut(V1Motion.hover), value: state)
         .accessibilityLabel(label)
         .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
     }
@@ -88,26 +88,26 @@ public struct MFeatureCard<Body: View>: View {
     }
 
     public var body: some View {
-        let shape = RoundedRectangle(cornerRadius: HubGeometry.cardRadius, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: V1Hub.cardRadius, style: .continuous)
         VStack(alignment: .leading, spacing: 0) {
             title
             paragraph
-                .textStyle(TypeTokens.body)
-                .foregroundStyle(theme.colors.textBody.color)
+                .textStyle(V1Type.body)
+                .foregroundStyle(theme.v1.textBody.color)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, HubGeometry.featureTitleToBody)
+                .padding(.top, V1Hub.featureTitleToBody)
             if let buttonTitle {
                 MButton(buttonTitle, kind: .primary, action: action)
-                    .padding(.top, HubGeometry.featureBodyToButton)
+                    .padding(.top, V1Hub.featureBodyToButton)
             }
         }
-        .padding(HubGeometry.featureCardPadding)
+        .padding(V1Hub.featureCardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(shape.fill(theme.colors.bgFeature.color))
-        .overlay(shape.strokeBorder(theme.colors.borderFeature.color, lineWidth: HubGeometry.hairline))
+        .background(shape.fill(theme.v1.bgFeature.color))
+        .overlay(shape.strokeBorder(theme.v1.borderFeature.color, lineWidth: V1Hub.hairline))
         .overlay(alignment: .topTrailing) {
             if let onDismiss {
-                MIconButton(.close, label: "Dismiss", action: onDismiss).padding(Spacing.sm)
+                MIconButton(.close, label: "Dismiss", action: onDismiss).padding(V1Spacing.sm)
             }
         }
     }

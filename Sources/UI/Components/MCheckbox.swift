@@ -18,19 +18,19 @@ public struct MCheckbox: View {
 
     public var body: some View {
         let state = resolvedState(forced: forced, enabled: isEnabled, pressed: false, focused: focused, hovering: hovering)
-        let c = theme.colors
-        let box = RoundedRectangle(cornerRadius: HubGeometry.checkboxRadius, style: .continuous)
+        let c = theme.v1
+        let box = RoundedRectangle(cornerRadius: V1Hub.checkboxRadius, style: .continuous)
         Button { isOn.toggle() } label: {
-            HStack(spacing: Spacing.xs) {
+            HStack(spacing: V1Spacing.xs) {
                 ZStack {
                     box.fill(isOn ? c.accentClay.color : (state == .hover ? c.bgHover.color : c.bgCard.color))
-                    if !isOn { box.strokeBorder(c.borderControl.color, lineWidth: HubGeometry.hairline) }
-                    if isOn { IconView(.check, size: HubGeometry.checkGlyph, color: c.buttonText.color) }
+                    if !isOn { box.strokeBorder(c.borderControl.color, lineWidth: V1Hub.hairline) }
+                    if isOn { IconView(.check, size: V1Hub.checkGlyph, color: c.buttonText.color) }
                 }
-                .frame(width: HubGeometry.checkbox, height: HubGeometry.checkbox)
-                .focusRing(state == .focused, radius: HubGeometry.checkboxRadius)
+                .frame(width: V1Hub.checkbox, height: V1Hub.checkbox)
+                .focusRing(state == .focused, radius: V1Hub.checkboxRadius)
                 Text(label)
-                    .textStyle(TypeTokens.body)
+                    .textStyle(V1Type.body)
                     .foregroundStyle(state == .disabled ? c.textDisabled.color : c.textPrimary.color)
             }
             .contentShape(Rectangle())

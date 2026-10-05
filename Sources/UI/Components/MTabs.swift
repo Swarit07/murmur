@@ -18,7 +18,7 @@ public struct MTabs<Value: Hashable>: View {
     }
 
     public var body: some View {
-        let c = theme.colors
+        let c = theme.v1
         let state = resolvedState(forced: forced, enabled: isEnabled, pressed: false, focused: focused, hovering: false)
         HStack(spacing: 0) {
             ForEach(items.indices, id: \.self) { i in
@@ -26,17 +26,17 @@ public struct MTabs<Value: Hashable>: View {
                 let selected = item.value == selection
                 Button { selection = item.value } label: {
                     Text(item.label)
-                        .textStyle(selected ? TypeTokens.button : TypeTokens.button.weight(400))
+                        .textStyle(selected ? V1Type.button : V1Type.button.weight(400))
                         .foregroundStyle(state == .disabled ? c.textDisabled.color : (selected ? c.textPrimary.color : c.textSecondary.color))
                         .lineLimit(1)
-                        .padding(.horizontal, Spacing.md)
+                        .padding(.horizontal, V1Spacing.md)
                         .frame(maxWidth: .infinity)
-                        .frame(height: HubGeometry.tabHeight - HubGeometry.tabInset * 2)
+                        .frame(height: V1Hub.tabHeight - V1Hub.tabInset * 2)
                         .background {
                             if selected {
                                 Capsule(style: .circular)
                                     .fill(c.bgPanel.color)
-                                    .overlay(Capsule(style: .circular).strokeBorder(c.borderPanel.color, lineWidth: HubGeometry.hairline))
+                                    .overlay(Capsule(style: .circular).strokeBorder(c.borderPanel.color, lineWidth: V1Hub.hairline))
                                     // The pill slides between tabs; under Reduce Motion it cross-fades in place.
                                     .matchedGeometryEffect(id: theme.motion.reduce ? "selection-\(i)" : "selection", in: namespace)
                             }
@@ -47,13 +47,13 @@ public struct MTabs<Value: Hashable>: View {
                 .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
             }
         }
-        .padding(HubGeometry.tabInset)
+        .padding(V1Hub.tabInset)
         .background(Capsule(style: .circular).fill(c.bgChip.color))
-        .animation(theme.motion.spring(MotionTokens.tabsSelect), value: selection)
+        .animation(theme.motion.spring(V1Motion.tabsSelect), value: selection)
         .focusable(isEnabled)
         .focused($focused)
         .focusEffectDisabled()
-        .focusRing(state == .focused, radius: HubGeometry.tabHeight / 2)
+        .focusRing(state == .focused, radius: V1Hub.tabHeight / 2)
         .onKeyPress(.leftArrow) { move(-1) }
         .onKeyPress(.rightArrow) { move(1) }
         .accessibilityElement(children: .contain)

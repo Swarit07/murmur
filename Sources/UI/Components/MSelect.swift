@@ -21,25 +21,25 @@ public struct MSelect<Value: Hashable>: View {
 
     public var body: some View {
         let state = resolvedState(forced: forced, enabled: isEnabled, pressed: false, focused: focused, hovering: hovering)
-        let c = theme.colors
-        let shape = RoundedRectangle(cornerRadius: HubGeometry.buttonRadius, style: .continuous)
+        let c = theme.v1
+        let shape = RoundedRectangle(cornerRadius: V1Hub.buttonRadius, style: .continuous)
         let current = options.first { $0.value == selection }?.label ?? ""
         Menu {
             ForEach(options.indices, id: \.self) { i in
                 Button(options[i].label) { selection = options[i].value }
             }
         } label: {
-            HStack(spacing: Spacing.xs) {
-                Text(current).textStyle(TypeTokens.button.weight(400)).lineLimit(1)
-                Spacer(minLength: Spacing.xs)
-                IconView(.chevronDown, size: HubGeometry.checkGlyph, color: c.textSecondary.color)
+            HStack(spacing: V1Spacing.xs) {
+                Text(current).textStyle(V1Type.button.weight(400)).lineLimit(1)
+                Spacer(minLength: V1Spacing.xs)
+                IconView(.chevronDown, size: V1Hub.checkGlyph, color: c.textSecondary.color)
             }
             .foregroundStyle(state == .disabled ? c.textDisabled.color : c.textPrimary.color)
-            .padding(.horizontal, Spacing.sm)
-            .frame(minWidth: HubGeometry.menuMinWidth)
-            .frame(height: HubGeometry.buttonHeight)
+            .padding(.horizontal, V1Spacing.sm)
+            .frame(minWidth: V1Hub.menuMinWidth)
+            .frame(height: V1Hub.buttonHeight)
             .background(shape.fill(state == .hover ? c.bgHover.color : c.bgCard.color))
-            .overlay(shape.strokeBorder(c.borderControl.color, lineWidth: HubGeometry.hairline))
+            .overlay(shape.strokeBorder(c.borderControl.color, lineWidth: V1Hub.hairline))
             .contentShape(shape)
         }
         .menuStyle(.button)
@@ -50,7 +50,7 @@ public struct MSelect<Value: Hashable>: View {
         .focused($focused)
         .focusEffectDisabled()
         .onHover { hovering = $0 }
-        .focusRing(state == .focused, radius: HubGeometry.buttonRadius)
+        .focusRing(state == .focused, radius: V1Hub.buttonRadius)
         .accessibilityLabel(label)
         .accessibilityValue(current)
     }

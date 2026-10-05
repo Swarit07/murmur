@@ -27,16 +27,16 @@ public struct MTextField: View {
 
     public var body: some View {
         let state = resolvedState(forced: forced, enabled: isEnabled, pressed: false, focused: focused, hovering: false)
-        let c = theme.colors
-        let shape = RoundedRectangle(cornerRadius: HubGeometry.fieldRadius, style: .continuous)
-        HStack(spacing: Spacing.xs) {
-            if let leading { IconView(leading, size: HubGeometry.iconGlyph, color: c.textSecondary.color) }
+        let c = theme.v1
+        let shape = RoundedRectangle(cornerRadius: V1Hub.fieldRadius, style: .continuous)
+        HStack(spacing: V1Spacing.xs) {
+            if let leading { IconView(leading, size: V1Hub.iconGlyph, color: c.textSecondary.color) }
             // The placeholder is drawn here rather than as the field's prompt: AppKit colors prompts with the
             // system appearance, not the theme.
             ZStack(alignment: .leading) {
                 if text.isEmpty {
                     Text(placeholder)
-                        .textStyle(TypeTokens.body)
+                        .textStyle(V1Type.body)
                         .foregroundStyle(state == .disabled ? c.textDisabled.color : c.textPlaceholder.color)
                         .lineLimit(1)
                         .allowsHitTesting(false)
@@ -53,23 +53,23 @@ public struct MTextField: View {
                 }
             }
             .textFieldStyle(.plain)
-            .textStyle(TypeTokens.body)
+            .textStyle(V1Type.body)
             .foregroundStyle(state == .disabled ? c.textDisabled.color : c.textPrimary.color)
             .focused($focused)
             .onSubmit(onSubmit)
             if !text.isEmpty && leading == .search {
-                Button { text = "" } label: { IconView(.close, size: HubGeometry.checkGlyph, color: c.textSecondary.color) }
+                Button { text = "" } label: { IconView(.close, size: V1Hub.checkGlyph, color: c.textSecondary.color) }
                     .buttonStyle(.plain)
                     .help("Clear")
                     .accessibilityLabel("Clear")
             }
         }
-        .padding(.horizontal, Spacing.sm)
-        .padding(.vertical, multiline ? Spacing.xs : 0)
-        .frame(minHeight: HubGeometry.fieldHeight)
+        .padding(.horizontal, V1Spacing.sm)
+        .padding(.vertical, multiline ? V1Spacing.xs : 0)
+        .frame(minHeight: V1Hub.fieldHeight)
         .background(shape.fill(c.bgField.color))
-        .overlay(shape.strokeBorder(c.borderControl.color.opacity(state == .disabled ? OpacityTokens.disabled : 1), lineWidth: HubGeometry.hairline))
-        .focusRing(state == .focused, radius: HubGeometry.fieldRadius)
+        .overlay(shape.strokeBorder(c.borderControl.color.opacity(state == .disabled ? V1Opacity.disabled : 1), lineWidth: V1Hub.hairline))
+        .focusRing(state == .focused, radius: V1Hub.fieldRadius)
         .focusEffectDisabled()
         .accessibilityElement(children: .contain)
         .accessibilityLabel(placeholder)

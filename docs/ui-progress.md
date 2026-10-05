@@ -38,3 +38,60 @@ One report per milestone (UI_REDESIGN.md §10), newest last. If a session ends m
 - **Onboarding keeps SPEC's 12 steps** rather than the board's 10 (§5.4 says "same steps as SPEC §6").
 - **Shortcuts show the real bindings:** ⌃⌘V and ⌃⌘C, not the board's ⌃⌥V and ⌃⌥C.
 - **The no-audio alert is built but not wired.** The controller has no silent-recording event, and adding one changes dictation behavior. **Owner decision needed.**
+
+## U1: Tokens, theme, fonts
+
+**Changed**
+- **`Tokens+Color.swift`:** v2 `ThemeColors`, light and dark, all §3.2 tokens.
+  - `ColorToken` now carries alpha. Ink and ivory at an opacity are written as the boards write them.
+  - Contrast is measured after compositing translucent colors over their background.
+  - `FlowBarColors.light` and `.dark` are picked by the system appearance, with an Increase Contrast variant.
+- **`Tokens+Type.swift`:** the §3.3 styles.
+  - Families: Geist, Geist Mono, and Newsreader in two optical cuts.
+  - `FontRegistry` logs once and falls back to system faces if registration fails.
+- **`Tokens+Geometry.swift`:** spacing scale, radii, strokes, `shadow-float`, Hub, onboarding and Flow Bar geometry (§3.4, §3.5, §4, §5).
+- **`Tokens+Motion.swift`:**
+  - the §6.1 motion tokens;
+  - `WaveTokens` and `MeterTokens`, ported from `Design/motion/murmur-motion.js`.
+- **`Theme.swift`:** `theme.flow` now follows the scheme and Increase Contrast.
+- **Fonts (`Sources/UI/Resources/Fonts`):**
+  - Added: Geist 400, 500, 600 and Geist Mono 400, 500 (vercel/geist-font v1.7.2).
+  - Added: Newsreader, cut from Google Fonts' variable fonts: opsz 16 at 400, 400 Italic and 500; "Newsreader Display" at opsz 36, 400 and 400 Italic.
+  - OFL licenses are included.
+  - Removed: Source Sans 3 and v1's Newsreader Medium Italic.
+  - `Tools/fetch_fonts.sh` reproduces the folder.
+- **`Tests/UITests/ThemeTests.swift`:**
+  - every §3.2 contrast pair, light, dark and Flow Bar;
+  - `Design/tokens.json` matches every color (light and dark), every type style, spacing and radii;
+  - font resolution, including which Newsreader cut each style gets;
+  - §8 source checks: stone never text, clay only where allowed, no red;
+  - Reduce Motion, and the board's per-frame wave smoothing equals the time constants.
+- **`Sources/UI/TokensV1.swift` (temporary):**
+  - v1's token values under `V1*` names, so the v1 components and the v1 Flow Bar build and look as before.
+  - U2 and U3 remove their uses; the file goes when nothing references it.
+  - The source checks skip files still on it.
+
+**Done when**
+- **Token lint: pass.**
+- **Contrast tests: pass.** Every stated ratio is met at two decimals. Dark `border-control` on the window is 4.85 against the stated 4.9, which is within the 0.05 allowance.
+- **Font resolution: pass.**
+- **`tokens.json` match: pass.**
+- **App builds: pass** (Release `xcodebuild`).
+- **Looks unchanged: pass.**
+  - The Hub, onboarding and menu bar don't read these tokens yet.
+  - The v1 Flow Bar and components read the `V1*` copies.
+  - The only visible change is the font in v1 components (Geist replaces Source Sans 3), and those only appear in the debug gallery.
+
+**Tokens not in the brief**
+- **Edge colors** (the boards draw these ink strengths inline): `edgePanel` 12%, `edgeList` 14%, `edgeStrong` 20%, `edgeKey` 25%, `edgeToast` 18%, `underline` 30%, `fieldHalo` 8%. Board in light; dark is derived and marked MEASURE.
+- **Hover colors:** `accentClayHover` and `inkFillHover` (derived, halfway to pressed, MEASURE). The brief gives only pressed, and §4 wants hover to change the fill.
+- **Flow Bar colors:** `flowKeyRing`, `flowKeyBottom`, `flowTimer`, `flowStillWave` (board, from §3.5 and §4 text).
+- **Opacities:** `OpacityTokens.idleFaded`, `silentTile`, `processingGlyph`, `ringTrack` (board).
+- **Type:**
+  - `controlSmall`, `keycapInline`, `keycapLarge` (board sizes from §3.3's ranges).
+  - `ringDigit` (mono 9, board §3.5). It's the one style below the 10 pt floor and is noted as such.
+- **Font cuts:** `displayCutFrom` = 26 pt for the Newsreader display cut (derived).
+- **`ShadowTokens.floatRadius`:** derived, because SwiftUI has no spread.
+
+**Judgment calls**
+- **Two Newsreader optical cuts instead of one.** The boards are rendered by a browser, which sets the optical size from the font size; one 24 pt cut would set the 40 pt titles visibly heavier than the reference.

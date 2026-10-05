@@ -35,10 +35,10 @@ struct FlowBarStateTests {
     /// The measured proportions (§3.5). The brief's absolute column (68, 102 at H = 28) implies H ≈ 29
     /// for its ratio column, so the widths are checked against each other and the rest against H loosely.
     @Test func proportionsMatchTheReference() {
-        let h = FlowGeometry.pillHeight
-        #expect(abs(FlowGeometry.activeWidth / FlowGeometry.hoverWidth - 3.54 / 2.33) < 0.03)
-        #expect(abs(FlowGeometry.buttonDiameter / h - 0.60) < 0.05)
-        #expect(abs(FlowGeometry.buttonPadding / h - 0.19) < 0.03)
+        let h = V1Flow.pillHeight
+        #expect(abs(V1Flow.activeWidth / V1Flow.hoverWidth - 3.54 / 2.33) < 0.03)
+        #expect(abs(V1Flow.buttonDiameter / h - 0.60) < 0.05)
+        #expect(abs(V1Flow.buttonPadding / h - 0.19) < 0.03)
         // A silent bar is a square, so silence looks like the idle squares.
         #expect(t.waveformMinHeight == t.waveformBarWidth)
         // The idle squares and the bars share one centre area (~37 pt).
@@ -60,9 +60,9 @@ struct FlowBarStateTests {
     @Test func canvasHoldsTheLargestState() {
         LiveTokens.shared.reset()
         let canvas = FlowBarController.canvas
-        #expect(canvas.width >= t.noticeWidth + FlowGeometry.canvasMargin * 2)
-        #expect(canvas.width >= FlowGeometry.toastMaxWidth + FlowGeometry.canvasMargin * 2)
-        #expect(canvas.height >= t.activeHeight + t.tooltipGap + FlowGeometry.alertMaxHeight + FlowGeometry.canvasMargin * 2)
+        #expect(canvas.width >= t.noticeWidth + V1Flow.canvasMargin * 2)
+        #expect(canvas.width >= V1Flow.toastMaxWidth + V1Flow.canvasMargin * 2)
+        #expect(canvas.height >= t.activeHeight + t.tooltipGap + V1Flow.alertMaxHeight + V1Flow.canvasMargin * 2)
     }
 
     /// The tooltip waits for its delay and shows only over the idle pill.

@@ -14,18 +14,18 @@ public struct MSettingsGroup<Content: View>: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
-            if let title { MSectionCaption(title).padding(.leading, Spacing.xxs) }
+        VStack(alignment: .leading, spacing: V1Spacing.xs) {
+            if let title { MSectionCaption(title).padding(.leading, V1Spacing.xxs) }
             MCard(padding: 0) {
                 // Each row draws the divider under it; the last one falls on the card's own border.
                 VStack(alignment: .leading, spacing: 0) { content }
             }
             if let footer {
                 Text(footer)
-                    .textStyle(TypeTokens.meta)
-                    .foregroundStyle(theme.colors.textSecondary.color)
+                    .textStyle(V1Type.meta)
+                    .foregroundStyle(theme.v1.textSecondary.color)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, Spacing.xxs)
+                    .padding(.horizontal, V1Spacing.xxs)
             }
         }
     }
@@ -45,20 +45,20 @@ public struct MSettingsRow<Control: View>: View {
     }
 
     public var body: some View {
-        HStack(alignment: .center, spacing: Spacing.md) {
-            VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text(title).textStyle(TypeTokens.body.weight(500)).foregroundStyle(theme.colors.textPrimary.color)
+        HStack(alignment: .center, spacing: V1Spacing.md) {
+            VStack(alignment: .leading, spacing: V1Spacing.xxs) {
+                Text(title).textStyle(V1Type.body.weight(500)).foregroundStyle(theme.v1.textPrimary.color)
                 if let detail {
-                    Text(detail).textStyle(TypeTokens.meta).foregroundStyle(theme.colors.textSecondary.color)
+                    Text(detail).textStyle(V1Type.meta).foregroundStyle(theme.v1.textSecondary.color)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             control
         }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, Spacing.sm)
-        .frame(minHeight: HubGeometry.settingsRowMinHeight)
+        .padding(.horizontal, V1Spacing.lg)
+        .padding(.vertical, V1Spacing.sm)
+        .frame(minHeight: V1Hub.settingsRowMinHeight)
         .overlay(alignment: .bottom) { Hairline(\.borderDivider) }
         .accessibilityElement(children: .contain)
     }

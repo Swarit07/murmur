@@ -77,8 +77,8 @@ public struct BrandMark: View {
 
     public var body: some View {
         BrandMarkShape()
-            .fill(theme.scheme == .dark ? theme.colors.accentClayText.color : theme.colors.accentClay.color)
-            .frame(width: height * HubGeometry.brandMarkAspect, height: height)
+            .fill(theme.scheme == .dark ? theme.v1.accentClayText.color : theme.v1.accentClay.color)
+            .frame(width: height * V1Hub.brandMarkAspect, height: height)
             .accessibilityLabel("Murmur")
     }
 }

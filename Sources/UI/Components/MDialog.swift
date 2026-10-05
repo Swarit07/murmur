@@ -24,16 +24,16 @@ public struct MDialog<Content: View>: View {
     }
 
     public var body: some View {
-        let shape = RoundedRectangle(cornerRadius: HubGeometry.cardRadius, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: V1Hub.cardRadius, style: .continuous)
         ZStack {
-            theme.colors.scrim.color.ignoresSafeArea().onTapGesture(perform: onCancel)
-            VStack(alignment: .leading, spacing: Spacing.lg) {
+            theme.v1.scrim.color.ignoresSafeArea().onTapGesture(perform: onCancel)
+            VStack(alignment: .leading, spacing: V1Spacing.lg) {
                 Text(title)
-                    .textStyle(TypeTokens.heading)
-                    .foregroundStyle(theme.colors.textTitle.color)
+                    .textStyle(V1Type.heading)
+                    .foregroundStyle(theme.v1.textTitle.color)
                     .accessibilityAddTraits(.isHeader)
                 content
-                HStack(spacing: Spacing.xs) {
+                HStack(spacing: V1Spacing.xs) {
                     Spacer()
                     MButton("Cancel", kind: .secondary, action: onCancel).keyboardShortcut(.cancelAction)
                     MButton(confirmTitle, kind: destructive ? .destructive : .primary, action: onConfirm)
@@ -41,10 +41,10 @@ public struct MDialog<Content: View>: View {
                         .disabled(!confirmEnabled)
                 }
             }
-            .padding(Spacing.xxl)
-            .frame(width: HubGeometry.dialogWidth)
-            .background(shape.fill(theme.colors.bgPanel.color))
-            .overlay(shape.strokeBorder(theme.colors.borderPanel.color, lineWidth: HubGeometry.hairline))
+            .padding(V1Spacing.xxl)
+            .frame(width: V1Hub.dialogWidth)
+            .background(shape.fill(theme.v1.bgPanel.color))
+            .overlay(shape.strokeBorder(theme.v1.borderPanel.color, lineWidth: V1Hub.hairline))
             .accessibilityAddTraits(.isModal)
         }
         .transition(.opacity)
@@ -67,19 +67,19 @@ public struct MToast: View {
     }
 
     public var body: some View {
-        let shape = RoundedRectangle(cornerRadius: HubGeometry.cardRadius, style: .continuous)
-        HStack(spacing: Spacing.sm) {
-            IconView(icon, size: HubGeometry.iconGlyph, color: theme.colors.textPrimary.color)
-            Text(text).textStyle(TypeTokens.body).foregroundStyle(theme.colors.textPrimary.color).lineLimit(2)
-                .frame(maxWidth: HubGeometry.toastMaxWidth, alignment: .leading)
+        let shape = RoundedRectangle(cornerRadius: V1Hub.cardRadius, style: .continuous)
+        HStack(spacing: V1Spacing.sm) {
+            IconView(icon, size: V1Hub.iconGlyph, color: theme.v1.textPrimary.color)
+            Text(text).textStyle(V1Type.body).foregroundStyle(theme.v1.textPrimary.color).lineLimit(2)
+                .frame(maxWidth: V1Hub.toastMaxWidth, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
             if let actionTitle { MButton(actionTitle, kind: .ghost, size: .sm, action: action) }
         }
         .fixedSize()
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, Spacing.xs)
-        .background(shape.fill(theme.colors.bgPanel.color))
-        .overlay(shape.strokeBorder(theme.colors.borderPanel.color, lineWidth: HubGeometry.hairline))
+        .padding(.horizontal, V1Spacing.md)
+        .padding(.vertical, V1Spacing.xs)
+        .background(shape.fill(theme.v1.bgPanel.color))
+        .overlay(shape.strokeBorder(theme.v1.borderPanel.color, lineWidth: V1Hub.hairline))
         .accessibilityElement(children: .combine)
     }
 }
@@ -96,7 +96,7 @@ public struct MTooltip: ViewModifier {
             .onHover { inside in
                 task?.cancel()
                 if inside {
-                    let delay = theme.motion.seconds(MotionTokens.tooltipDelay)
+                    let delay = theme.motion.seconds(V1Motion.tooltipDelay)
                     task = Task { @MainActor in
                         try? await Task.sleep(for: .seconds(delay))
                         if !Task.isCancelled { visible = true }
@@ -109,12 +109,12 @@ public struct MTooltip: ViewModifier {
                 if visible {
                     TooltipPill(text: text)
                         .fixedSize()
-                        .alignmentGuide(.top) { $0[.bottom] + HubGeometry.tooltipOffset }
+                        .alignmentGuide(.top) { $0[.bottom] + V1Hub.tooltipOffset }
                         .transition(.opacity)
                         .allowsHitTesting(false)
                 }
             }
-            .animation(theme.motion.easeOut(MotionTokens.tooltipOut), value: visible)
+            .animation(theme.motion.easeOut(V1Motion.tooltipOut), value: visible)
             .accessibilityHint(text)
     }
 }
@@ -130,11 +130,11 @@ public struct TooltipPill: View {
 
     public var body: some View {
         Text(text)
-            .textStyle(TypeTokens.flowText)
-            .foregroundStyle(theme.flow.text.color)
-            .padding(.horizontal, FlowGeometry.tooltipPaddingH)
-            .frame(height: FlowGeometry.tooltipHeight)
-            .background(Capsule(style: .circular).fill(theme.flow.tooltip.color))
+            .textStyle(V1Type.flowText)
+            .foregroundStyle(theme.v1flow.text.color)
+            .padding(.horizontal, V1Flow.tooltipPaddingH)
+            .frame(height: V1Flow.tooltipHeight)
+            .background(Capsule(style: .circular).fill(theme.v1flow.tooltip.color))
     }
 }
 

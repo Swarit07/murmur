@@ -75,9 +75,9 @@ public final class FlowBarController {
     /// tallest card above it.
     public static var canvas: CGSize {
         let t = LiveTokens.shared.value
-        let margin = FlowGeometry.canvasMargin
-        let width = max(t.noticeWidth, FlowGeometry.toastMaxWidth, t.handsFreeWidth)
-        let above = max(FlowGeometry.alertMaxHeight, t.noticeHeight, t.tooltipHeight)
+        let margin = V1Flow.canvasMargin
+        let width = max(t.noticeWidth, V1Flow.toastMaxWidth, t.handsFreeWidth)
+        let above = max(V1Flow.alertMaxHeight, t.noticeHeight, t.tooltipHeight)
         return CGSize(width: (width + margin * 2).rounded(.up), height: (t.activeHeight + t.tooltipGap + above + margin * 2).rounded(.up))
     }
 
@@ -100,7 +100,7 @@ public final class FlowBarController {
         guard let screen else { return }
         let a = anchor(on: screen)
         let size = canvasSize
-        let frame = NSRect(x: (a.x - size.width / 2).rounded(), y: (a.y - FlowGeometry.canvasMargin).rounded(), width: size.width, height: size.height)
+        let frame = NSRect(x: (a.x - size.width / 2).rounded(), y: (a.y - V1Flow.canvasMargin).rounded(), width: size.width, height: size.height)
         if panel.frame != frame { panel.setFrame(frame, display: true) }
         updateMouseHandling()
     }
@@ -136,7 +136,7 @@ public final class FlowBarController {
     var pillRect: NSRect {
         let target = model.pillTarget
         let frame = panel.frame
-        return NSRect(x: frame.midX - target.width / 2, y: frame.minY + FlowGeometry.canvasMargin - FlowGeometry.hoverTargetSlop,
+        return NSRect(x: frame.midX - target.width / 2, y: frame.minY + V1Flow.canvasMargin - V1Flow.hoverTargetSlop,
                       width: target.width, height: target.height)
     }
 
@@ -144,7 +144,7 @@ public final class FlowBarController {
     private var aboveY: CGFloat {
         let t = LiveTokens.shared.value
         let pill = model.pillSize.height
-        return panel.frame.minY + FlowGeometry.canvasMargin + (pill > 0 ? pill + t.tooltipGap : 0)
+        return panel.frame.minY + V1Flow.canvasMargin + (pill > 0 ? pill + t.tooltipGap : 0)
     }
 
     /// The alert's or toast's rectangle, while one shows.
