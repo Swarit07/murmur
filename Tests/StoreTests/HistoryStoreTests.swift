@@ -29,6 +29,16 @@ struct HistoryStoreTests {
     }
 
     /// T2: the raw text is on disk before cleanup, so a process killed mid-cleanup leaves it.
+    @Test func deleteRecordRemovesOnlyThatRow() throws {
+        let store = try HistoryStore(url: nil)
+        let keep = record(.inserted, raw: "keep", at: 0)
+        let drop = record(.inserted, raw: "drop", at: 1)
+        try store.insert(keep)
+        try store.insert(drop)
+        try store.deleteRecord(id: drop.id)
+        #expect(try store.recent().map(\.id) == [keep.id])
+    }
+
     @Test func rawTextSurvivesReopen() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("murmur-test-\(UUID().uuidString).sqlite")
         defer { try? FileManager.default.removeItem(at: url) }

@@ -2,6 +2,7 @@ import AppKit
 import AVFoundation
 import Carbon.HIToolbox
 import MurmurKit
+import SwiftUI
 
 @main
 enum MurmurMain {
@@ -30,6 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var flowBar: FlowBarWiring!
     var focusTest: FocusTest?
     var hub: HubModel!
+    var selfTestRunning = false
     var onboarding: OnboardingModel?
     var permissionTimer: Timer?
     var lastPermissions = PermissionSnapshot.current()
@@ -52,6 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         controller.onStatus = { [weak self] status in
             self?.render(status)
             self?.flowBar.render(status)
+            self?.hub?.status = status
         }
         hub = HubModel(controller: controller, store: store)
         controller.onLevel = { [weak self] level in
@@ -90,6 +93,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             MainActor.assumeIsolated {
                 guard let app = Self.shared, app.settings.debugMenu else { return }
                 app.saveSnapshots()
+            }
+        }
+        DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.swaritsheel.Murmur.debug.selfTest"), object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated {
+                guard let app = Self.shared, app.settings.debugMenu else { return }
+                app.runSelfTest()
             }
         }
         DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.swaritsheel.Murmur.debug.runFocusTest"), object: nil, queue: .main) { _ in
@@ -311,6 +320,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         sub.addItem(item("Open data folder", #selector(openDataFolder)))
         sub.addItem(item("Run onboarding again", #selector(showOnboardingFromMenu)))
         sub.addItem(item("Save window snapshots", #selector(saveSnapshotsFromMenu)))
+        sub.addItem(item(selfTestRunning ? "Self-test running…" : "Run self-test in TextEdit", #selector(runSelfTestFromMenu)))
         parent.submenu = sub
         return parent
     }
@@ -334,29 +344,191 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func openDataFolder() { NSWorkspace.shared.open(MurmurPaths.appSupport) }
     @objc func saveSnapshotsFromMenu() { saveSnapshots() }
 
-    /// Renders Murmur's own windows to PNG (no Screen Recording needed for our own views): every Hub page,
-    /// the onboarding window if open, and each Flow Bar state.
+    @objc func runSelfTestFromMenu() { runSelfTest() }
+
+    /// Runs `SelfTest` once and shows the result on the Flow Bar; the full report is in the data folder.
+    func runSelfTest() {
+        guard !selfTestRunning else { return }
+        selfTestRunning = true
+        Task { @MainActor in
+            let summary = await SelfTest(controller: controller, store: store).run()
+            selfTestRunning = false
+            controller.notice(summary + ". Report: Murmur data folder › selftest.")
+        }
+    }
+
+    /// Renders Murmur's own windows to PNG (no Screen Recording needed for our own views) for design QA:
+    /// every Hub page at three sizes in light and dark, every onboarding step, and every Flow Bar state,
+    /// plus contact sheets that tile each group.
     func saveSnapshots() {
         let dir = MurmurPaths.appSupport.appendingPathComponent("snapshots")
+        try? FileManager.default.removeItem(at: dir)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         Task { @MainActor in
-            let returnTo = hub.page
-            showHub(hub.page)
-            for page in HubPage.main + HubPage.settings {
-                hub.go(page)
-                try? await Task.sleep(for: .milliseconds(450))
-                if let window = windows.window("hub") { Self.png(of: window, to: dir.appendingPathComponent("hub-\(page.rawValue).png")) }
+            // A preview Hub on demo data, so tables are full and the real History window is untouched.
+            guard let demoStore = try? HistoryStore(url: nil) else { return }
+            Self.seedDemo(demoStore)
+            let demo = HubModel(controller: controller, store: demoStore)
+            windows.show("hub-preview", title: "Murmur (preview)", size: NSSize(width: 920, height: 620), chrome: .unified) { HubView(model: demo) }
+            guard let window = windows.window("hub-preview") else { return }
+            let sizes: [(String, NSSize)] = [("small", NSSize(width: 760, height: 480)), ("default", NSSize(width: 920, height: 620)), ("tall", NSSize(width: 920, height: 1250))]
+            let looks: [(String, NSAppearance.Name)] = [("dark", .darkAqua), ("light", .aqua)]
+            for (lookName, look) in looks {
+                window.appearance = NSAppearance(named: look)
+                for (sizeName, size) in sizes {
+                    window.setContentSize(size)
+                    var sheet: [NSBitmapImageRep] = []
+                    for page in HubPage.main + HubPage.settings {
+                        demo.go(page)
+                        try? await Task.sleep(for: .milliseconds(350))
+                        if let rep = Self.capture(window) {
+                            sheet.append(rep)
+                            Self.write(rep, to: dir.appendingPathComponent("hub-\(page.rawValue)-\(sizeName)-\(lookName).png"))
+                        }
+                    }
+                    Self.contactSheet(sheet, columns: 4, scale: sizeName == "tall" ? 0.4 : 0.5, to: dir.appendingPathComponent("sheet-hub-\(sizeName)-\(lookName).png"))
+                }
             }
-            hub.go(returnTo)
-            if let window = windows.window("onboarding") { Self.png(of: window, to: dir.appendingPathComponent("onboarding-current.png")) }
-            for (index, state) in Self.forcibleStates.enumerated() {
-                flowBar.model.forced = state
-                try? await Task.sleep(for: .milliseconds(500))
-                Self.png(of: flowBar.bar.panelForSnapshots, to: dir.appendingPathComponent(String(format: "bar-%02d.png", index)))
+            window.appearance = nil
+            window.setContentSize(NSSize(width: 920, height: 620))
+
+            // Clicks under the transparent title bar must reach the page header and the sidebar.
+            var checks: [String] = []
+            demo.go(.dictionary)
+            demo.go(.snippets)
+            try? await Task.sleep(for: .milliseconds(300))
+            let height = window.contentView?.bounds.height ?? 0
+            let back = NSPoint(x: 214 + 1 + 12 + 13, y: height - HubView.headerHeight / 2)
+            let hit = window.contentView?.superview?.hitTest(back)
+            checks.append("hit test at Back: \(hit.map { String(describing: type(of: $0)) } ?? "nothing")")
+            await Self.click(window, at: back)
+            checks.append("Back button: \(demo.page == .dictionary ? "PASS" : "FAIL (page \(demo.page.rawValue))")")
+            await Self.click(window, at: NSPoint(x: 60, y: height - (HubView.headerHeight + 2 + 34 + 3 * 30 + 15)))
+            checks.append("Sidebar Style row: \(demo.page == .style ? "PASS" : "FAIL (page \(demo.page.rawValue))")")
+            try? checks.joined(separator: "\n").write(to: dir.appendingPathComponent("checks.txt"), atomically: true, encoding: .utf8)
+
+            // Empty states.
+            if let emptyStore = try? HistoryStore(url: nil) {
+                let empty = HubModel(controller: controller, store: emptyStore)
+                window.contentViewController = NSHostingController(rootView: HubView(model: empty))
+                window.setContentSize(NSSize(width: 920, height: 620))
+                var sheet: [NSBitmapImageRep] = []
+                for page in [HubPage.home, .dictionary, .snippets] {
+                    empty.go(page)
+                    try? await Task.sleep(for: .milliseconds(350))
+                    if let rep = Self.capture(window) { sheet.append(rep) }
+                }
+                Self.contactSheet(sheet, columns: 3, scale: 0.5, to: dir.appendingPathComponent("sheet-hub-empty.png"))
             }
+            windows.close("hub-preview")
+
+            // Onboarding, every step, in a preview that changes no settings and starts nothing.
+            let preview = OnboardingModel(hub: hub, preview: true)
+            windows.show("onboarding-preview", title: "Set up Murmur (preview)", size: NSSize(width: 640, height: 540), chrome: .transparent) { OnboardingView(model: preview) }
+            if let ob = windows.window("onboarding-preview") {
+                for (lookName, look) in looks {
+                    ob.appearance = NSAppearance(named: look)
+                    var sheet: [NSBitmapImageRep] = []
+                    for step in OnboardingStep.allCases {
+                        preview.step = step
+                        try? await Task.sleep(for: .milliseconds(300))
+                        if let rep = Self.capture(ob) { sheet.append(rep) }
+                    }
+                    Self.contactSheet(sheet, columns: 4, scale: 0.5, to: dir.appendingPathComponent("sheet-onboarding-\(lookName).png"))
+                }
+                windows.close("onboarding-preview")
+            }
+
+            // Flow Bar states.
+            let panel = flowBar.bar.panelForSnapshots
+            for (lookName, look) in looks {
+                panel.appearance = NSAppearance(named: look)
+                var sheet: [NSBitmapImageRep] = []
+                for state in Self.forcibleStates {
+                    flowBar.model.forced = state
+                    try? await Task.sleep(for: .milliseconds(450))
+                    if let rep = Self.capture(panel) { sheet.append(rep) }
+                }
+                Self.contactSheet(sheet, columns: 2, scale: 1, to: dir.appendingPathComponent("sheet-bar-\(lookName).png"))
+            }
+            panel.appearance = nil
             flowBar.model.forced = nil
-            NSWorkspace.shared.open(dir)
         }
+    }
+
+    /// Posts a left click to one of Murmur's windows through the normal event queue (the cursor does
+    /// not move), then waits for it to be handled.
+    static func click(_ window: NSWindow, at point: NSPoint) async {
+        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            if let event = NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                              windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) {
+                NSApp.postEvent(event, atStart: false)
+            }
+            try? await Task.sleep(for: .milliseconds(60))
+        }
+        try? await Task.sleep(for: .milliseconds(300))
+    }
+
+    /// Demo content for design snapshots: a few days of History in every state, dictionary words, snippets.
+    static func seedDemo(_ store: HistoryStore) {
+        let now = Date()
+        let rows: [(Double, String, String?, DictationRecord.Status, Bool)] = [
+            (0.1, "Can you send me the slides before the 3 pm sync? I want to add the Q3 numbers.", "Slack", .inserted, false),
+            (0.6, "Thanks for the quick turnaround, this looks great. Let's ship it on Friday.", "Mail", .inserted, false),
+            (1.2, "Refactor the history store so every write is its own transaction, then add a migration test for the useRaw column and run the full suite before merging. Also double-check the retry path for rows that were left in the recorded state after a crash, because those should come back as Recover, not Retry, and the button label should say so.", "Cursor", .inserted, false),
+            (2.0, "Remind me to call Siobhan about the venue.", "Notes", .pasteFailed, false),
+            (3.5, "um so I think we should uh move the launch to Friday", "Messages", .inserted, true),
+            (26, "Here are the three things we agreed on: the pricing page, the onboarding email, and the changelog.", "Notion", .inserted, false),
+            (27, "Book a table for four at 7:30.", "Messages", .inserted, false),
+            (75, "The build is green again after the Metal fix.", "Terminal", .inserted, false),
+            (76, "", "Safari", .transcriptionFailed, false),
+        ]
+        for (hoursAgo, text, app, status, useRaw) in rows {
+            var r = DictationRecord(startedAt: now.addingTimeInterval(-hoursAgo * 3600), durationMs: Double(max(text.split(separator: " ").count, 4)) * 420,
+                                    appBundleId: nil, appName: app, mode: "hold", engine: "parakeet-ultra", cleanup: "mlx:qwen3.5-4b",
+                                    rawText: text.isEmpty ? nil : text, cleanText: text.isEmpty ? nil : (useRaw ? "I think we should move the launch to Friday." : text),
+                                    status: status)
+            r.useRaw = useRaw
+            try? store.insert(r)
+        }
+        for (heard, word, suggested) in [("Chivan", "Siobhan", false), ("Q three", "Q3", false), ("Murmur", "Murmur", false), ("GRDB", "GRDB", false), ("Para keet", "Parakeet", true)] {
+            try? store.save(DictionaryRecord(term: heard, replacement: word, source: suggested ? .suggested : .manual))
+        }
+        try? store.save(SnippetRecord(cue: "my email", expansion: "hello@example.com"))
+        try? store.save(SnippetRecord(cue: "sign off", expansion: "Thanks,\nAlex"))
+        try? store.save(SnippetRecord(cue: "calendar link", expansion: "https://cal.example.com/alex/30min"))
+    }
+
+    static func capture(_ window: NSWindow) -> NSBitmapImageRep? {
+        guard let view = window.contentView?.superview ?? window.contentView,
+              let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return nil }
+        view.cacheDisplay(in: view.bounds, to: rep)
+        return rep
+    }
+
+    static func write(_ rep: NSBitmapImageRep, to url: URL) {
+        try? rep.representation(using: .png, properties: [:])?.write(to: url)
+    }
+
+    /// Tiles captures into one image with a gap, scaled down, for reviewing many at once.
+    static func contactSheet(_ reps: [NSBitmapImageRep], columns: Int, scale: CGFloat, to url: URL) {
+        guard let first = reps.first else { return }
+        let w = CGFloat(first.pixelsWide) * scale, h = CGFloat(first.pixelsHigh) * scale, gap: CGFloat = 12
+        let rows = (reps.count + columns - 1) / columns
+        let size = NSSize(width: CGFloat(columns) * (w + gap) + gap, height: CGFloat(rows) * (h + gap) + gap)
+        guard let out = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width), pixelsHigh: Int(size.height), bitsPerSample: 8,
+                                         samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return }
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: out)
+        NSColor(white: 0.5, alpha: 1).setFill()
+        NSRect(origin: .zero, size: size).fill()
+        for (i, rep) in reps.enumerated() {
+            let col = i % columns, row = i / columns
+            let rect = NSRect(x: gap + CGFloat(col) * (w + gap), y: size.height - gap - h - CGFloat(row) * (h + gap), width: w, height: h)
+            rep.draw(in: rect)
+        }
+        NSGraphicsContext.restoreGraphicsState()
+        write(out, to: url)
     }
 
     static func png(of window: NSWindow, to url: URL) {
@@ -401,7 +573,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func showHub(_ page: HubPage) {
         hub.go(page)
-        windows.show("hub", title: "Murmur", size: NSSize(width: 920, height: 620)) { HubView(model: hub) }
+        windows.show("hub", title: "Murmur", size: NSSize(width: 920, height: 620), chrome: .unified) { HubView(model: hub) }
     }
 
     func showOnboarding() {
@@ -414,6 +586,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.windows.close("onboarding")
             self?.showHub(.home)
         }
-        windows.show("onboarding", title: "Set up Murmur", size: NSSize(width: 600, height: 470)) { OnboardingView(model: model) }
+        windows.show("onboarding", title: "Set up Murmur", size: NSSize(width: 640, height: 540), chrome: .transparent) { OnboardingView(model: model) }
     }
 }

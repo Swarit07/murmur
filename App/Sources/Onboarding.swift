@@ -25,6 +25,23 @@ enum OnboardingStep: Int, CaseIterable {
         }
     }
 
+    var symbol: String {
+        switch self {
+        case .welcome: "waveform"
+        case .microphone: "mic.fill"
+        case .accessibility: "accessibility"
+        case .inputMonitoring: "keyboard"
+        case .models: "cpu"
+        case .micTest: "waveform.badge.mic"
+        case .shortcut: "command"
+        case .languages: "globe"
+        case .practiceHold: "text.cursor"
+        case .practiceHandsFree: "infinity"
+        case .data: "lock.shield.fill"
+        case .flowBar: "capsule.fill"
+        }
+    }
+
     /// Permission steps already granted are skipped.
     @MainActor func isDone(_ model: OnboardingModel) -> Bool {
         switch self {
@@ -47,10 +64,13 @@ final class OnboardingModel {
     var practiceDone: Set<OnboardingStep> = []
     var onFinish: (() -> Void)?
     var onShowFlowBar: ((Bool) -> Void)?
+    /// A preview (design snapshots) shows steps without saving progress or starting the microphone.
+    let preview: Bool
 
-    init(hub: HubModel) {
+    init(hub: HubModel, preview: Bool = false) {
         self.hub = hub
-        step = OnboardingStep(rawValue: AppSettings.shared.onboardingStep) ?? .welcome
+        self.preview = preview
+        step = preview ? .welcome : (OnboardingStep(rawValue: AppSettings.shared.onboardingStep) ?? .welcome)
     }
 
     func next() {
@@ -70,6 +90,7 @@ final class OnboardingModel {
         if step == .micTest { hub.controller.stopMicTest() }
         if step == .flowBar { onShowFlowBar?(false) }
         step = s
+        guard !preview else { return }
         settings.onboardingStep = s.rawValue
         if s == .flowBar { onShowFlowBar?(true) }
     }
@@ -89,25 +110,49 @@ struct OnboardingView: View {
     @State private var tick = 0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack {
-                Text(model.step.title).font(.title2.bold())
-                Spacer()
-                Text("\(model.step.rawValue + 1) of \(OnboardingStep.allCases.count)").foregroundStyle(.secondary)
+        VStack(spacing: 0) {
+            VStack(spacing: 10) {
+                HStack(spacing: 8) {
+                    BrandMark(size: 18)
+                    Text("Set up Murmur").font(.callout.weight(.semibold))
+                    Spacer()
+                    Text("Step \(model.step.rawValue + 1) of \(OnboardingStep.allCases.count)").font(.callout).foregroundStyle(.secondary).monospacedDigit()
+                }
+                ProgressView(value: Double(model.step.rawValue + 1), total: Double(OnboardingStep.allCases.count))
+                    .progressViewStyle(.linear)
             }
-            ProgressView(value: Double(model.step.rawValue + 1), total: Double(OnboardingStep.allCases.count))
-            content.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(.horizontal, 28)
+            .padding(.top, 40)
+            HStack(alignment: .top, spacing: 18) {
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .fill(Color.accentColor.opacity(0.13))
+                    .frame(width: 52, height: 52)
+                    .overlay(Image(systemName: model.step.symbol).font(.system(size: 22, weight: .semibold)).foregroundStyle(Color.accentColor))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 14) {
+                    Text(model.step.title).font(.title.bold()).accessibilityAddTraits(.isHeader)
+                    content
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
+            .padding(.horizontal, 28)
+            .padding(.top, 26)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            Divider()
             HStack {
                 if model.step != .welcome { Button("Back") { model.back() } }
                 Spacer()
                 if skippable { Button("Skip") { model.next() } }
-                Button(model.step == .flowBar ? "Continue to Murmur" : "Continue") { model.next() }
+                Button(model.step == .flowBar ? "Start using Murmur" : "Continue") { model.next() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canContinue)
             }
+            .controlSize(.large)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 16)
         }
-        .padding(28)
-        .frame(width: 600, height: 470)
+        .frame(width: 640, height: 540)
+        .ignoresSafeArea()
         .onReceive(timer) { _ in tick += 1 }
         .onChange(of: tick) { autoAdvance() }
     }
@@ -124,7 +169,13 @@ struct OnboardingView: View {
         }
     }
 
+    /// A model's display name without the “(recommended)” note.
+    static func friendly(_ names: [String: String], _ id: String) -> String {
+        (names[id] ?? id).replacingOccurrences(of: " (recommended)", with: "")
+    }
+
     func autoAdvance() {
+        guard !model.preview else { return }
         model.modelsReady = model.hub.controller.status.phase != .loading
         if [.microphone, .accessibility].contains(model.step), model.step.isDone(model) { model.next() }
     }
@@ -132,12 +183,15 @@ struct OnboardingView: View {
     @ViewBuilder var content: some View {
         switch model.step {
         case .welcome:
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Murmur turns your voice into text in any app. Hold a key, speak, let go, and the text appears where your cursor is.")
-                Text("Everything runs on this Mac. Your audio and text are not sent anywhere unless you choose a cloud option later.")
-                    .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Murmur turns your voice into text in any app.")
+                VStack(alignment: .leading, spacing: 12) {
+                    Feature(symbol: "keyboard", title: "Hold a key and speak", text: "Push-to-talk works in every app, from Mail to your terminal.")
+                    Feature(symbol: "text.cursor", title: "Let go, and the text appears", text: "Cleaned up, punctuated, right where your cursor is.")
+                    Feature(symbol: "lock.fill", title: "Private by default", text: "Speech and cleanup run on this Mac. Nothing is sent anywhere unless you choose a cloud option.")
+                }
                 Text("Setup takes about two minutes: three permissions, a mic check, your shortcut, and a quick practice.")
-                    .foregroundStyle(.secondary)
+                    .font(.callout).foregroundStyle(.secondary)
             }
         case .microphone:
             PermissionStep(
@@ -170,7 +224,7 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Murmur's speech and cleanup models run on this Mac. The first time, they download (about 3 GB); after that they load in a few seconds.")
                 if model.modelsReady {
-                    Label("Ready: \(model.hub.controller.engineDescription) and \(model.hub.controller.cleanupDescription)", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                    Label("Ready: \(Self.friendly(SettingsView.engineNames, model.settings.engine)) and \(Self.friendly(SettingsView.cleanupNames, model.settings.cleanupProvider))", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
                 } else {
                     HStack { ProgressView().controlSize(.small); Text("Downloading and loading…").foregroundStyle(.secondary) }
                     Text("You can keep going; Murmur finishes this in the background.").font(.caption).foregroundStyle(.secondary)
@@ -182,7 +236,7 @@ struct OnboardingView: View {
                 Text("Say something. The bars should move with your voice.")
                 MicrophoneSettings(model: model.hub)
             }
-            .onAppear { _ = model.hub.controller.startMicTest() }
+            .onAppear { if !model.preview { _ = model.hub.controller.startMicTest() } }
         case .shortcut:
             VStack(alignment: .leading, spacing: 12) {
                 Text("Hold the push-to-talk shortcut while you speak, and let go to insert. For longer dictation, use the hands-free shortcut or double-tap push-to-talk, then press it again to finish.")
@@ -210,6 +264,24 @@ struct OnboardingView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+}
+
+/// One line of the welcome step: an icon, a short title, a sentence.
+struct Feature: View {
+    let symbol: String
+    let title: String
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: symbol).font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.accentColor).frame(width: 22)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.headline)
+                Text(text).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 

@@ -53,10 +53,13 @@ final class HubModel {
     var forwardStack: [HubPage] = []
     /// Latest microphone level, 0…1, for the level meters.
     var micLevel: Double = 0
+    /// The controller's latest status, for the sidebar's status card.
+    var status: DictationStatus?
 
     init(controller: DictationController, store: HistoryStore) {
         self.controller = controller
         self.store = store
+        status = controller.status
     }
 
     func go(_ page: HubPage) {
@@ -90,31 +93,38 @@ final class HubModel {
     }
 }
 
-/// The Hub: a sidebar and a page with its own header. No SwiftUI toolbar or split view, so nothing in
-/// the window's title bar can overlap the page content (it clipped the first section heading).
+/// The Hub: a full-height translucent sidebar and a page with its own header row, laid out by hand
+/// under a transparent title bar. No SwiftUI toolbar or split view, so nothing in the title bar can
+/// overlap the page content (it clipped the first section heading once).
 struct HubView: View {
     @Bindable var model: HubModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Height of the unified title bar; the traffic lights sit centered in it.
+    static let headerHeight: CGFloat = 52
 
     var body: some View {
         HStack(spacing: 0) {
             HubSidebar(model: model)
-                .frame(width: 200)
+                .frame(width: 214)
             Divider()
             VStack(spacing: 0) {
-                HStack(spacing: 6) {
-                    Button { model.back() } label: { Image(systemName: "chevron.left").frame(width: 22, height: 22) }
-                        .buttonStyle(.borderless).disabled(model.backStack.isEmpty).help("Back (⌘[)")
+                HStack(spacing: 2) {
+                    navButton("chevron.left", help: "Back (⌘[)", enabled: !model.backStack.isEmpty) { model.back() }
                         .keyboardShortcut("[", modifiers: .command)
-                    Button { model.forward() } label: { Image(systemName: "chevron.right").frame(width: 22, height: 22) }
-                        .buttonStyle(.borderless).disabled(model.forwardStack.isEmpty).help("Forward (⌘])")
+                    navButton("chevron.right", help: "Forward (⌘])", enabled: !model.forwardStack.isEmpty) { model.forward() }
                         .keyboardShortcut("]", modifiers: .command)
-                    Text(model.page.title).font(.title2.weight(.semibold)).padding(.leading, 4)
+                    Text(model.page.title)
+                        .font(.title3.weight(.semibold))
+                        .lineLimit(1)
+                        .padding(.leading, 8)
+                        .accessibilityAddTraits(.isHeader)
                     Spacer()
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                Divider()
+                .padding(.horizontal, 12)
+                .frame(height: Self.headerHeight)
+                .background(Color(nsColor: .windowBackgroundColor))
+                .zIndex(1)
+                Divider().zIndex(1)
                 Group {
                     switch model.page {
                     case .home: HomePage(model: model)
@@ -131,14 +141,25 @@ struct HubView: View {
                 .id(model.page)
                 .transition(.opacity)
             }
+            .background(Color(nsColor: .windowBackgroundColor))
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.12), value: model.page)
         }
+        .ignoresSafeArea(.container, edges: .top)
         .frame(minWidth: 760, minHeight: 480)
         .background {
             // Option+Up / Option+Down between pages.
             Button("") { model.step(-1) }.keyboardShortcut(.upArrow, modifiers: .option).opacity(0).frame(width: 0, height: 0)
             Button("") { model.step(1) }.keyboardShortcut(.downArrow, modifiers: .option).opacity(0).frame(width: 0, height: 0)
         }
+    }
+
+    func navButton(_ symbol: String, help: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol).font(.system(size: 13, weight: .semibold)).frame(width: 26, height: 26).contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .disabled(!enabled)
+        .help(help)
     }
 }
 
@@ -147,6 +168,12 @@ struct HubSidebar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 8) {
+                BrandMark(size: 22)
+                Text("Murmur").font(.headline)
+            }
+            .padding(.horizontal, 10)
+            .padding(.bottom, 12)
             ForEach(HubPage.main) { row($0) }
             Text("Settings")
                 .font(.caption.weight(.semibold))
@@ -155,27 +182,77 @@ struct HubSidebar: View {
                 .padding(.top, 16)
                 .padding(.bottom, 4)
             ForEach(HubPage.settings) { row($0) }
-            Spacer()
+            Spacer(minLength: 12)
+            StatusCard(model: model)
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 12)
+        .padding(.top, HubView.headerHeight + 2)
+        .padding(.bottom, 12)
         .frame(maxHeight: .infinity, alignment: .top)
-        .background(Color(nsColor: .underPageBackgroundColor).opacity(0.5))
+        .background(VisualEffect(material: .sidebar))
     }
 
     func row(_ page: HubPage) -> some View {
-        let selected = model.page == page
-        return Button { model.go(page) } label: {
-            Label(page.title, systemImage: page.symbol)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(selected ? Color.accentColor : Color.clear))
-                .foregroundStyle(selected ? Color.white : Color.primary)
-                .contentShape(Rectangle())
+        SidebarRow(page: page, selected: model.page == page) { model.go(page) }
+    }
+}
+
+struct SidebarRow: View {
+    let page: HubPage
+    let selected: Bool
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                Image(systemName: page.symbol)
+                    .font(.system(size: 13, weight: .medium))
+                    .frame(width: 18)
+                    .foregroundStyle(selected ? Color.accentColor : Color.secondary)
+                Text(page.title).fontWeight(selected ? .semibold : .regular).lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.primary.opacity(selected ? 0.09 : hovering ? 0.045 : 0)))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { hovering = $0 }
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+/// The sidebar's footer: whether Murmur is ready, and the shortcut to use.
+struct StatusCard: View {
+    let model: HubModel
+
+    var body: some View {
+        let (title, color) = describe(model.status?.phase ?? .loading)
+        HStack(spacing: 9) {
+            Circle().fill(color).frame(width: 8, height: 8)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.callout.weight(.medium)).lineLimit(1)
+                Text("Hold \(DictationController.shortcutConfiguration(model.settings).pushToTalk.displayName) to dictate")
+                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.primary.opacity(0.05)))
+        .help(model.status?.message ?? title)
+        .accessibilityElement(children: .combine)
+    }
+
+    func describe(_ phase: DictationStatus.Phase) -> (String, Color) {
+        switch phase {
+        case .loading: ("Loading models…", .orange)
+        case .idle, .inserted: ("Ready", .green)
+        case .recording: ("Listening", .red)
+        case .processing: ("Working…", .blue)
+        case .error: ("Needs attention", .orange)
+        }
     }
 }
 
@@ -183,6 +260,7 @@ struct HubSidebar: View {
 
 struct HomePage: View {
     let model: HubModel
+    @State private var all: [DictationRecord] = []
     @State private var records: [DictationRecord] = []
     @State private var search = ""
     @State private var selection: DictationRecord.ID?
@@ -192,37 +270,108 @@ struct HomePage: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField("Search History", text: $search).textFieldStyle(.plain)
-            }
-            .padding(10)
-            Divider()
-            List(selection: $selection) {
-                ForEach(records) { r in
-                    HistoryRow(record: r, playing: false, busy: busy.contains(r.id),
-                               play: { play(r) }, copy: { copy(r.bestText) }, retry: canRetry(r) ? { retry(r) } : nil)
-                        .tag(r.id)
-                        .contextMenu { rowMenu(r) }
+            if all.isEmpty {
+                EmptyState(
+                    symbol: "waveform",
+                    title: "Your dictations will appear here",
+                    text: "Hold \(DictationController.shortcutConfiguration(model.settings).pushToTalk.displayName) in any app, speak, and let go. Everything you dictate is kept here, so nothing you say is lost.")
+            } else {
+                VStack(spacing: 12) {
+                    stats
+                    SearchField(prompt: "Search History", text: $search)
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 8)
+                if records.isEmpty {
+                    EmptyState(symbol: "magnifyingglass", title: "No matches", text: "Nothing in History contains “\(search)”.")
+                } else {
+                    list
+                }
+                Divider()
+                Text("\(records.count) \(records.count == 1 ? "dictation" : "dictations") · ↑↓ or j k to move · Return copies")
+                    .font(.caption).foregroundStyle(.secondary).padding(6)
             }
-            .focused($listFocused)
-            .onKeyPress(.return) { copy(selected?.bestText); return .handled }
-            .onKeyPress(characters: CharacterSet(charactersIn: "jk")) { press in
-                move(press.characters == "j" ? 1 : -1)
-                return .handled
-            }
-            Divider()
-            Text("\(records.count) dictations · ↑↓ or j k to move · Return copies").font(.caption).foregroundStyle(.secondary).padding(6)
         }
         .onChange(of: search) { reload() }
         .onAppear { reload(); listFocused = true }
         .onReceive(NotificationCenter.default.publisher(for: HistoryStore.didChange).receive(on: RunLoop.main)) { _ in reload() }
     }
 
+    var stats: some View {
+        let today = Calendar.current.startOfDay(for: Date())
+        let week = Calendar.current.date(byAdding: .day, value: -6, to: today) ?? today
+        let done = all.filter { $0.status == .inserted }
+        let todayWords = done.filter { $0.startedAt >= today }.reduce(0) { $0 + Self.words($1.bestText) }
+        let weekRecords = done.filter { $0.startedAt >= week }
+        let weekWords = weekRecords.reduce(0) { $0 + Self.words($1.bestText) }
+        let minutes = weekRecords.reduce(0.0) { $0 + $1.durationMs } / 60_000
+        return HStack(spacing: 10) {
+            StatTile(symbol: "sun.max", label: "Words today", value: todayWords.formatted())
+            StatTile(symbol: "calendar", label: "Words this week", value: weekWords.formatted())
+            StatTile(symbol: "speedometer", label: "Speaking pace", value: minutes > 0.05 ? "\(Int((Double(weekWords) / minutes).rounded())) wpm" : "—")
+        }
+    }
+
+    var list: some View {
+        List(selection: $selection) {
+            ForEach(Self.days(records), id: \.0) { day, rows in
+                Text(Self.dayTitle(day))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.top, day == Self.days(records).first?.0 ? 0 : 10)
+                    .listRowSeparator(.hidden)
+                    .selectionDisabled()
+                    .accessibilityAddTraits(.isHeader)
+                ForEach(rows) { r in
+                    HistoryRow(record: r, busy: busy.contains(r.id), canPlay: audioURL(r) != nil,
+                               play: { play(r) }, copy: { copy(r.bestText) }, retry: canRetry(r) ? { retry(r) } : nil)
+                        .tag(r.id)
+                        .contextMenu { rowMenu(r) }
+                }
+            }
+        }
+        .listStyle(.inset)
+        .scrollContentBackground(.hidden)
+        .focused($listFocused)
+        .onKeyPress(.return) { copy(selected?.bestText); return .handled }
+        .onKeyPress(characters: CharacterSet(charactersIn: "jk")) { press in
+            move(press.characters == "j" ? 1 : -1)
+            return .handled
+        }
+    }
+
+    static func words(_ text: String?) -> Int {
+        text?.split(whereSeparator: { $0.isWhitespace }).count ?? 0
+    }
+
+    /// Records grouped by calendar day, newest first (records arrive newest first).
+    static func days(_ records: [DictationRecord]) -> [(Date, [DictationRecord])] {
+        var out: [(Date, [DictationRecord])] = []
+        for r in records {
+            let day = Calendar.current.startOfDay(for: r.startedAt)
+            if out.last?.0 == day { out[out.count - 1].1.append(r) } else { out.append((day, [r])) }
+        }
+        return out
+    }
+
+    static func dayTitle(_ day: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(day) { return "Today" }
+        if calendar.isDateInYesterday(day) { return "Yesterday" }
+        if let days = calendar.dateComponents([.day], from: day, to: calendar.startOfDay(for: Date())).day, days < 7 {
+            return day.formatted(.dateTime.weekday(.wide))
+        }
+        let sameYear = calendar.component(.year, from: day) == calendar.component(.year, from: Date())
+        return sameYear ? day.formatted(.dateTime.month(.wide).day()) : day.formatted(.dateTime.month(.wide).day().year())
+    }
+
     var selected: DictationRecord? { records.first { $0.id == selection } }
 
-    func reload() { records = (try? model.store.recent(limit: 1000, search: search)) ?? [] }
+    func reload() {
+        all = (try? model.store.recent(limit: 1000)) ?? []
+        records = search.isEmpty ? all : ((try? model.store.recent(limit: 1000, search: search)) ?? [])
+    }
 
     func move(_ delta: Int) {
         guard !records.isEmpty else { return }
@@ -282,37 +431,61 @@ struct HomePage: View {
 
 struct HistoryRow: View {
     let record: DictationRecord
-    let playing: Bool
     let busy: Bool
+    let canPlay: Bool
     let play: () -> Void
     let copy: () -> Void
     let retry: (() -> Void)?
     @State private var hovering = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(record.startedAt, format: .dateTime.hour().minute()).font(.caption).monospacedDigit().foregroundStyle(.secondary)
-                Text(record.appName ?? "").font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
-            }
-            .frame(width: 70, alignment: .leading)
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(record.startedAt, format: .dateTime.hour().minute())
+                .font(.callout).monospacedDigit().foregroundStyle(.secondary)
+                .frame(width: 66, alignment: .leading)
             VStack(alignment: .leading, spacing: 3) {
-                Text(record.bestText ?? statusLabel).foregroundStyle(record.bestText == nil ? .secondary : .primary).lineLimit(3)
-                if record.status != .inserted || record.useRaw {
-                    Text(record.useRaw ? "Original words (AI edit undone)" : statusLabel).font(.caption).foregroundStyle(.orange)
+                Text(record.bestText ?? statusLabel)
+                    .foregroundStyle(record.bestText == nil ? .secondary : .primary)
+                    .lineLimit(3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 5) {
+                    if let app = record.appName, !app.isEmpty { Text(app) }
+                    if record.useRaw {
+                        Text("·")
+                        Text("Original words (AI edit undone)").foregroundStyle(.orange)
+                    } else if record.status != .inserted, record.bestText != nil {
+                        Text("·")
+                        Text(statusLabel).foregroundStyle(.orange)
+                    }
                 }
-            }
-            Spacer()
-            if busy {
-                ProgressView().controlSize(.small)
-            } else if hovering {
-                if record.audioPath != nil { Button(action: play) { Image(systemName: "play.fill") }.buttonStyle(.borderless).help("Play audio") }
-                Button(action: copy) { Image(systemName: "doc.on.doc") }.buttonStyle(.borderless).help("Copy")
-                if let retry { Button(action: retry) { Image(systemName: "arrow.clockwise") }.buttonStyle(.borderless).help("Retry") }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
             }
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, 4)
+        .overlay(alignment: .topTrailing) {
+            if busy {
+                ProgressView().controlSize(.small).padding(4)
+            } else if hovering {
+                HStack(spacing: 2) {
+                    if canPlay { iconButton("play.fill", help: "Play audio", action: play) }
+                    iconButton("doc.on.doc", help: "Copy", action: copy)
+                    if let retry { iconButton("arrow.clockwise", help: "Retry", action: retry) }
+                }
+                .padding(3)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
+            }
+        }
         .onHover { hovering = $0 }
+    }
+
+    func iconButton(_ symbol: String, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) { Image(systemName: symbol).frame(width: 24, height: 22).contentShape(Rectangle()) }
+            .buttonStyle(.borderless)
+            .help(help)
+            .accessibilityLabel(help)
     }
 
     var statusLabel: String {
@@ -336,23 +509,24 @@ struct StylePage: View {
     @State private var category = "personal"
     @State private var styles = AppSettings.shared.styles
     @State private var smartFormatting = AppSettings.shared.smartFormatting
+    @State private var transforms = AppSettings.shared.transformsEnabled
 
     static let categories = [("personal", "Personal messages"), ("work", "Work messages"), ("email", "Email"), ("other", "Other")]
     static let styleOptions: [(id: String, name: String, example: String, categories: Set<String>)] = [
-        ("formal", "Formal.", "Hey, are you free for lunch tomorrow? Let's do 12 if that works.", ["personal", "work", "email", "other"]),
+        ("formal", "Formal", "Hey, are you free for lunch tomorrow? Let's do 12 if that works.", ["personal", "work", "email", "other"]),
         ("casual", "Casual", "Hey are you free for lunch tomorrow? Let's do 12 if that works", ["personal", "work", "email", "other"]),
-        ("veryCasual", "very casual", "hey are you free for lunch tomorrow? let's do 12 if that works", ["personal"]),
-        ("excited", "Excited!", "Hey, are you free for lunch tomorrow? Let's do 12 if that works!", ["work", "email", "other"]),
+        ("veryCasual", "Very casual", "hey are you free for lunch tomorrow? let's do 12 if that works", ["personal"]),
+        ("excited", "Excited", "Hey, are you free for lunch tomorrow? Let's do 12 if that works!", ["work", "email", "other"]),
     ]
 
     var body: some View {
         Form {
-            Section("Style by app") {
+            Section {
                 Picker("Category", selection: $category) {
                     ForEach(Self.categories, id: \.0) { Text($0.1).tag($0.0) }
                 }
                 .pickerStyle(.segmented)
-                HStack(alignment: .top) {
+                HStack(alignment: .top, spacing: 10) {
                     ForEach(Self.styleOptions.filter { $0.categories.contains(category) }, id: \.id) { option in
                         Card(title: option.name, example: option.example, selected: (styles[category] ?? "formal") == option.id) {
                             styles[category] = option.id
@@ -360,17 +534,34 @@ struct StylePage: View {
                         }
                     }
                 }
-                Text("Murmur picks the category from the app you dictate into; web apps by their address. AI assistants and terminals count as Other. English only.")
-                    .font(.caption).foregroundStyle(.secondary)
+            } header: {
+                Text("Style by app")
+            } footer: {
+                Footnote("Murmur picks the category from the app you dictate into, and web apps by their address. AI assistants and terminals count as Other. English only.")
             }
-            Section("Auto Cleanup") {
-                HStack(alignment: .top) {
+            Section {
+                Toggle(isOn: $transforms) {
+                    Text("AI edits")
+                    Text("Off: Murmur still removes fillers and applies spoken punctuation, your dictionary and snippets, but no AI model edits the text.")
+                }
+                .onChange(of: transforms) { model.settings.transformsEnabled = transforms }
+                HStack(alignment: .top, spacing: 10) {
                     Card(title: "None", example: "um so I think we should uh move the launch to Friday", selected: level == "none") { setLevel("none") }
                     Card(title: "Light", example: "I think we should move the launch to Friday.", selected: level == "light") { setLevel("light") }
                     Card(title: "Medium", example: "Let's move the launch to Friday.", selected: level == "medium") { setLevel("medium") }
                 }
-                Toggle("Smart Formatting (numbered lists, paragraphs)", isOn: $smartFormatting)
-                    .onChange(of: smartFormatting) { model.settings.smartFormatting = smartFormatting }
+                .disabled(!transforms)
+                .opacity(transforms ? 1 : 0.5)
+                Toggle(isOn: $smartFormatting) {
+                    Text("Smart Formatting")
+                    Text("Turns spoken lists into numbered lists and long dictations into paragraphs.")
+                }
+                .onChange(of: smartFormatting) { model.settings.smartFormatting = smartFormatting }
+                .disabled(!transforms)
+            } header: {
+                Text("Auto Cleanup")
+            } footer: {
+                Footnote("Light removes fillers and fixes grammar. Medium also tightens wording. Names, numbers and negations are never changed.")
             }
         }
         .formStyle(.grouped)
@@ -387,20 +578,28 @@ struct Card: View {
     let example: String
     let selected: Bool
     let action: () -> Void
+    @State private var hovering = false
 
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(title).font(.headline)
+                HStack {
+                    Text(title).font(.headline)
+                    Spacer()
+                    Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(selected ? Color.accentColor : Color.secondary.opacity(0.5))
+                }
                 Text(example).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
-            .padding(10)
-            .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
-            .background(RoundedRectangle(cornerRadius: 10).fill(selected ? Color.accentColor.opacity(0.14) : Color.secondary.opacity(0.06)))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 1.5))
+            .padding(12)
+            .frame(maxWidth: .infinity, minHeight: 104, alignment: .topLeading)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(selected ? Color.accentColor.opacity(0.12) : Color.primary.opacity(hovering ? 0.07 : 0.04)))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(selected ? Color.accentColor : Color.primary.opacity(0.08), lineWidth: selected ? 1.5 : 1))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { hovering = $0 }
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
@@ -412,19 +611,26 @@ struct GeneralPage: View {
     @State private var engine = AppSettings.shared.engine
     @State private var cleanup = AppSettings.shared.cleanupProvider
 
+    /// Recommended first, then local, then cloud, then no AI.
+    static let cleanupOrder = ["mlx:qwen3.5-4b", "mlx:smollm3-3b", "mlx:qwen3-4b-2507", "mlx:qwen3.5-2b", "apple-foundation", "groq", "openrouter", "rules"]
+
     var body: some View {
         Form {
             Section("Shortcuts") { ShortcutSettings(model: model) }
             Section("Microphone") { MicrophoneSettings(model: model) }
-            Section("Models") {
+            Section {
                 Picker("Speech engine", selection: $engine) {
                     ForEach(EngineCatalog.ids.filter { SettingsView.engineNames[$0] != nil }, id: \.self) { Text(SettingsView.engineNames[$0] ?? $0).tag($0) }
                 }
                 .onChange(of: engine) { model.settings.engine = engine }
                 Picker("Cleanup model", selection: $cleanup) {
-                    ForEach(SettingsView.cleanupNames.keys.sorted(), id: \.self) { Text(SettingsView.cleanupNames[$0] ?? $0).tag($0) }
+                    ForEach(Self.cleanupOrder.filter { SettingsView.cleanupNames[$0] != nil }, id: \.self) { Text(SettingsView.cleanupNames[$0] ?? $0).tag($0) }
                 }
                 .onChange(of: cleanup) { model.settings.cleanupProvider = cleanup }
+            } header: {
+                Text("Models")
+            } footer: {
+                Footnote("The speech engine turns your voice into words; the cleanup model tidies them. Both run on this Mac unless you pick a cloud option.")
             }
             Section("Languages") { LanguagePicker(settings: model.settings) }
             Section("Permissions") { PermissionsSummary() }
@@ -444,13 +650,33 @@ struct SystemPage: View {
 
     var body: some View {
         Form {
-            Section {
-                Toggle("Show Flow Bar at all times", isOn: $showFlowBar).onChange(of: showFlowBar) { model.settings.showFlowBar = showFlowBar }
+            Section("Flow Bar") {
+                Toggle(isOn: $showFlowBar) {
+                    Text("Show the Flow Bar at all times")
+                    Text("Off: it appears only while you dictate or when something needs your attention.")
+                }
+                .onChange(of: showFlowBar) { model.settings.showFlowBar = showFlowBar }
+                Toggle(isOn: $sounds) {
+                    Text("Sounds")
+                    Text("A soft sound when dictation starts, stops and finishes.")
+                }
+                .onChange(of: sounds) { model.settings.soundsEnabled = sounds }
+            }
+            Section("App") {
                 Toggle("Launch Murmur at login", isOn: $launchAtLogin).onChange(of: launchAtLogin) { setLaunchAtLogin(launchAtLogin) }
                 if let loginError { Text(loginError).font(.caption).foregroundStyle(.orange) }
-                Toggle("Show in Dock", isOn: $showInDock).onChange(of: showInDock) { model.settings.showInDock = showInDock }
-                Toggle("Sounds", isOn: $sounds).onChange(of: sounds) { model.settings.soundsEnabled = sounds }
-                Toggle("Debug menu", isOn: $debug).onChange(of: debug) { model.settings.debugMenu = debug }
+                Toggle(isOn: $showInDock) {
+                    Text("Show in Dock")
+                    Text("Murmur always stays in the menu bar.")
+                }
+                .onChange(of: showInDock) { model.settings.showInDock = showInDock }
+            }
+            Section("Advanced") {
+                Toggle(isOn: $debug) {
+                    Text("Debug menu")
+                    Text("Adds tools for testing the Flow Bar, sounds and focus to the menu bar menu.")
+                }
+                .onChange(of: debug) { model.settings.debugMenu = debug }
             }
         }
         .formStyle(.grouped)
@@ -472,12 +698,18 @@ struct ExperimentalPage: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Command Mode", isOn: .constant(false)).disabled(true)
-                Text("Hold Fn+Control and speak an instruction to rewrite the selection or draft at the cursor. Not available in this build yet.")
-                    .font(.caption).foregroundStyle(.secondary)
-                Toggle("Press Enter after “press enter”", isOn: .constant(false)).disabled(true)
-                Text("Ending a dictation with “press enter” presses Return after the paste. Not available in this build yet.")
-                    .font(.caption).foregroundStyle(.secondary)
+                Toggle(isOn: .constant(false)) {
+                    Text("Command Mode")
+                    Text("Hold Fn+Control and speak an instruction to rewrite the selection or the draft at the cursor.")
+                }
+                .disabled(true)
+                Toggle(isOn: .constant(false)) {
+                    Text("Press Enter after “press enter”")
+                    Text("Ending a dictation with “press enter” presses Return after the paste.")
+                }
+                .disabled(true)
+            } footer: {
+                Footnote("These features are not available in this build yet.")
             }
         }
         .formStyle(.grouped)
@@ -493,16 +725,28 @@ struct PrivacyPage: View {
     var body: some View {
         Form {
             Section("History") {
-                Toggle("Keep audio for 14 days (for Play and Retry)", isOn: $keepAudio).onChange(of: keepAudio) { model.settings.keepAudio = keepAudio }
-                Toggle("Never store anything", isOn: $neverStore).onChange(of: neverStore) { model.settings.neverStore = neverStore }
-                Text("On: no History, no audio, nothing written to disk. Paste last still works until Murmur quits.")
-                    .font(.caption).foregroundStyle(.secondary)
-                Button("Delete all History and audio…", role: .destructive) { confirmDelete = true }
+                Toggle(isOn: $keepAudio) {
+                    Text("Keep audio for 14 days")
+                    Text("Lets you replay a dictation and retry it if something went wrong.")
+                }
+                .onChange(of: keepAudio) { model.settings.keepAudio = keepAudio }
+                .disabled(neverStore)
+                Toggle(isOn: $neverStore) {
+                    Text("Never store anything")
+                    Text("No History, no audio, nothing written to disk. Paste last still works until Murmur quits.")
+                }
+                .onChange(of: neverStore) { model.settings.neverStore = neverStore }
+                HStack {
+                    Spacer()
+                    Button("Delete all History and audio…", role: .destructive) { confirmDelete = true }
+                }
             }
-            Section("Cloud (optional)") { CloudKeys() }
             Section {
-                Text("Audio and text stay on this Mac unless you choose a Groq or OpenRouter option. Murmur has no analytics, and its logs hold timings, never your words.")
-                    .font(.callout).foregroundStyle(.secondary)
+                CloudKeys()
+            } header: {
+                Text("Cloud (optional)")
+            } footer: {
+                Footnote("Audio and text stay on this Mac unless you choose a Groq or OpenRouter option. Murmur has no analytics, and its logs hold timings, never your words.")
             }
         }
         .formStyle(.grouped)

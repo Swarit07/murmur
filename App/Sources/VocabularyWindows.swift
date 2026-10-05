@@ -21,7 +21,8 @@ struct DictionaryView: View {
                 Button("Add", action: add).disabled(newWord.trimmingCharacters(in: .whitespaces).isEmpty).keyboardShortcut(.return, modifiers: [])
             }
             .textFieldStyle(.roundedBorder)
-            .padding(10)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
             if entries.isEmpty {
                 EmptyState(
                     symbol: "character.book.closed",
@@ -89,7 +90,8 @@ struct SnippetsView: View {
                 TextField("Insert this", text: $expansion, axis: .vertical).lineLimit(1...4)
             }
             .textFieldStyle(.roundedBorder)
-            .padding(10)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
             if snippets.isEmpty {
                 EmptyState(
                     symbol: "text.badge.plus",
@@ -106,7 +108,7 @@ struct SnippetsView: View {
                 }
                 .width(min: 120, ideal: 160, max: 220)
                 TableColumn("Insert") { s in
-                    EditableCell(text: s.expansion) { value in
+                    EditableCell(text: s.expansion, multiline: true) { value in
                         var updated = s
                         updated.expansion = value
                         try? store.save(updated)
@@ -135,15 +137,18 @@ struct SnippetsView: View {
 }
 
 /// A table cell that edits in place and saves on Return or when focus leaves.
+/// `multiline` keeps line breaks (Option-Return adds one) and shows up to three lines.
 struct EditableCell: View {
     let text: String
     var placeholder = ""
+    var multiline = false
     let save: (String) -> Void
     @State private var draft = ""
     @FocusState private var focused: Bool
 
     var body: some View {
-        TextField(placeholder, text: $draft)
+        TextField(placeholder, text: $draft, axis: multiline ? .vertical : .horizontal)
+            .lineLimit(multiline ? 3 : 1)
             .textFieldStyle(.plain)
             .focused($focused)
             .onAppear { draft = text }
@@ -153,7 +158,7 @@ struct EditableCell: View {
     }
 
     func commit() {
-        let value = draft.trimmingCharacters(in: .whitespaces)
+        let value = multiline ? draft : draft.trimmingCharacters(in: .whitespaces)
         if value != text { save(value) }
     }
 }
@@ -182,7 +187,7 @@ struct LanguagePicker: View {
                 }
             }
             Text(chosen.count == 1 ? "Transcribed as \(Self.common.first { $0.0 == chosen.first }?.1 ?? "") only." : "Murmur detects the language of each dictation. Choosing one language helps it avoid stray words from other languages.")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
 

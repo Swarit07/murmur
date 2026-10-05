@@ -17,7 +17,7 @@ public struct Tokens: Codable, Equatable, Sendable {
     /// Pill size while hands-free (room for the stop and cancel buttons).
     public var handsFreeWidth: Double = 168
     /// Card size for notices (errors, cancelled, no text box).
-    public var noticeWidth: Double = 360
+    public var noticeWidth: Double = 400
     public var noticeHeight: Double = 52
     public var cornerRadius: Double = 17
     /// Gap between the bar and the Dock (or the bottom of the visible frame).

@@ -9,7 +9,17 @@ import SwiftUI
 final class WindowManager {
     private var windows: [String: NSWindow] = [:]
 
-    func show<V: View>(_ id: String, title: String, size: NSSize, @ViewBuilder content: () -> V) {
+    enum Chrome {
+        /// A normal title bar with the title.
+        case standard
+        /// A transparent 52-pt title bar that the content draws under; the traffic lights sit centered
+        /// in it (the Hub's sidebar runs to the top of the window).
+        case unified
+        /// A transparent 28-pt title bar with no title; the content draws under it.
+        case transparent
+    }
+
+    func show<V: View>(_ id: String, title: String, size: NSSize, chrome: Chrome = .standard, @ViewBuilder content: () -> V) {
         if let window = windows[id] {
             window.makeKeyAndOrderFront(nil)
             NSApp.activate()
@@ -19,8 +29,19 @@ final class WindowManager {
         window.title = title
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(rootView: content())
+        if chrome != .standard {
+            window.styleMask.insert(.fullSizeContentView)
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+            window.titlebarSeparatorStyle = .none
+        }
+        if chrome == .unified {
+            window.toolbar = NSToolbar(identifier: "murmur.\(id)")
+            window.toolbarStyle = .unified
+        }
         window.setContentSize(size)
         window.center()
+        if chrome == .unified { window.setFrameAutosaveName("murmur.\(id)") }
         windows[id] = window
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()

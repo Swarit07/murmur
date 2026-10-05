@@ -529,9 +529,12 @@ public final class DictationController {
                 appName: current.focus.appName, mode: current.mode.rawValue, engine: engineId ?? "-", cleanup: cleanupId,
                 status: .cancelled, errorCode: "user", audioPath: audioPath
             ))
-        } else if let id = current.recordId {
-            recordId = id
-            _ = try? history.update(id: id) { $0.status = .cancelled; $0.errorCode = "user" }
+        } else {
+            // Processing: keep the audio for Undo even if Esc came before the History row was written.
+            if let id = current.recordId {
+                recordId = id
+                _ = try? history.update(id: id) { $0.status = .cancelled; $0.errorCode = "user" }
+            }
             samples = processingSamples ?? []
         }
         lastCancelled = samples.isEmpty ? nil : (current, samples, recordId)
@@ -576,6 +579,17 @@ public final class DictationController {
             await self?.process(session, samples: samples, releasedAt: Clock.now(), flushMs: 0, firstAudioMs: nil)
         }
     }
+
+    /// Self-test: runs `samples` through the whole pipeline as a hold-to-talk dictation into whatever has
+    /// focus now. False if a dictation is already running or the models are not loaded.
+    public func dictateForTest(_ samples: [Float]) -> Bool {
+        guard engine != nil, session == nil else { return false }
+        reprocess(samples, like: Session(mode: .hold, keyDownAt: Clock.now(), startedAt: Date(), focus: FocusContext.snapshot()))
+        return session != nil
+    }
+
+    /// True while a dictation is recording or being processed.
+    public var isBusy: Bool { session != nil }
 
     /// Drops whatever is recording without a trace (the automated focus test uses this).
     public func discardCurrent() {
