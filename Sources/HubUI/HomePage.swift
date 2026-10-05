@@ -345,11 +345,16 @@ struct HistoryRowView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             ZStack(alignment: .trailing) {
-                Text(busy ? "Retrying…" : meta)
-                    .textStyle(TypeTokens.meta)
-                    .foregroundStyle(c.textTertiary.color)
-                    .lineLimit(1)
-                    .opacity(active && !busy ? 0 : 1)
+                // "Mail · 15 w": a long app name truncates; the count always shows.
+                HStack(spacing: 0) {
+                    if !busy, let app = metaApp {
+                        Text(app).lineLimit(1).truncationMode(.tail)
+                    }
+                    Text(busy ? "Retrying…" : (metaApp == nil ? "" : " · ") + metaTail).lineLimit(1).fixedSize()
+                }
+                .textStyle(TypeTokens.meta)
+                .foregroundStyle(c.textTertiary.color)
+                .opacity(active && !busy ? 0 : 1)
                 HStack(spacing: Spacing.s4) {
                     MIconButton(.copy, label: "Copy", size: .small, action: copy)
                     if canPlay { MIconButton(.wave, label: "Play audio", size: .small, action: play) }
@@ -370,7 +375,8 @@ struct HistoryRowView: View {
                 .opacity(active && !busy ? 1 : 0)
                 .allowsHitTesting(active && !busy)
             }
-            .frame(minWidth: HubGeometry.historyMetaColumn, alignment: .trailing)
+            .frame(minWidth: HubGeometry.historyMetaColumn, maxWidth: HubGeometry.historyMetaMax, alignment: .trailing)
+            .fixedSize(horizontal: true, vertical: false)
             .animation(theme.motion.easeOut(MotionTokens.rowActionsFade), value: active)
         }
         .padding(.horizontal, HubGeometry.historyRowPadding.width)
@@ -381,11 +387,11 @@ struct HistoryRowView: View {
         .accessibilityLabel("\(record.startedAt.formatted(.dateTime.hour().minute())), \(silent ? "Audio was silent" : (shown ?? Self.statusLabel(record)))")
     }
 
-    var meta: String {
+    var metaApp: String? { record.appName.flatMap { $0.isEmpty ? nil : $0 } }
+
+    var metaTail: String {
         let words = silent ? 0 : HomePage.words(record.bestText)
-        let app = record.appName.flatMap { $0.isEmpty ? nil : $0 }
-        let tail = record.status == .inserted || record.status == .transcribed || silent ? "\(words) w" : Self.statusShort(record)
-        return [app, tail].compactMap { $0 }.joined(separator: " · ")
+        return record.status == .inserted || record.status == .transcribed || silent ? "\(words) w" : Self.statusShort(record)
     }
 
     /// The app's tile: Messages-like apps, work chat, mail, code, or a note for everything else.

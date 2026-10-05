@@ -156,6 +156,8 @@ public enum HubGeometry {
     // History rows (Home)
     public static let historyTimeColumn: CGFloat = 52 // source: board
     public static let historyMetaColumn: CGFloat = 112 // source: board
+    /// The meta column grows with a long app name up to this, then the name truncates.
+    public static let historyMetaMax: CGFloat = 200 // source: derived ("Microsoft Outlook · 120 w" fits)
     public static let historyColumnGap: CGFloat = 14 // source: board
     public static let historyRowPadding = CGSize(width: 16, height: 13) // source: board
 
