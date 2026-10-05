@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import HubUI
 import MurmurKit
 
 /// Debug self-test (QA): speaks short phrases with the system voice, runs each one through the real
@@ -46,6 +47,24 @@ final class SelfTest {
     static let pressEnterPhrase = "Ship it, press enter."
     static let suggestionPhrase = "Ask Chivan about the venue."
     private var textEditPID: pid_t = 0
+    private var scratchField: AXUIElement?
+    /// Set when keyboard focus leaves the scratch document (someone clicked or typed elsewhere). From then
+    /// on nothing is dictated, pasted or recorded, so test text never lands in another app.
+    private var focusLost = false
+
+    /// True while TextEdit is frontmost and its scratch document has keyboard focus. Checked before every
+    /// dictation, paste and recording; the insertion's own focus guard covers changes after the start.
+    private func inScratch() -> Bool {
+        guard !focusLost, textEditPID != 0, NSWorkspace.shared.frontmostApplication?.processIdentifier == textEditPID,
+              let field = scratchField, let focused = Self.focused(pid: textEditPID), CFEqual(focused, field) else {
+            focusLost = true
+            return false
+        }
+        return true
+    }
+
+    private func dictate(_ samples: [Float]) -> Bool { inScratch() && controller.dictateForTest(samples) }
+    private func command(_ samples: [Float]) -> Bool { inScratch() && controller.commandForTest(samples) }
 
     var cases: [Case] {
         [
@@ -115,11 +134,12 @@ final class SelfTest {
 
         if let field = await openScratchDocument() {
             for c in cases {
+                guard !focusLost else { break }
                 c.setup(self)
                 try? await Task.sleep(for: .milliseconds(900))
                 Self.setValue(field, "")
                 let t0 = Date()
-                guard controller.dictateForTest(clips[c.phrase] ?? []) else {
+                guard dictate(clips[c.phrase] ?? []) else {
                     record(c.name, "could not start a dictation", text: "")
                     continue
                 }
@@ -132,8 +152,8 @@ final class SelfTest {
 
             // D5: a second start while a dictation is processing is ignored.
             Self.setValue(field, "")
-            let firstStarted = controller.dictateForTest(clips["Let's grab coffee after the meeting."] ?? [])
-            let secondStarted = controller.dictateForTest(clips[cases[0].phrase] ?? [])
+            let firstStarted = dictate(clips["Let's grab coffee after the meeting."] ?? [])
+            let secondStarted = dictate(clips[cases[0].phrase] ?? [])
             _ = await waitIdle()
             let busyText = Self.value(field) ?? ""
             record("Second start while busy is ignored (D5)",
@@ -142,7 +162,7 @@ final class SelfTest {
 
             // Esc while processing inserts nothing; Undo on the notice inserts it after all.
             Self.setValue(field, "")
-            if controller.dictateForTest(clips["Let's grab coffee after the meeting."] ?? []) {
+            if dictate(clips["Let's grab coffee after the meeting."] ?? []) {
                 try? await Task.sleep(for: .milliseconds(120))
                 controller.cancelCurrent()
                 try? await Task.sleep(for: .milliseconds(1500))
@@ -161,7 +181,7 @@ final class SelfTest {
             Self.setValue(field, original)
             Self.select(field, location: 0, length: (original as NSString).length)
             try? await Task.sleep(for: .milliseconds(300))
-            if controller.commandForTest(clips[Self.rewriteInstruction] ?? []) {
+            if command(clips[Self.rewriteInstruction] ?? []) {
                 let t0 = Date()
                 _ = await waitIdle(timeout: 40)
                 let ms = Int(Date().timeIntervalSince(t0) * 1000)
@@ -179,7 +199,7 @@ final class SelfTest {
 
             // Command Mode with nothing selected writes a draft at the cursor.
             Self.setValue(field, "")
-            if controller.commandForTest(clips[Self.draftInstruction] ?? []) {
+            if command(clips[Self.draftInstruction] ?? []) {
                 let t0 = Date()
                 _ = await waitIdle(timeout: 40)
                 let ms = Int(Date().timeIntervalSince(t0) * 1000)
@@ -192,7 +212,7 @@ final class SelfTest {
             // C11: "press enter" at the end presses Return after the paste.
             Self.setValue(field, "")
             settings.pressEnter = true
-            if controller.dictateForTest(clips[Self.pressEnterPhrase] ?? []) {
+            if dictate(clips[Self.pressEnterPhrase] ?? []) {
                 _ = await waitIdle()
                 try? await Task.sleep(for: .milliseconds(300))
                 let entered = Self.value(field) ?? ""
@@ -206,14 +226,14 @@ final class SelfTest {
             // Paste last transcript (⌃⌘V) inserts the newest dictation again.
             Self.setValue(field, "")
             let last = (try? store.lastWithText())?.bestText ?? ""
-            controller.pasteLast()
+            if inScratch() { controller.pasteLast() }
             try? await Task.sleep(for: .milliseconds(1200))
             let pasted = Self.value(field) ?? ""
             record("Paste last transcript", pasted.trimmingCharacters(in: .whitespacesAndNewlines) == last ? nil : "pasted text differs from the newest dictation", text: pasted)
 
             // S2: correcting a word Murmur wrote suggests a dictionary entry.
             Self.setValue(field, "")
-            if controller.dictateForTest(clips[Self.suggestionPhrase] ?? []) {
+            if dictate(clips[Self.suggestionPhrase] ?? []) {
                 _ = await waitIdle()
                 try? await Task.sleep(for: .milliseconds(600))
                 var words = (Self.value(field) ?? "").split(separator: " ").map(String.init)
@@ -239,7 +259,7 @@ final class SelfTest {
             Self.setValue(field, "")
             settings.typingApps = saved.typing + ["com.apple.TextEdit"]
             let boardBefore = NSPasteboard.general.changeCount
-            if controller.dictateForTest(clips[cases[0].phrase] ?? []) {
+            if dictate(clips[cases[0].phrase] ?? []) {
                 _ = await waitIdle()
                 let typed = Self.value(field) ?? ""
                 let untouched = NSPasteboard.general.changeCount == boardBefore
@@ -254,7 +274,7 @@ final class SelfTest {
             let limits = controller.recordingLimits
             controller.recordingLimits = RecordingLimits(maxSeconds: 6, warnBeforeSeconds: 3, noAudioSeconds: 3)
             let t0 = Date()
-            controller.toggleHandsFree()
+            if inScratch() { controller.toggleHandsFree() }
             var stoppedAfter: Double?
             for _ in 0..<150 {
                 try? await Task.sleep(for: .milliseconds(100))
@@ -266,10 +286,32 @@ final class SelfTest {
                    stoppedAfter.map { $0 >= 5 && $0 <= 8.5 ? nil : String(format: "stopped after %.1f s", $0) } ?? "did not stop",
                    text: stoppedAfter.map { String(format: "stopped after %.1f s", $0) } ?? "")
 
+            // No audio: a 2 s recording of silence shows the "We couldn't hear you" card and inserts nothing;
+            // a half-second silent tap stays quiet.
+            for (seconds, expectCard) in [(2.0, true), (0.5, false)] {
+                Self.setValue(field, "")
+                controller.clearMessage()
+                guard dictate([Float](repeating: 0, count: Int(seconds * AudioFormat.sampleRate))) else {
+                    record("Silent \(seconds) s recording", "could not start a dictation", text: "")
+                    continue
+                }
+                _ = await waitIdle()
+                let shown = controller.status.notice?.kind == .noAudio
+                let text = Self.value(field) ?? ""
+                let failure: String? = !text.isEmpty ? "text was inserted" : shown != expectCard ? (expectCard ? "no card" : "card shown for a tap") : nil
+                record(expectCard ? "Silent recording shows the no-audio card" : "Silent tap stays quiet", failure,
+                       text: shown ? (controller.status.notice?.message ?? "") : "")
+                controller.clearMessage()
+            }
+
             Self.setValue(field, "")
             await closeScratchDocument(field)
         } else {
             record("Open TextEdit", "the scratch document did not get keyboard focus", text: "")
+        }
+
+        if focusLost {
+            record("Focus stayed in the test document", "focus left TextEdit, so the run stopped and nothing was typed elsewhere. Keep hands off the keyboard and mouse while it runs", text: "")
         }
 
         // The clipboard holds what it held before every paste.
@@ -350,6 +392,7 @@ final class SelfTest {
         for _ in 0..<60 {
             try? await Task.sleep(for: .milliseconds(100))
             if app.isActive, let field = Self.focused(pid: app.processIdentifier), Self.attribute(field, kAXRoleAttribute) == kAXTextAreaRole {
+                scratchField = field
                 return field
             }
         }

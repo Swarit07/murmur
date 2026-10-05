@@ -13,7 +13,7 @@ public final class AppSettings: @unchecked Sendable {
     }
 
     enum Key: String {
-        case engine, cleanupProvider, cleanupLevel, keyboardLayout, showInDock, soundsEnabled, microphoneUID, keepAudio, showFlowBar, debugMenu, transformsEnabled, smartFormatting, languages, shortcuts, neverStore, onboardingStep, onboardingDone, styles, commandMode, pressEnter, typingApps, unloadWhenIdle
+        case engine, cleanupProvider, cleanupLevel, keyboardLayout, showInDock, soundsEnabled, microphoneUID, keepAudio, showFlowBar, debugMenu, transformsEnabled, smartFormatting, languages, shortcuts, neverStore, onboardingStep, onboardingDone, styles, commandMode, pressEnter, typingApps, unloadWhenIdle, appearance, textSize
     }
 
     private func string(_ key: Key, _ fallback: String) -> String { defaults.string(forKey: key.rawValue) ?? fallback }
@@ -82,6 +82,18 @@ public final class AppSettings: @unchecked Sendable {
     public var unloadWhenIdle: Bool {
         get { defaults.object(forKey: Key.unloadWhenIdle.rawValue) as? Bool ?? false }
         set { set(newValue, .unloadWhenIdle) }
+    }
+
+    /// "system", "light" or "dark" (Settings › General › Appearance).
+    public var appearance: String {
+        get { string(.appearance, "system") }
+        set { set(newValue, .appearance) }
+    }
+
+    /// "default" or "large" (Settings › General › Text size).
+    public var textSize: String {
+        get { string(.textSize, "default") }
+        set { set(newValue, .textSize) }
     }
 
     /// I9: bundle ids of apps that get the text typed instead of pasted.

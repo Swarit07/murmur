@@ -36,7 +36,7 @@ public struct DictationStatus: Equatable, Sendable {
     }
 
     public enum NoticeKind: String, Equatable, Sendable {
-        case pasteError, transcriptionError, noTextBox, cancelled, info, micError, flowBarHidden, suggestion
+        case pasteError, transcriptionError, noTextBox, cancelled, info, micError, flowBarHidden, suggestion, noAudio
     }
 
     public struct Notice: Equatable, Sendable {
@@ -54,29 +54,14 @@ public struct DictationStatus: Equatable, Sendable {
     public var command = false
 }
 
-/// Hands microphone levels from the audio thread to the main actor.
-final class LevelRelay: @unchecked Sendable {
-    private let lock = NSLock()
-    private var handler: (@MainActor (Float) -> Void)?
-
-    func set(_ handler: (@MainActor (Float) -> Void)?) { lock.withLock { self.handler = handler } }
-
-    func send(_ level: Float) {
-        guard let handler = lock.withLock({ self.handler }) else { return }
-        DispatchQueue.main.async { MainActor.assumeIsolated { handler(level) } }
-    }
-}
-
 /// Key events in, text out. Owns the recorder, engines, History and insertion, and drives the Core
 /// state machine so every transition is checked and signposted. Runs on the main actor so key events
 /// are handled in order; the slow work happens on the engine and cleanup actors.
 @MainActor
 public final class DictationController {
     public var onStatus: ((DictationStatus) -> Void)?
-    /// Microphone level in dBFS while recording, for the Flow Bar waveform.
-    public var onLevel: (@MainActor (Float) -> Void)? {
-        didSet { levels.set(onLevel) }
-    }
+    /// Microphone level in dBFS while recording, read by the Flow Bar and the mic test at display rate.
+    public let micLevel = MicLevelSource()
     public private(set) var status = DictationStatus(phase: .loading) {
         didSet { if status != oldValue { onStatus?(status) } }
     }
@@ -88,7 +73,6 @@ public final class DictationController {
     let memoryStore = try! HistoryStore(url: nil)
     var history: HistoryStore { settings.neverStore ? memoryStore : store }
     let sounds: SoundPlaying?
-    let levels = LevelRelay()
     let recorder: AudioRecorder
     let gate = EnergySpeechGate()
     let insertion = InsertionTransaction(requireEditable: false)
@@ -150,7 +134,7 @@ public final class DictationController {
         self.settings = settings
         self.store = store
         self.sounds = sounds
-        recorder = AudioRecorder(onLevel: { [levels] level in levels.send(level) })
+        recorder = AudioRecorder(onLevel: { [micLevel] level in micLevel.write(level) })
         recognizer = HotkeyRecognizer(configuration: Self.shortcutConfiguration(settings))
         recorder.setDevice(uid: settings.microphoneUID)
     }
@@ -474,7 +458,10 @@ public final class DictationController {
         let audioMs = Double(samples.count) / AudioFormat.sampleRate * 1000
 
         guard await gate.hasSpeech(samples), isCurrent(token) else {
-            if isCurrent(token) { endSession(.discard) }
+            if isCurrent(token) {
+                endSession(.discard)
+                noAudio(after: audioMs)
+            }
             return
         }
         guard state.send(.stop) != nil, let engine else { return }
@@ -520,6 +507,7 @@ public final class DictationController {
         guard !trimmed.isEmpty else {
             _ = try? history.update(id: id) { $0.status = .cancelled; $0.errorCode = "empty" }
             endSession(.discard)
+            noAudio(after: audioMs)
             return
         }
         state.send(.transcribed(trimmed))
@@ -947,6 +935,17 @@ public final class DictationController {
     }
 
     /// An informational notice on the Flow Bar and in the menu (permissions lost, and so on).
+    /// Recordings at least this long that hold no speech show the no-audio card.
+    static let noAudioMinimumMs: Double = 1000
+
+    /// A real recording with no speech in it (the speech gate found none, or it transcribed to nothing)
+    /// gets the "We couldn't hear you" card with Switch microphone and Test mic; a short tap stays quiet.
+    /// Nothing is inserted either way.
+    func noAudio(after audioMs: Double) {
+        guard audioMs >= Self.noAudioMinimumMs else { return }
+        notice("We couldn't hear you. No speech from \(recorder.deviceName).", kind: .noAudio)
+    }
+
     public func notice(_ message: String, kind: DictationStatus.NoticeKind = .info) {
         status.message = message
         status.notice = DictationStatus.Notice(kind: kind, message: message)

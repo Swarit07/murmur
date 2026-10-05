@@ -6,9 +6,6 @@ import SwiftUI
 /// full-screen ones. It can never become key or main, so clicking it never takes focus from the field
 /// you are dictating into (A2).
 final class FlowBarPanel: NSPanel {
-    /// Room around the bar for its shadow and for growing into a notice card.
-    static let shadowMargin: CGFloat = 16
-
     init() {
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         isFloatingPanel = true
@@ -62,6 +59,7 @@ public final class FlowBarController {
         host.sizingOptions = []
         panel.contentView = host
         panel.ignoresMouseEvents = true
+        applySystemAppearance()
         layout()
         panel.orderFrontRegardless()
         observe()
@@ -70,18 +68,29 @@ public final class FlowBarController {
 
     // MARK: Placement
 
-    /// The canvas is large enough for the biggest state; the bar sits at its bottom center.
-    var canvasSize: CGSize {
+    /// The panel never resizes (resizing a window jitters); it is as large as the largest state, and
+    /// the content animates inside it (§5.1).
+    var canvasSize: CGSize { Self.canvas }
+
+    /// The panel's fixed size (also used by the snapshot tool): the widest card, and the tallest of
+    /// the no-audio card and the hover pill with its tooltip.
+    public static var canvas: CGSize {
         let t = LiveTokens.shared.value
-        return CGSize(
-            width: max(t.noticeWidth, t.handsFreeWidth, t.activeWidth) + FlowBarPanel.shadowMargin * 2,
-            height: max(t.noticeHeight, t.activeHeight) + FlowBarPanel.shadowMargin * 2
-        )
+        let margin = FlowGeometry.canvasMargin
+        let height = max(FlowGeometry.canvasCardHeight, t.hoverHeight + t.tooltipGap + t.tooltipHeight)
+        return CGSize(width: (FlowGeometry.canvasCardWidth + margin * 2).rounded(.up), height: (height + margin * 2).rounded(.up))
     }
 
     /// Bottom-center point the bar sits on: just above the Dock in the visible frame of the screen
-    /// holding the focused window, plus any offset the user dragged it to.
+    /// holding the focused window, plus any offset the user dragged it to, kept on that screen.
     func anchor(on screen: NSScreen) -> NSPoint {
+        let base = restingPoint(on: screen)
+        let o = Self.clamp(offset, base: base, visible: screen.visibleFrame, canvas: canvasSize)
+        return NSPoint(x: base.x + o.width, y: base.y + o.height)
+    }
+
+    /// Where the bar rests with no drag offset.
+    func restingPoint(on screen: NSScreen) -> NSPoint {
         let t = LiveTokens.shared.value
         let visible = screen.visibleFrame
         let full = screen.frame
@@ -90,7 +99,19 @@ public final class FlowBarController {
         let noBottomDock = visible.minY <= full.minY + 1
         let lift = noBottomDock ? t.fullScreenLift : 0
         let sideOffset = visible.minX > full.minX + 1 ? t.dockSideOffset : (visible.maxX < full.maxX - 1 ? -t.dockSideOffset : 0)
-        return NSPoint(x: visible.midX + sideOffset + offset.width, y: visible.minY + t.bottomMargin + lift + offset.height)
+        return NSPoint(x: visible.midX + sideOffset, y: visible.minY + t.bottomMargin + lift)
+    }
+
+    /// Limits a drag offset so the whole canvas (the widest card, the hover tooltip) stays inside the
+    /// screen's visible frame. A saved offset from another display, or a drag past the edge, can never
+    /// put the bar off screen.
+    public static func clamp(_ offset: CGSize, base: NSPoint, visible: NSRect, canvas: CGSize) -> CGSize {
+        let margin = FlowGeometry.canvasMargin
+        let minX = visible.minX + canvas.width / 2, maxX = visible.maxX - canvas.width / 2
+        let minY = visible.minY + LiveTokens.shared.value.bottomMargin, maxY = visible.maxY - (canvas.height - margin)
+        let x = min(max(base.x + offset.width, minX), max(minX, maxX))
+        let y = min(max(base.y + offset.height, minY), max(minY, maxY))
+        return CGSize(width: x - base.x, height: y - base.y)
     }
 
     public func layout() {
@@ -98,7 +119,7 @@ public final class FlowBarController {
         guard let screen else { return }
         let a = anchor(on: screen)
         let size = canvasSize
-        let frame = NSRect(x: (a.x - size.width / 2).rounded(), y: (a.y - FlowBarPanel.shadowMargin).rounded(), width: size.width, height: size.height)
+        let frame = NSRect(x: (a.x - size.width / 2).rounded(), y: (a.y - FlowGeometry.canvasMargin).rounded(), width: size.width, height: size.height)
         if panel.frame != frame { panel.setFrame(frame, display: true) }
         updateMouseHandling()
     }
@@ -130,17 +151,45 @@ public final class FlowBarController {
 
     // MARK: Mouse
 
-    /// The bar's rectangle in screen coordinates.
-    var barRect: NSRect {
-        let size = model.barSize
+    /// The surface's rectangle in screen coordinates (the hover pill's area while idle, so the tiny pill
+    /// is easy to reach), with the hit slop.
+    var surfaceRect: NSRect {
+        let t = LiveTokens.shared.value
+        let size = model.surface == .idle ? CGSize(width: t.hoverWidth, height: t.hoverHeight)
+            : FlowMetrics.size(model.surface, model: model, timer: model.timerVisible(at: Date()))
         let frame = panel.frame
-        return NSRect(x: frame.midX - size.width / 2, y: frame.minY + FlowBarPanel.shadowMargin, width: size.width, height: size.height)
+        let slop = FlowGeometry.hoverTargetSlop
+        return NSRect(x: frame.midX - size.width / 2 - slop, y: frame.minY + FlowGeometry.canvasMargin - slop,
+                      width: size.width + slop * 2, height: size.height + slop * 2)
     }
 
-    /// Only the bar's own rectangle takes mouse events; everywhere else in the canvas passes through.
+    var tooltipRect: NSRect {
+        guard model.tooltipVisible else { return .zero }
+        let t = LiveTokens.shared.value
+        let size = FlowMetrics.tooltip(key: model.shortcutLabel)
+        return NSRect(x: panel.frame.midX - size.width / 2, y: panel.frame.minY + FlowGeometry.canvasMargin + t.hoverHeight + t.tooltipGap,
+                      width: size.width, height: size.height)
+    }
+
+    /// Only the surface and the tooltip take mouse events; the rest of the canvas passes clicks
+    /// through. Also drives the idle pill's hover and pauses a card's countdown under the pointer.
     func updateMouseHandling() {
-        let inside = barRect.insetBy(dx: -2, dy: -2).contains(NSEvent.mouseLocation) && model.displayed != .hidden
+        let mouse = NSEvent.mouseLocation
+        let overSurface = model.surface != .none && surfaceRect.contains(mouse)
+        let overTip = tooltipRect.contains(mouse)
+        model.setHovering((overSurface || overTip) && (model.displayed == .idle))
+        if model.notice != nil, model.countdownPaused != overSurface { model.countdownPaused = overSurface }
+        let inside = overSurface || overTip
         if panel.ignoresMouseEvents == inside { panel.ignoresMouseEvents = !inside }
+    }
+
+    // MARK: Appearance
+
+    /// The bar follows the system appearance, not the Hub's Appearance setting (§2.5): the app's own
+    /// appearance override must not reach this panel.
+    func applySystemAppearance() {
+        let dark = UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark"
+        panel.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
     }
 
     private func observe() {
@@ -153,6 +202,9 @@ public final class FlowBarController {
             return event
         }) { mouseMonitors.append(local) }
 
+        observers.append(DistributedNotificationCenter.default().addObserver(forName: Notification.Name("AppleInterfaceThemeChangedNotification"), object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.applySystemAppearance() }
+        })
         let center = NotificationCenter.default
         observers.append(center.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
@@ -189,9 +241,14 @@ public final class FlowBarController {
                 MainActor.assumeIsolated {
                     guard let self else { return }
                     let mouse = NSEvent.mouseLocation
-                    if self.dragStart == nil { self.dragStart = (mouse, self.offset) }
+                    guard let screen = self.screen ?? Self.screenOfFocusedWindow() ?? NSScreen.main ?? NSScreen.screens.first else { return }
+                    let base = self.restingPoint(on: screen)
+                    let visible = screen.visibleFrame
+                    // Start from where the bar is drawn (a clamped offset), and save only offsets that keep it on screen.
+                    if self.dragStart == nil { self.dragStart = (mouse, Self.clamp(self.offset, base: base, visible: visible, canvas: self.canvasSize)) }
                     guard let start = self.dragStart else { return }
-                    self.offset = CGSize(width: start.offset.width + mouse.x - start.mouse.x, height: start.offset.height + mouse.y - start.mouse.y)
+                    let moved = CGSize(width: start.offset.width + mouse.x - start.mouse.x, height: start.offset.height + mouse.y - start.mouse.y)
+                    self.offset = Self.clamp(moved, base: base, visible: visible, canvas: self.canvasSize)
                     self.layout()
                 }
             }
@@ -224,8 +281,8 @@ public final class FlowBarController {
     /// The panel, for design snapshots.
     public var panelForSnapshots: NSWindow { panel }
 
-    /// The bar's center in screen coordinates, for the automated focus test.
-    public var barCenter: NSPoint { NSPoint(x: barRect.midX, y: barRect.midY) }
+    /// The pill's center in screen coordinates, for the automated focus test.
+    public var barCenter: NSPoint { NSPoint(x: surfaceRect.midX, y: surfaceRect.midY) }
 
     /// Re-evaluates click-through now (the test moves the pointer, then clicks without waiting for the
     /// mouse-moved monitor).

@@ -15,8 +15,10 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "MurmurKit", targets: ["MurmurKit"]),
+        .library(name: "HubUI", targets: ["HubUI"]),
         .executable(name: "murmur-cli", targets: ["MurmurCLI"]),
         .executable(name: "murmur-bench", targets: ["MurmurBench"]),
+        .executable(name: "murmur-snap", targets: ["MurmurSnap"]),
     ],
     dependencies: [
         .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.17.5"),
@@ -56,7 +58,8 @@ let package = Package(
             dependencies: ["Core", "Audio", "SpeechEngines", "Cleanup", "Context", "Insertion"] + mlxTargets,
             swiftSettings: strict
         ),
-        .target(name: "UI", dependencies: ["Core"], swiftSettings: strict),
+        // Design tokens, theme, components and the Flow Bar. Bundles Source Sans 3 and Newsreader (SIL OFL).
+        .target(name: "UI", dependencies: ["Core"], resources: [.copy("Resources/Fonts"), .copy("Resources/Sounds"), .copy("Resources/MenuBar"), .copy("Resources/Brand")], swiftSettings: strict),
 
         // App-level orchestration the menu-bar app links: the dictation controller and its wiring.
         .target(
@@ -64,6 +67,11 @@ let package = Package(
             dependencies: ["Core", "Hotkey", "Audio", "SpeechEngines", "Cleanup", "Context", "Insertion", "Store", "Pipeline", "UI"],
             swiftSettings: strict
         ),
+        // The app's windows (Hub, onboarding, settings, design gallery) as a library, so the snapshot
+        // tool can render them with fixture data.
+        .target(name: "HubUI", dependencies: ["UI", "MurmurKit"], swiftSettings: strict),
+        // Renders every Hub page, onboarding step and Flow Bar state to PNG in light and dark.
+        .executableTarget(name: "MurmurSnap", dependencies: ["HubUI", "UI", "MurmurKit"], swiftSettings: strict),
         .executableTarget(
             name: "MurmurCLI",
             dependencies: [
@@ -86,7 +94,8 @@ let package = Package(
         .testTarget(name: "StoreTests", dependencies: ["Core", "Store"], swiftSettings: strict),
         .testTarget(name: "CleanupTests", dependencies: ["Core", "Cleanup"], swiftSettings: strict),
         .testTarget(name: "InsertionTests", dependencies: ["Core", "Context", "Insertion"], swiftSettings: strict),
-        .testTarget(name: "UITests", dependencies: ["UI"], swiftSettings: strict),
+        .testTarget(name: "UITests", dependencies: ["UI", "Core"], swiftSettings: strict),
+        .testTarget(name: "HubUITests", dependencies: ["HubUI", "MurmurKit", "UI"], swiftSettings: strict),
     ]
 )
 
