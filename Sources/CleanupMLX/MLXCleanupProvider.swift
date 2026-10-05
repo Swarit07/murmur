@@ -140,6 +140,7 @@ public actor MLXCleanupProvider: CleanupProvider {
             }
             producer.cancel()
             await producer.value
+            MLXCleanupProvider.log.info("complete: MLX active \(Memory.activeMemory / 1_048_576, privacy: .public) MB, cache \(Memory.cacheMemory / 1_048_576, privacy: .public) MB")
             return output
         }
     }

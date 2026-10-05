@@ -134,3 +134,5 @@ Release to text p50 **623 ms**, p95 **1,111 ms** (targets 800 ms and 1.5 s), fro
   - Idle unload of both models, with MLX cache clearing.
   - Performance pass from real History timings.
   - Self-test 21/21, 136 unit tests.
+  - Soak: 10 self-test runs back to back, 210/210 checks, no crash.
+  - Command Mode no longer mistakes a code editor's whole-line copy for a selection.

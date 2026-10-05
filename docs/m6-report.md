@@ -25,6 +25,10 @@ Branch `milestone-6`, 2026-10-05 (overnight). The gate itself needs the owner. S
 | Idle CPU < 1% | **0.0%** | `ps`, `top` |
 | App shell ≤ 120 MB | **Not met: ~225–300 MB with models unloaded** | `footprint`. About 170 MB of it is MLX arrays that stay alive after the model is released. The amount is fixed, not growing (see below). |
 
+## Soak test
+
+The self-test ran 10 times back to back: about 250 dictations, Command Mode runs, auto-stops, suggestions and typing. **210/210 checks passed**, in one process with no crash. Resident memory went from 2,292 to 2,373 MB, about 0.3 MB per dictation of allocator growth. MLX's live arrays stay bounded: 2.26 GB of weights plus the prompt-prefix cache, which holds at most four prompts and is cleared when full. Its buffer cache stays at 40–76 MB.
+
 ## Still open
 
 - **Gate:** side-by-side recordings within 1 pt and one frame. Needs the owner's recordings of the reference app to measure the tokens; `Tokens.swift` still holds placeholders, by design (spec rule 5).

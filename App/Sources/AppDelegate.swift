@@ -289,7 +289,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let sub = NSMenu()
         let config = DictationController.shortcutConfiguration(settings)
         let ptt = config.pushToTalk.displayName
-        for line in ["Hold \(ptt) to talk", "Press \(config.handsFree.displayName) or double-tap \(ptt) for hands-free", "Esc cancels"] {
+        var lines = ["Hold \(ptt) to talk", "Press \(config.handsFree.displayName) or double-tap \(ptt) for hands-free"]
+        if let command = config.command { lines.append("Hold \(command.displayName) for Command Mode") }
+        lines.append("Esc cancels")
+        for line in lines {
             let info = NSMenuItem(title: line, action: nil, keyEquivalent: "")
             info.isEnabled = false
             sub.addItem(info)

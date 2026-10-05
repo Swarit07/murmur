@@ -550,7 +550,7 @@ public final class DictationController {
             }
             // A command needs the model: if it was unloaded while idle, wait for the reload.
             await cleanupReload?.value
-            let selection = await SelectionReader.selectedText(in: started.focus.element)
+            let selection = await SelectionReader.selectedText(in: started.focus.element, bundleId: started.focus.bundleId)
             guard isCurrent(token) else { return }
             let outcome = await CommandRunner(provider: provider).run(instruction: trimmed, selection: selection)
             timings.llmMs = outcome.ms

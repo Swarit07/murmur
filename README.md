@@ -134,7 +134,7 @@ In the app, turn on **Settings › System › Debug menu** to get:
 
 ## Branches
 
-`main` holds the newest work. `milestone-0` … `milestone-N` mark where each milestone's work lives.
+`main` holds the newest work. `milestone-0` … `milestone-N` mark where each milestone's work lives. Tags mark each gate: `m0-passed`, `m1-done`, `m2-passed`, `m3-passed`, `m5-passed`.
 
 ## Original work
 

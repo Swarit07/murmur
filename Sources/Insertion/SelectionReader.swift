@@ -9,7 +9,7 @@ public enum SelectionReader {
     /// first; apps that do not expose their selection get a Cmd+C, read from the clipboard, which is
     /// then put back exactly as it was.
     @MainActor
-    public static func selectedText(in element: AXUIElement?, board: SystemPasteboard = SystemPasteboard()) async -> String? {
+    public static func selectedText(in element: AXUIElement?, bundleId: String? = nil, board: SystemPasteboard = SystemPasteboard()) async -> String? {
         if let element {
             AXUIElementSetMessagingTimeout(element, 0.3)
             var value: CFTypeRef?
@@ -17,13 +17,28 @@ public enum SelectionReader {
                 return (value as? String) ?? ""
             }
         }
-        return await copySelection(board: board)
+        guard let copied = await copySelection(board: board) else { return nil }
+        // Code editors copy the whole line when nothing is selected. VS Code and its forks say so on
+        // the clipboard; the others copy exactly one line with its newline.
+        return isLineCopy(copied.text, fromEmptySelection: copied.fromEmptySelection, bundleId: bundleId) ? "" : copied.text
     }
+
+    /// Whether a Cmd+C result is an editor's whole-line copy of an empty selection.
+    static func isLineCopy(_ text: String, fromEmptySelection: Bool, bundleId: String?) -> Bool {
+        if fromEmptySelection { return true }
+        guard let bundleId, lineCopyingEditors.contains(where: bundleId.hasPrefix) else { return false }
+        return text.hasSuffix("\n") && !text.dropLast().contains("\n")
+    }
+
+    /// Editors whose Cmd+C with no selection copies the current line.
+    static let lineCopyingEditors = [
+        "com.microsoft.VSCode", "com.todesktop.230313mzl4w4u92", "com.vscodium", "com.sublimetext", "com.jetbrains.", "com.google.android.studio",
+    ]
 
     /// Cmd+C, wait up to 400 ms for the clipboard to change, read it, restore it. Nil if nothing was
     /// copied (no selection, or the app ignores Cmd+C).
     @MainActor
-    static func copySelection(board: SystemPasteboard) async -> String? {
+    static func copySelection(board: SystemPasteboard) async -> (text: String, fromEmptySelection: Bool)? {
         guard AXIsProcessTrusted() else { return nil }
         let saved = board.snapshot()
         let source = CGEventSource(stateID: .combinedSessionState)
@@ -38,8 +53,10 @@ public enum SelectionReader {
             try? await Task.sleep(for: .milliseconds(20))
             if board.changeCount != saved.changeCount {
                 let text = board.string()
+                let vscode = NSPasteboard.general.string(forType: NSPasteboard.PasteboardType("vscode-editor-data")) ?? ""
                 board.restore(saved)
-                return text
+                guard let text else { return nil }
+                return (text, vscode.contains("\"isFromEmptySelection\":true"))
             }
         }
         return nil

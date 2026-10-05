@@ -229,3 +229,14 @@ struct SmartSpacingTests {
         #expect(SmartSpacing.adjust("", before: "a") == "")
     }
 }
+
+@Suite("Selection reader")
+struct SelectionReaderTests {
+    @Test func editorLineCopiesCountAsNoSelection() {
+        #expect(SelectionReader.isLineCopy("let x = 1\n", fromEmptySelection: false, bundleId: "com.sublimetext.4"))
+        #expect(SelectionReader.isLineCopy("anything", fromEmptySelection: true, bundleId: "com.microsoft.VSCode"))
+        #expect(!SelectionReader.isLineCopy("let x = 1\nlet y = 2\n", fromEmptySelection: false, bundleId: "com.jetbrains.intellij"))
+        #expect(!SelectionReader.isLineCopy("Selected words", fromEmptySelection: false, bundleId: "com.microsoft.VSCode"))
+        #expect(!SelectionReader.isLineCopy("A whole line\n", fromEmptySelection: false, bundleId: "com.apple.Notes"))
+    }
+}
