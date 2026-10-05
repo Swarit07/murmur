@@ -4,19 +4,6 @@ import Combine
 import MurmurKit
 import SwiftUI
 
-/// Plays Murmur's own generated sounds (Scripts/make-sounds.swift).
-final class Sounds: SoundPlaying {
-    @MainActor private static var cache: [UISound: NSSound] = [:]
-
-    @MainActor func play(_ sound: UISound) {
-        if Self.cache[sound] == nil, let url = Bundle.main.url(forResource: sound.rawValue, withExtension: "wav") {
-            Self.cache[sound] = NSSound(contentsOf: url, byReference: true)
-        }
-        Self.cache[sound]?.stop()
-        Self.cache[sound]?.play()
-    }
-}
-
 /// Opens one window per kind and brings it forward when asked again.
 @MainActor
 final class WindowManager {
@@ -45,6 +32,10 @@ final class WindowManager {
 
     func showSettings(settings: AppSettings) {
         show("settings", title: "Murmur Settings", size: NSSize(width: 520, height: 520)) { SettingsView(settings: settings) }
+    }
+
+    func showTokens() {
+        show("tokens", title: "Flow Bar Tokens", size: NSSize(width: 460, height: 620)) { TokenPanel() }
     }
 
     func showPermissions(onChange: @escaping () -> Void) {
@@ -121,6 +112,8 @@ struct SettingsView: View {
     @State private var sounds = AppSettings.shared.soundsEnabled
     @State private var showInDock = AppSettings.shared.showInDock
     @State private var keepAudio = AppSettings.shared.keepAudio
+    @State private var showFlowBar = AppSettings.shared.showFlowBar
+    @State private var debugMenu = AppSettings.shared.debugMenu
     @State private var groqKey = ""
     @State private var groqSaved = Keychain.get("groq") != nil
 
@@ -157,9 +150,11 @@ struct SettingsView: View {
                 .onChange(of: level) { settings.cleanupLevel = level }
             }
             Section("App") {
+                Toggle("Show Flow Bar at all times", isOn: $showFlowBar).onChange(of: showFlowBar) { settings.showFlowBar = showFlowBar }
                 Toggle("Sounds", isOn: $sounds).onChange(of: sounds) { settings.soundsEnabled = sounds }
                 Toggle("Show in Dock", isOn: $showInDock).onChange(of: showInDock) { settings.showInDock = showInDock }
                 Toggle("Keep audio for 14 days (for Retry)", isOn: $keepAudio).onChange(of: keepAudio) { settings.keepAudio = keepAudio }
+                Toggle("Debug menu", isOn: $debugMenu).onChange(of: debugMenu) { settings.debugMenu = debugMenu }
             }
             Section("Cloud (optional)") {
                 HStack {

@@ -14,8 +14,6 @@ targets:
     platform: macOS
     sources:
       - path: Sources
-      - path: Resources
-        buildPhase: resources
     dependencies:
       - package: murmur
         product: MurmurKit

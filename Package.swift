@@ -61,7 +61,7 @@ let package = Package(
         // App-level orchestration the menu-bar app links: the dictation controller and its wiring.
         .target(
             name: "MurmurKit",
-            dependencies: ["Core", "Hotkey", "Audio", "SpeechEngines", "Cleanup", "Context", "Insertion", "Store", "Pipeline"],
+            dependencies: ["Core", "Hotkey", "Audio", "SpeechEngines", "Cleanup", "Context", "Insertion", "Store", "Pipeline", "UI"],
             swiftSettings: strict
         ),
         .executableTarget(

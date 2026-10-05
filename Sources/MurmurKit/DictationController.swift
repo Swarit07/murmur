@@ -25,13 +25,39 @@ public struct DictationStatus: Equatable, Sendable {
         case idle
         case recording(handsFree: Bool)
         case processing
+        /// The paste just went out. The Flow Bar shows a brief confirmation.
+        case inserted
         case error
+    }
+
+    public enum NoticeKind: String, Equatable, Sendable {
+        case pasteError, transcriptionError, noTextBox, cancelled, info
+    }
+
+    public struct Notice: Equatable, Sendable {
+        public var kind: NoticeKind
+        public var message: String
     }
 
     public var phase: Phase
     /// A notice for the menu: an error, a cancelled dictation, a permission problem.
     public var message: String?
     public var lastTranscript: String?
+    /// The same notice, typed, for the Flow Bar's buttons (Retry, Undo, Dismiss).
+    public var notice: Notice?
+}
+
+/// Hands microphone levels from the audio thread to the main actor.
+final class LevelRelay: @unchecked Sendable {
+    private let lock = NSLock()
+    private var handler: (@MainActor (Float) -> Void)?
+
+    func set(_ handler: (@MainActor (Float) -> Void)?) { lock.withLock { self.handler = handler } }
+
+    func send(_ level: Float) {
+        guard let handler = lock.withLock({ self.handler }) else { return }
+        DispatchQueue.main.async { MainActor.assumeIsolated { handler(level) } }
+    }
 }
 
 /// Key events in, text out. Owns the recorder, engines, History and insertion, and drives the Core
@@ -40,6 +66,10 @@ public struct DictationStatus: Equatable, Sendable {
 @MainActor
 public final class DictationController {
     public var onStatus: ((DictationStatus) -> Void)?
+    /// Microphone level in dBFS while recording, for the Flow Bar waveform.
+    public var onLevel: (@MainActor (Float) -> Void)? {
+        didSet { levels.set(onLevel) }
+    }
     public private(set) var status = DictationStatus(phase: .loading) {
         didSet { if status != oldValue { onStatus?(status) } }
     }
@@ -47,7 +77,8 @@ public final class DictationController {
     let settings: AppSettings
     let store: HistoryStore
     let sounds: SoundPlaying?
-    let recorder = AudioRecorder()
+    let levels = LevelRelay()
+    let recorder: AudioRecorder
     let gate = EnergySpeechGate()
     let insertion = InsertionTransaction(requireEditable: false)
     let state = DictationStateHolder()
@@ -71,11 +102,17 @@ public final class DictationController {
 
     var session: Session?
     var processing: Task<Void, Never>?
+    /// The last cancelled or failed dictation's audio, for Undo and Retry on the Flow Bar.
+    var lastCancelled: (session: Session, samples: [Float], recordId: String?)?
+    var lastFailed: (session: Session, samples: [Float], recordId: String)?
+    /// Audio of the dictation being processed, so a cancel during processing can still be undone.
+    var processingSamples: [Float]?
 
     public init(settings: AppSettings = .shared, store: HistoryStore, sounds: SoundPlaying?) {
         self.settings = settings
         self.store = store
         self.sounds = sounds
+        recorder = AudioRecorder(onLevel: { [levels] level in levels.send(level) })
         recognizer = HotkeyRecognizer(configuration: settings.keyboardLayout == "other" ? .otherKeyboard : .appleKeyboard)
         recorder.setDevice(uid: settings.microphoneUID)
     }
@@ -218,7 +255,7 @@ public final class DictationController {
             return
         }
         session = Session(mode: mode, keyDownAt: keyDownAt, startedAt: Date(), focus: focus)
-        status = DictationStatus(phase: .recording(handsFree: mode == .handsFree), message: nil, lastTranscript: status.lastTranscript)
+        status = DictationStatus(phase: .recording(handsFree: mode == .handsFree), message: nil, lastTranscript: status.lastTranscript, notice: nil)
         Signposts.transition(from: "key-down", to: "recording (\(Format.ms(Clock.ms(since: keyDownAt))))")
         if settings.soundsEnabled { sounds?.play(.start) }
     }
@@ -239,6 +276,7 @@ public final class DictationController {
         let firstAudioMs = recorder.firstAudioMs
         if settings.soundsEnabled { sounds?.play(.stop) }
         status.phase = .processing
+        processingSamples = samples
         processing = Task { [weak self] in
             await self?.process(session, samples: samples, releasedAt: releasedAt, flushMs: flushMs, firstAudioMs: firstAudioMs)
         }
@@ -286,8 +324,9 @@ public final class DictationController {
             guard isCurrent(token) else { return }
             _ = try? store.update(id: id) { $0.status = .transcriptionFailed; $0.errorCode = String(describing: error) }
             state.send(.transcriptionFailed)
+            lastFailed = (started, samples, id)
             endSession(.dismiss)
-            fail("Transcription failed. The audio is saved in History.")
+            fail("Transcription failed. The audio is saved in History.", kind: .transcriptionError)
             return
         }
         guard isCurrent(token) else { return }
@@ -328,7 +367,7 @@ public final class DictationController {
             state.send(.inserted)
             session = nil
             processing = nil
-            status.phase = .idle
+            status.phase = .inserted
             if firstAudioMs != nil { Signposts.transition(from: "released", to: "inserted \(timings.summary)") }
         case .failed(let failure):
             let kind: DictationErrorKind = failure == .noTextBox ? .noTextBox : .pasteFailed
@@ -339,7 +378,7 @@ public final class DictationController {
             }
             state.send(.insertionFailed(kind, text: outcome.text))
             endSession(.dismiss)
-            fail(Self.message(for: failure, app: started.focus.appName))
+            fail(Self.message(for: failure, app: started.focus.appName), kind: kind == .noTextBox ? .noTextBox : .pasteError)
         }
     }
 
@@ -359,32 +398,41 @@ public final class DictationController {
         if status.phase != .error { status.phase = .idle }
     }
 
-    func fail(_ message: String) {
+    func fail(_ message: String, kind: DictationStatus.NoticeKind = .info) {
         status.phase = .error
         status.message = message
+        status.notice = DictationStatus.Notice(kind: kind, message: message)
         if settings.soundsEnabled { sounds?.play(.error) }
     }
 
-    /// Esc: stop recording or processing and insert nothing; the History entry stays (D3).
+    /// Esc: stop recording or processing and insert nothing; the History entry stays (D3). The audio is
+    /// kept in memory so Undo on the Flow Bar can still insert it.
     func cancel() {
         guard let current = session else { return }
+        var samples: [Float] = []
+        var recordId: String?
         if recorder.isRunning {
-            let samples = recorder.stop()
+            samples = recorder.stop()
             let id = UUID().uuidString
+            recordId = id
             var audioPath: String?
             if settings.keepAudio, !samples.isEmpty {
                 let url = MurmurPaths.audio.appendingPathComponent("\(id).wav")
                 audioPath = url.path
-                Task.detached(priority: .utility) { try? WAV.write(samples, to: url) }
+                let copy = samples
+                Task.detached(priority: .utility) { try? WAV.write(copy, to: url) }
             }
-            try? store.insert(DictationRecord(
+            _ = try? store.insert(DictationRecord(
                 id: id, startedAt: current.startedAt, durationMs: Double(samples.count) / 16, appBundleId: current.focus.bundleId,
                 appName: current.focus.appName, mode: current.mode.rawValue, engine: engineId ?? "-", cleanup: cleanupId,
                 status: .cancelled, errorCode: "user", audioPath: audioPath
             ))
         } else if let id = current.recordId {
+            recordId = id
             _ = try? store.update(id: id) { $0.status = .cancelled; $0.errorCode = "user" }
+            samples = processingSamples ?? []
         }
+        lastCancelled = samples.isEmpty ? nil : (current, samples, recordId)
         processing?.cancel()
         processing = nil
         session = nil
@@ -393,10 +441,62 @@ public final class DictationController {
         recognizer.reset()
         status.phase = .idle
         status.message = "Cancelled. Nothing was inserted; the dictation is in History."
+        status.notice = DictationStatus.Notice(kind: .cancelled, message: "Cancelled")
+    }
+
+    /// Undo on the cancelled notice: insert the cancelled dictation after all.
+    public func undoCancel() {
+        guard let cancelled = lastCancelled else { return }
+        lastCancelled = nil
+        if let id = cancelled.recordId { _ = try? store.update(id: id) { $0.status = .cancelled; $0.errorCode = "undone" } }
+        reprocess(cancelled.samples, like: cancelled.session)
+    }
+
+    /// Retry on the transcription-error notice.
+    public func retryFailed() {
+        guard let failed = lastFailed else { return }
+        lastFailed = nil
+        _ = try? store.update(id: failed.recordId) { $0.errorCode = "retried" }
+        reprocess(failed.samples, like: failed.session)
+    }
+
+    /// Runs saved audio through the pipeline again, into the field that had focus originally.
+    func reprocess(_ samples: [Float], like original: Session) {
+        if case .error = state.state { state.send(.dismiss) }
+        guard state.state == .idle, state.send(.start(original.mode)) != nil else { return }
+        let session = Session(mode: original.mode, keyDownAt: Clock.now(), startedAt: Date(), focus: original.focus)
+        self.session = session
+        status.notice = nil
+        status.message = nil
+        status.phase = .processing
+        processingSamples = samples
+        processing = Task { [weak self] in
+            await self?.process(session, samples: samples, releasedAt: Clock.now(), flushMs: 0, firstAudioMs: nil)
+        }
+    }
+
+    /// Drops whatever is recording without a trace (the automated focus test uses this).
+    public func discardCurrent() {
+        discard()
+        recognizer.reset()
+    }
+
+    public var isRecording: Bool { recorder.isRunning }
+
+    /// The Flow Bar's stop button.
+    public func stopHandsFree() {
+        recognizer.reset()
+        finish()
+    }
+
+    /// The Flow Bar's X button and Esc.
+    public func cancelCurrent() {
+        cancel()
     }
 
     public func clearMessage() {
         status.message = nil
+        status.notice = nil
         if status.phase == .error { status.phase = engine == nil ? .loading : .idle }
     }
 

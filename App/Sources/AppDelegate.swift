@@ -27,6 +27,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var hotKeys: [GlobalHotKey] = []
     let windows = WindowManager()
     let sounds = Sounds()
+    var flowBar: FlowBarWiring!
+    var focusTest: FocusTest?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(settings.showInDock ? .regular : .accessory)
@@ -41,7 +43,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         controller = DictationController(settings: settings, store: store, sounds: sounds)
-        controller.onStatus = { [weak self] status in self?.render(status) }
+        flowBar = FlowBarWiring(app: self)
+        controller.onStatus = { [weak self] status in
+            self?.render(status)
+            self?.flowBar.render(status)
+        }
+        controller.onLevel = { [weak self] level in self?.flowBar.model.push(level: level) }
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.setAccessibilityLabel("Murmur")
@@ -90,7 +97,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let label: String
         switch status.phase {
         case .loading: symbol = "hourglass"; label = "Murmur: loading models"
-        case .idle: symbol = "waveform"; label = "Murmur"
+        case .idle, .inserted: symbol = "waveform"; label = "Murmur"
         case .recording(let handsFree): symbol = handsFree ? "waveform.badge.mic" : "waveform.circle.fill"; label = "Murmur: listening"
         case .processing: symbol = "ellipsis.circle"; label = "Murmur: processing"
         case .error: symbol = "exclamationmark.triangle"; label = "Murmur: needs attention"
@@ -119,10 +126,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         copy.keyEquivalentModifierMask = [.control, .command]
         menu.addItem(copy)
         menu.addItem(microphoneMenu())
+        if flowBar.model.hiddenUntil.map({ $0 > Date() }) ?? false {
+            menu.addItem(item("Show Flow Bar", #selector(showFlowBar)))
+        } else {
+            menu.addItem(item("Hide Flow Bar for 1 hour", #selector(hideFlowBar)))
+        }
         menu.addItem(.separator())
         menu.addItem(shortcutsMenu())
         menu.addItem(item("Settings…", #selector(showSettings), key: ","))
         menu.addItem(item("Check permissions…", #selector(showPermissions)))
+        if settings.debugMenu { menu.addItem(debugMenu()) }
         menu.addItem(.separator())
         let info = NSMenuItem(title: "\(controller.engineDescription) · \(controller.cleanupDescription)", action: nil, keyEquivalent: "")
         info.isEnabled = false
@@ -181,6 +194,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         sub.addItem(other)
         parent.submenu = sub
         return parent
+    }
+
+    func debugMenu() -> NSMenuItem {
+        let parent = NSMenuItem(title: "Debug", action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        let states = NSMenuItem(title: "Force Flow Bar state", action: nil, keyEquivalent: "")
+        let stateMenu = NSMenu()
+        for (index, state) in Self.forcibleStates.enumerated() {
+            let entry = item(state.name, #selector(forceState(_:)))
+            entry.tag = index
+            entry.state = flowBar.model.forced == state ? .on : .off
+            stateMenu.addItem(entry)
+        }
+        stateMenu.addItem(.separator())
+        stateMenu.addItem(item("Clear forced state", #selector(clearForcedState)))
+        states.submenu = stateMenu
+        sub.addItem(states)
+        sub.addItem(item("Token panel…", #selector(showTokens)))
+        sub.addItem(item("Run focus test (50 trials)", #selector(runFocusTest)))
+        sub.addItem(item("Open data folder", #selector(openDataFolder)))
+        parent.submenu = sub
+        return parent
+    }
+
+    static let forcibleStates: [FlowBarState] = [
+        .idle, .hidden, .listening(handsFree: false), .listening(handsFree: true), .processing, .inserted,
+        .notice(FlowBarNotice(kind: .pasteError, message: "Couldn't paste. The text is on the clipboard.")),
+        .notice(FlowBarNotice(kind: .transcriptionError, message: "Transcription failed.")),
+        .notice(FlowBarNotice(kind: .noTextBox, message: "No text box. Click one and press ⌃⌘V.")),
+        .notice(FlowBarNotice(kind: .cancelled, message: "Cancelled")),
+    ]
+
+    @objc func forceState(_ sender: NSMenuItem) { flowBar.model.forced = Self.forcibleStates[sender.tag] }
+    @objc func clearForcedState() { flowBar.model.forced = nil }
+    @objc func showTokens() { windows.showTokens() }
+    @objc func hideFlowBar() { flowBar.bar.hide(for: 3600) }
+    @objc func showFlowBar() { flowBar.bar.unhide() }
+    @objc func openDataFolder() { NSWorkspace.shared.open(MurmurPaths.appSupport) }
+
+    @objc func runFocusTest() {
+        if focusTest == nil { focusTest = FocusTest(bar: flowBar.bar, controller: controller) }
+        focusTest?.run { [weak self] message in
+            self?.flowBar.model.forced = .notice(FlowBarNotice(kind: .info, message: message))
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(message.hasPrefix("Focus test starts") ? 4.5 : 8))
+                if case .notice(let n)? = self?.flowBar.model.forced, n.message == message { self?.flowBar.model.forced = nil }
+            }
+        }
     }
 
     // MARK: Actions

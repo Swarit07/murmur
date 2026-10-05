@@ -63,3 +63,17 @@ Newest last. Each entry: date, decision, reason.
 - **Sounds are generated tones** (`Scripts/make-sounds.swift`), placeholders until Milestone 2 tokens.
 - **Groq keys come from the Keychain** in the app (`Keychain` service `com.swaritsheel.Murmur`, account `groq`), the environment in the CLI.
 - **2026-10-05 · The owner moved the M1 gate.** Milestone 2 starts now, and the owner keeps using Murmur day to day instead of a dedicated test day. Crashes and lost dictations found that way are fixed as they come up, and Claude checks History (`Scripts/m1-day-report.sh`) along the way instead of asking for a formal report. Two crashes found in the first 10 minutes of use (an empty audio-engine prepare, and paste off the main thread) were fixed before this decision.
+
+## 2026-10-05 · Milestone 2 (Flow Bar)
+
+- **No measurements of the reference app yet, so every visual value is a placeholder** in `Sources/UI/Tokens.swift` (geometry, colors for light and dark, material, motion, type, sound). The design is original: a capsule with a level-driven waveform, a three-dot processing loop and notice cards.
+- **Tokens are live.** `LiveTokens` starts from `Tokens.defaults`, can be edited from Debug › Token panel, persists overrides in UserDefaults, and "Copy as Swift" prints the current values for pasting back into `Tokens.swift`.
+- **Sounds are synthesized at runtime from the sound tokens** (pitch, length, volume), so tuning is heard on the next dictation. The bundled WAVs and `Scripts/make-sounds.swift` are gone.
+- **The panel can never become key or main** (`canBecomeKey`/`canBecomeMain` false, `.nonactivatingPanel`), sits one level above the Dock, and joins all Spaces including full-screen (`.canJoinAllSpaces`, `.fullScreenAuxiliary`, `.stationary`).
+- **Only the bar's rectangle takes mouse events.** The panel is a fixed canvas big enough for the largest state; global and local mouse-moved monitors switch `ignoresMouseEvents` on whether the pointer is over the bar. Mouse monitors need no permission.
+- **Placement:** bottom center of the visible frame of the screen holding the focused window (read through Accessibility at each dictation start), plus `bottomMargin`; a visible frame reaching the screen bottom (full screen, auto-hidden or side Dock) adds `fullScreenLift`. The multi-display rule is still to be confirmed from a recording, as the spec says.
+- **Drag moves the bar anywhere;** the offset persists, and "Reset Flow Bar position" in the right-click menu clears it.
+- **Hide for 1 hour (A6)** is in the right-click and menu-bar menus. Its Undo is "Show Flow Bar" in the menu-bar menu rather than a toast, since the bar itself is hidden.
+- **Undo on the cancelled toast inserts the cancelled dictation after all;** Retry on a transcription error re-runs it. Both keep the audio in memory, re-run the pipeline, and paste into the field that had focus originally.
+- **Focus test for the gate** (Debug › Run focus test): 50 synthetic clicks on the bar while a text field elsewhere has focus. After each click it checks that the same app and element have focus and that Murmur never became active, then writes a log to the data folder.
+- **Reduce Motion (A8, Milestone 4) is honoured already** in the bar: springs become fades and the processing loop holds still.

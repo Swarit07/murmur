@@ -13,7 +13,7 @@ public final class AppSettings: @unchecked Sendable {
     }
 
     enum Key: String {
-        case engine, cleanupProvider, cleanupLevel, keyboardLayout, showInDock, soundsEnabled, microphoneUID, keepAudio
+        case engine, cleanupProvider, cleanupLevel, keyboardLayout, showInDock, soundsEnabled, microphoneUID, keepAudio, showFlowBar, debugMenu
     }
 
     private func string(_ key: Key, _ fallback: String) -> String { defaults.string(forKey: key.rawValue) ?? fallback }
@@ -61,6 +61,18 @@ public final class AppSettings: @unchecked Sendable {
     public var microphoneUID: String? {
         get { defaults.string(forKey: Key.microphoneUID.rawValue) }
         set { set(newValue, .microphoneUID) }
+    }
+
+    /// Show the idle Flow Bar at all times (A5, System). Off: it appears only while dictating.
+    public var showFlowBar: Bool {
+        get { defaults.object(forKey: Key.showFlowBar.rawValue) as? Bool ?? true }
+        set { set(newValue, .showFlowBar) }
+    }
+
+    /// Shows the Debug submenu (force Flow Bar states, token panel, focus test).
+    public var debugMenu: Bool {
+        get { defaults.object(forKey: Key.debugMenu.rawValue) as? Bool ?? true }
+        set { set(newValue, .debugMenu) }
     }
 
     /// Keep audio files for Retry and Recover (A4 shows them for 14 days).
