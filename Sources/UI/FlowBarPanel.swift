@@ -29,6 +29,12 @@ final class FlowBarPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
+/// A hosting view that takes the first click even though its panel is never key, so a click on the bar
+/// starts hands-free on the first press (D2) instead of being swallowed.
+final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+}
+
 /// Places the panel, keeps it on the right screen, passes clicks through everywhere except the bar,
 /// lets the bar be dragged, and hides it for an hour on request.
 @MainActor
@@ -52,7 +58,7 @@ public final class FlowBarController {
 
     public init(model: FlowBarModel) {
         self.model = model
-        let host = NSHostingView(rootView: FlowBarView(model: model).gesture(dragGesture))
+        let host = FirstMouseHostingView(rootView: FlowBarView(model: model).gesture(dragGesture))
         host.sizingOptions = []
         panel.contentView = host
         panel.ignoresMouseEvents = true
@@ -217,4 +223,8 @@ public final class FlowBarController {
 
     /// The bar's center in screen coordinates, for the automated focus test.
     public var barCenter: NSPoint { NSPoint(x: barRect.midX, y: barRect.midY) }
+
+    /// Re-evaluates click-through now (the test moves the pointer, then clicks without waiting for the
+    /// mouse-moved monitor).
+    public func refreshMouseHandling() { updateMouseHandling() }
 }

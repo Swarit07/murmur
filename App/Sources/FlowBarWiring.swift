@@ -247,20 +247,31 @@ final class FocusTest {
         self.controller = controller
     }
 
-    func run(trials: Int = 50, report: @escaping (String) -> Void) {
+    func run(trials: Int = 50, delay: Double = 5, report: @escaping (String) -> Void) {
         guard !running else { return }
         running = true
         Task {
-            report("Focus test starts in 5 seconds: click into a text field (TextEdit or Notes) and leave the mouse alone.")
-            try? await Task.sleep(for: .seconds(5))
+            report("Focus test starts in \(Int(delay)) seconds: click into a text field (TextEdit or Notes) and leave the mouse alone.")
+            try? await Task.sleep(for: .seconds(delay))
             let original = NSEvent.mouseLocation
+            // Fifty start sounds would be noise; the test is about focus.
+            let soundsWere = AppSettings.shared.soundsEnabled
+            AppSettings.shared.soundsEnabled = false
+            defer { AppSettings.shared.soundsEnabled = soundsWere }
+            let target = FocusContext.snapshot()
             var failures: [String] = []
+            var started = 0
             for trial in 1...trials {
                 let before = FocusContext.snapshot()
-                click(at: bar.barCenter)
+                let point = bar.barCenter
+                move(to: point)
+                try? await Task.sleep(for: .milliseconds(60))
+                bar.refreshMouseHandling()
+                click(at: point)
                 try? await Task.sleep(for: .milliseconds(350))
                 let during = FocusContext.snapshot()
                 let murmurActive = NSApp.isActive
+                if controller.isRecording { started += 1 }
                 controller.discardCurrent()
                 try? await Task.sleep(for: .milliseconds(200))
                 let after = FocusContext.snapshot()
@@ -268,21 +279,25 @@ final class FocusTest {
                     failures.append("trial \(trial): before \(before.description), during \(during.description), after \(after.description)\(murmurActive ? ", Murmur became active" : "")")
                 }
             }
-            CGWarpMouseCursorPosition(CGPoint(x: original.x, y: (NSScreen.screens.first?.frame.height ?? 0) - original.y))
+            move(to: original)
             running = false
-            let line = "Focus test: \(trials - failures.count)/\(trials) kept focus."
-            let log = ([line] + failures).joined(separator: "\n")
+            let line = "Focus test: \(trials - failures.count)/\(trials) kept focus in \(target.appName ?? "?"); \(started)/\(trials) clicks started hands-free."
+            let log = ([line, "target: \(target.description)"] + failures).joined(separator: "\n")
             let url = MurmurPaths.appSupport.appendingPathComponent("focus-test-\(Int(Date().timeIntervalSince1970)).txt")
             try? log.write(to: url, atomically: true, encoding: .utf8)
             report(failures.isEmpty ? "\(line) Pass." : "\(line) Details: \(url.path)")
         }
     }
 
+    func move(to point: NSPoint) {
+        let flipped = CGPoint(x: point.x, y: (NSScreen.screens.first?.frame.height ?? 0) - point.y)
+        CGEvent(mouseEventSource: CGEventSource(stateID: .hidSystemState), mouseType: .mouseMoved, mouseCursorPosition: flipped, mouseButton: .left)?.post(tap: .cghidEventTap)
+    }
+
     /// A left click at a screen point (AppKit coordinates).
     func click(at point: NSPoint) {
         let flipped = CGPoint(x: point.x, y: (NSScreen.screens.first?.frame.height ?? 0) - point.y)
         let source = CGEventSource(stateID: .hidSystemState)
-        CGEvent(mouseEventSource: source, mouseType: .mouseMoved, mouseCursorPosition: flipped, mouseButton: .left)?.post(tap: .cghidEventTap)
         CGEvent(mouseEventSource: source, mouseType: .leftMouseDown, mouseCursorPosition: flipped, mouseButton: .left)?.post(tap: .cghidEventTap)
         CGEvent(mouseEventSource: source, mouseType: .leftMouseUp, mouseCursorPosition: flipped, mouseButton: .left)?.post(tap: .cghidEventTap)
     }

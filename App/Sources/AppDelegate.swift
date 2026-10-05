@@ -75,6 +75,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
 
+        // Lets a script start the focus test (Debug menu must be on): the gate can run hands-off.
+        DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.swaritsheel.Murmur.debug.runFocusTest"), object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated {
+                guard let app = Self.shared, app.settings.debugMenu else { return }
+                app.runFocusTest(delay: 2)
+            }
+        }
+
         AVCaptureDevice.requestAccess(for: .audio) { _ in }
         controller.start()
         if !Permissions.accessibility || !Permissions.inputMonitoring {
@@ -221,7 +229,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         soundsItem.submenu = soundsMenu
         sub.addItem(soundsItem)
-        sub.addItem(item("Run focus test (50 trials)", #selector(runFocusTest)))
+        sub.addItem(item("Run focus test (50 trials)", #selector(runFocusTestFromMenu)))
         sub.addItem(item("Open data folder", #selector(openDataFolder)))
         parent.submenu = sub
         return parent
@@ -245,9 +253,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func showFlowBar() { flowBar.bar.unhide() }
     @objc func openDataFolder() { NSWorkspace.shared.open(MurmurPaths.appSupport) }
 
-    @objc func runFocusTest() {
+    @objc func runFocusTestFromMenu() { runFocusTest(delay: 5) }
+
+    func runFocusTest(delay: Double) {
         if focusTest == nil { focusTest = FocusTest(bar: flowBar.bar, controller: controller) }
-        focusTest?.run { [weak self] message in
+        focusTest?.run(delay: delay) { [weak self] message in
             self?.flowBar.model.forced = .notice(FlowBarNotice(kind: .info, message: message))
             Task { @MainActor in
                 try? await Task.sleep(for: .seconds(message.hasPrefix("Focus test starts") ? 4.5 : 8))
