@@ -31,10 +31,10 @@ Every placeholder is resolved at runtime; none ships as literal text.
 | Onboarding window size | 400 × 560 content, fixed. Long copy shrinks the illustration well (200 → at least 160) rather than the footer. | Confirm |
 | Hub dark theme | Derived from the Components board's dark tokens (the `dark.*` rows below). Review `Artifacts/ui/after/dark/`. | Review the dark snapshots |
 | Display serif | Newsreader: opsz 16 cut for text, opsz 36 "Display" cut for 26 pt and up | Confirm |
-| "We couldn't hear you" card | Built and in the gallery, but not shown after a silent recording; silent recordings still show "Audio was silent" in History | Wire it or not (see `docs/ui-todo.md`) |
-| v2 timings vs SPEC §6's table | The v2 motion tokens | Confirm (see `docs/ui-todo.md`) |
-| Menu "Shortcuts" | A submenu, not the board's "Shortcuts…" item. It holds the keyboard preset (fn vs ⌃⌥), which exists nowhere else. | Keep the submenu, or move the preset into Settings |
-| Paste and Copy last shortcuts | ⌃⌘V and ⌃⌘C (SPEC I7), not the board's ⌃⌥V and ⌃⌥C. Shortcuts were left as they are. | Confirm |
+| "We couldn't hear you" card | Wired: shows after a recording of 1 s or more with no speech | **Decided 2026-10-05: wire it** |
+| v2 timings vs SPEC §6's table | The v2 motion tokens | **Decided 2026-10-05: keep v2** |
+| Menu "Shortcuts" | A submenu, not the board's "Shortcuts…" item. It holds the keyboard preset (fn vs ⌃⌥). | **Decided 2026-10-05: keep the submenu** |
+| Paste and Copy last shortcuts | ⌃⌘V and ⌃⌘C (SPEC I7), not the board's ⌃⌥V and ⌃⌥C | **Decided 2026-10-05: keep ⌃⌘** |
 
 ## Tokens marked `// MEASURE`
 

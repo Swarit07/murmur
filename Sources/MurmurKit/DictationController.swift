@@ -36,7 +36,7 @@ public struct DictationStatus: Equatable, Sendable {
     }
 
     public enum NoticeKind: String, Equatable, Sendable {
-        case pasteError, transcriptionError, noTextBox, cancelled, info, micError, flowBarHidden, suggestion
+        case pasteError, transcriptionError, noTextBox, cancelled, info, micError, flowBarHidden, suggestion, noAudio
     }
 
     public struct Notice: Equatable, Sendable {
@@ -458,7 +458,10 @@ public final class DictationController {
         let audioMs = Double(samples.count) / AudioFormat.sampleRate * 1000
 
         guard await gate.hasSpeech(samples), isCurrent(token) else {
-            if isCurrent(token) { endSession(.discard) }
+            if isCurrent(token) {
+                endSession(.discard)
+                noAudio(after: audioMs)
+            }
             return
         }
         guard state.send(.stop) != nil, let engine else { return }
@@ -504,6 +507,7 @@ public final class DictationController {
         guard !trimmed.isEmpty else {
             _ = try? history.update(id: id) { $0.status = .cancelled; $0.errorCode = "empty" }
             endSession(.discard)
+            noAudio(after: audioMs)
             return
         }
         state.send(.transcribed(trimmed))
@@ -931,6 +935,17 @@ public final class DictationController {
     }
 
     /// An informational notice on the Flow Bar and in the menu (permissions lost, and so on).
+    /// Recordings at least this long that hold no speech show the no-audio card.
+    static let noAudioMinimumMs: Double = 1000
+
+    /// A real recording with no speech in it (the speech gate found none, or it transcribed to nothing)
+    /// gets the "We couldn't hear you" card with Switch microphone and Test mic; a short tap stays quiet.
+    /// Nothing is inserted either way.
+    func noAudio(after audioMs: Double) {
+        guard audioMs >= Self.noAudioMinimumMs else { return }
+        notice("We couldn't hear you. No speech from \(recorder.deviceName).", kind: .noAudio)
+    }
+
     public func notice(_ message: String, kind: DictationStatus.NoticeKind = .info) {
         status.message = message
         status.notice = DictationStatus.Notice(kind: kind, message: message)

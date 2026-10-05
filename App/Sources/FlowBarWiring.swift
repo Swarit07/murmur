@@ -118,6 +118,7 @@ final class FlowBarWiring {
         case .micError: .micError
         case .flowBarHidden: .hidden
         case .suggestion: .suggestion
+        case .noAudio: .noAudio
         }
         return FlowBarNotice(kind: kind, message: n.message)
     }

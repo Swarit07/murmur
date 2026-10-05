@@ -9,15 +9,9 @@ Things the redesign has not finished yet, kept current milestone by milestone.
   - From the Hub and Flow Bar boards: search, bell, copy, trash, edit, plus, chevrons (right, left, down, up/down), info, help, mail, chat, lines, code, note, mic-off, arrow-right.
 - **SF Symbols:** none left in shipped UI (U8). The menu bar status item uses `MenuBarGlyph` in all four states, and every Hub, onboarding and Flow Bar icon comes from `Icons.swift`. The only SF Symbols left are in the debug tools (Token panel, Design Gallery).
 
-## Owner decisions pending
+## Owner decisions (2026-10-05)
 
-- **No-audio card:** built and reachable from the debug menu and the gallery. The dictation controller has no silent-recording event; adding one changes dictation behavior.
-- **Flow Bar timings follow v2 where SPEC §6's state table differs:**
-  - paste error expires after 4 s (SPEC: until clicked);
-  - no text box stays until dismissed (SPEC: a countdown);
-  - cancelled lasts 5 s (SPEC: about 3 s);
-  - transcription error is sticky for 8 s with Retry (SPEC: Retry or dismiss).
-- **Menu bar dropdown, two departures from the board:**
-  - "Shortcuts" stays a submenu, not "Shortcuts…", because it holds the keyboard preset (fn vs ⌃⌥), which exists nowhere else.
-  - Paste and Copy last show the real ⌃⌘V and ⌃⌘C, not the board's ⌃⌥ (shortcuts were left as they are).
-  - Both are listed in `docs/ui-calibration.md`.
+- **No-audio card: wired.** A recording of 1 s or longer with no speech shows "We couldn't hear you · No speech from *mic*" with Switch microphone and Test mic. That covers both the speech gate finding nothing and a transcription that comes back empty. Shorter taps stay quiet, and nothing is inserted either way.
+- **Flow Bar timings: the board's v2 values stay.** A paste error fades after 4 s, "No text box" stays until dismissed, Cancelled lasts 5 s, and a transcription error stays 8 s with Retry. SPEC §6's table is superseded for these four.
+- **Menu "Shortcuts": stays a submenu.** It holds the fn vs ⌃⌥ keyboard choice.
+- **Paste and Copy last: stay ⌃⌘V and ⌃⌘C.**
