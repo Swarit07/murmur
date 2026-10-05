@@ -115,10 +115,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 app.runSelfTest()
             }
         }
-        DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.swaritsheel.Murmur.debug.appMatrix"), object: nil, queue: .main) { _ in
+        // Object: optional comma-separated app names to run ("Safari,Chrome"); all when empty.
+        DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.swaritsheel.Murmur.debug.appMatrix"), object: nil, queue: .main) { note in
+            let only = (note.object as? String).map { Set($0.split(separator: ",").map { String($0) }) } ?? []
             MainActor.assumeIsolated {
                 guard let app = Self.shared, app.settings.debugMenu else { return }
-                app.runAppMatrix()
+                app.runAppMatrix(only: only)
             }
         }
         DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.swaritsheel.Murmur.debug.runFocusTest"), object: nil, queue: .main) { _ in
@@ -505,11 +507,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func runAppMatrixFromMenu() { runAppMatrix() }
 
     /// Runs `AppMatrix` once (hands off the keyboard and mouse); the report is in the data folder.
-    func runAppMatrix() {
+    func runAppMatrix(only: Set<String> = []) {
         guard !appMatrixRunning, !selfTestRunning else { return }
         appMatrixRunning = true
         Task { @MainActor in
-            let summary = await AppMatrix(controller: controller, store: store).run()
+            let matrix = AppMatrix(controller: controller, store: store)
+            matrix.only = only
+            let summary = await matrix.run()
             appMatrixRunning = false
             controller.notice(summary + ". Report: Murmur data folder › selftest › app-matrix.txt.")
         }

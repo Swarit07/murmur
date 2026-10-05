@@ -9,6 +9,9 @@ import MurmurKit
 /// text lands complete, one Undo removes it, the clipboard is restored, focus is unchanged. ("Paste last
 /// after a forced failure" is in the self-test.)
 ///
+/// Targets: TextEdit, Safari, Chrome, Firefox, Terminal, Ghostty. VS Code and Cursor stay manual: their
+/// editors don't expose text to Accessibility reliably, and Cursor may open its Agents window instead.
+///
 /// Safety: it only types into targets it made itself (an empty scratch file, a local test page with a
 /// labelled field, a new terminal window in its own folder) and confirms before every dictation that
 /// the target is frontmost and its field has focus; otherwise that app is skipped, never typed into.
@@ -30,17 +33,16 @@ final class AppMatrix {
         let name: String
         let bundleId: String
         let kind: Kind
-        /// Electron apps expose their text to Accessibility only when asked to.
-        var electron = false
+        /// Chromium apps expose their fields to Accessibility only while an assistive mode is on; the run
+        /// turns it on for the test and back off afterwards.
+        var chromium = false
     }
 
     static let targets: [Target] = [
         Target(name: "TextEdit", bundleId: "com.apple.TextEdit", kind: .document),
         Target(name: "Safari", bundleId: "com.apple.Safari", kind: .webPage),
-        Target(name: "Chrome", bundleId: "com.google.Chrome", kind: .webPage, electron: true),
+        Target(name: "Chrome", bundleId: "com.google.Chrome", kind: .webPage, chromium: true),
         Target(name: "Firefox", bundleId: "org.mozilla.firefox", kind: .webPage),
-        Target(name: "VS Code", bundleId: "com.microsoft.VSCode", kind: .document, electron: true),
-        Target(name: "Cursor", bundleId: "com.todesktop.230313mzl4w4u92", kind: .document, electron: true),
         Target(name: "Terminal", bundleId: "com.apple.Terminal", kind: .terminal),
         Target(name: "Ghostty", bundleId: "com.mitchellh.ghostty", kind: .terminal),
     ]
@@ -49,6 +51,11 @@ final class AppMatrix {
         self.controller = controller
         self.store = store
     }
+
+    /// Names of the targets to run (all when empty).
+    var only: Set<String> = []
+    /// What the last focus check saw, for a skipped app's report line.
+    private var lastSeen = ""
 
     func run() async -> String {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -62,7 +69,7 @@ final class AppMatrix {
         var names: Set<String> = []
         var tested = 0
 
-        for target in Self.targets {
+        for target in Self.targets where only.isEmpty || only.contains(target.name) {
             guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: target.bundleId) else {
                 lines.append("SKIP \(target.name): not installed")
                 continue
@@ -71,7 +78,8 @@ final class AppMatrix {
             NSPasteboard.general.setString(sentinel, forType: .string)
             let wasRunning = !NSRunningApplication.runningApplications(withBundleIdentifier: target.bundleId).isEmpty
             guard let opened = await open(target, appURL: appURL) else {
-                lines.append("SKIP \(target.name): the test target didn't get keyboard focus, so nothing was typed")
+                await cleanUpSkipped(target, quit: !wasRunning)
+                lines.append("SKIP \(target.name): the test target didn't get keyboard focus, so nothing was typed (saw \(lastSeen))")
                 continue
             }
             names.insert(opened.app.localizedName ?? target.name)
@@ -79,7 +87,8 @@ final class AppMatrix {
             let failures = await check(target, opened, clip: clip, sentinel: sentinel)
             await close(target, opened, quit: !wasRunning)
             if failures.isEmpty { passed += 1 }
-            lines.append(failures.isEmpty ? "PASS \(target.name): text complete, one Undo removes it, clipboard restored, focus unchanged"
+            let undo = target.kind == .terminal ? "line cleared with Control-U (shells have no Undo)" : "one Undo removes it"
+            lines.append(failures.isEmpty ? "PASS \(target.name): text complete, \(undo), clipboard restored, focus unchanged"
                                            : "FAIL \(target.name): \(failures.joined(separator: "; "))")
         }
 
@@ -119,7 +128,8 @@ final class AppMatrix {
             url = dir.appendingPathComponent("murmur-matrix.html")
             let page = """
             <!doctype html><meta charset="utf-8"><title>Murmur matrix</title>
-            <textarea aria-label="\(Self.fieldLabel)" autofocus rows="8" cols="60"></textarea>
+            <textarea aria-label="\(Self.fieldLabel)" placeholder="\(Self.fieldLabel)" autofocus rows="8" cols="60"></textarea>
+            <script>setTimeout(() => document.querySelector("textarea").focus(), 300)</script>
             """
             try? page.write(to: url, atomically: true, encoding: .utf8)
         case .terminal:
@@ -130,12 +140,18 @@ final class AppMatrix {
         config.activates = true
         guard let app = try? await NSWorkspace.shared.open([url], withApplicationAt: appURL, configuration: config) else { return nil }
         let element = AXUIElementCreateApplication(app.processIdentifier)
-        if target.electron { AXUIElementSetAttributeValue(element, "AXManualAccessibility" as CFString, kCFBooleanTrue) }
-        for _ in 0..<100 {
+        if target.chromium { Self.assistiveMode(element, on: true) }
+        lastSeen = "nothing focused"
+        for attempt in 0..<100 {
             try? await Task.sleep(for: .milliseconds(100))
             if !app.isActive { app.activate() }
-            if let field = SelfTest.focused(pid: app.processIdentifier), isOurs(field, target) {
-                return Opened(app: app, field: field, window: window(of: field))
+            if let field = SelfTest.focused(pid: app.processIdentifier) {
+                if isOurs(field, target) { return Opened(app: app, field: field, window: window(of: field)) }
+                lastSeen = describe(field)
+            }
+            // A browser may leave focus in its address bar: find the labelled field and focus it.
+            if target.kind == .webPage, attempt % 10 == 9, let field = findLabelled(in: element) {
+                AXUIElementSetAttributeValue(field, kAXFocusedAttribute as CFString, kCFBooleanTrue)
             }
         }
         return nil
@@ -146,8 +162,7 @@ final class AppMatrix {
         let role = SelfTest.attribute(field, kAXRoleAttribute)
         switch target.kind {
         case .webPage:
-            let label = [kAXDescriptionAttribute, kAXTitleAttribute, "AXLabel"].compactMap { SelfTest.attribute(field, $0) }
-            return role == kAXTextAreaRole && label.contains { $0.contains(Self.fieldLabel) }
+            return role == kAXTextAreaRole && Self.labelled(field)
         case .document:
             guard role == kAXTextAreaRole, let window = window(of: field) else { return false }
             let title = SelfTest.attribute(window, kAXTitleAttribute) ?? ""
@@ -158,6 +173,43 @@ final class AppMatrix {
             let last = text.split(separator: "\n").last.map(String.init) ?? ""
             return last.contains("murmur-matrix") && !last.contains("quick brown")
         }
+    }
+
+    private func describe(_ e: AXUIElement) -> String {
+        let role = SelfTest.attribute(e, kAXRoleAttribute) ?? "?"
+        let label = SelfTest.attribute(e, kAXDescriptionAttribute) ?? SelfTest.attribute(e, kAXTitleAttribute) ?? ""
+        let title = window(of: e).flatMap { SelfTest.attribute($0, kAXTitleAttribute) } ?? ""
+        return "\(role) \"\(label.prefix(30))\" in window \"\(title.prefix(50))\", \((SelfTest.value(e) ?? "").count) chars"
+    }
+
+    /// The test page's field, searched breadth-first through the focused window (bounded).
+    private func findLabelled(in app: AXUIElement) -> AXUIElement? {
+        var root: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXFocusedWindowAttribute as CFString, &root) == .success, let root else { return nil }
+        var queue = [root as! AXUIElement]
+        var seen = 0
+        while !queue.isEmpty, seen < 20_000 {
+            let e = queue.removeFirst()
+            seen += 1
+            if SelfTest.attribute(e, kAXRoleAttribute) == kAXTextAreaRole, Self.labelled(e) { return e }
+            var children: CFTypeRef?
+            if AXUIElementCopyAttributeValue(e, kAXChildrenAttribute as CFString, &children) == .success, let list = children as? [AXUIElement] {
+                queue.append(contentsOf: list)
+            }
+        }
+        return nil
+    }
+
+    static func labelled(_ e: AXUIElement) -> Bool {
+        [kAXDescriptionAttribute, kAXTitleAttribute, kAXPlaceholderValueAttribute, "AXLabel"]
+            .compactMap { SelfTest.attribute(e, $0) }.contains { $0.contains(fieldLabel) }
+    }
+
+    /// Chromium builds its accessibility tree only for assistive apps: these two attributes ask for it.
+    static func assistiveMode(_ app: AXUIElement, on: Bool) {
+        let value = on ? kCFBooleanTrue : kCFBooleanFalse
+        AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, value!)
+        AXUIElementSetAttributeValue(app, "AXEnhancedUserInterface" as CFString, value!)
     }
 
     private func window(of field: AXUIElement) -> AXUIElement? {
@@ -177,6 +229,7 @@ final class AppMatrix {
     private func check(_ target: Target, _ opened: Opened, clip: [Float], sentinel: String) async -> [String] {
         // The last look before typing: the test field is frontmost and focused.
         guard stillFocused(opened), isOurs(opened.field, target) else { return ["focus moved before the dictation; nothing was typed"] }
+        let t0 = Date()
         guard controller.dictateForTest(clip) else { return ["could not start a dictation"] }
         let end = Date().addingTimeInterval(20)
         while controller.isBusy, Date() < end { try? await Task.sleep(for: .milliseconds(50)) }
@@ -193,13 +246,19 @@ final class AppMatrix {
         if target.kind == .terminal {
             // Shells have no Undo; clear the line instead (Control-U), only while the test window has focus.
             if stillFocused(opened) { postKey(kVK_ANSI_U, flags: .maskControl, to: opened.app.processIdentifier) }
-        } else if text.contains("quick brown") {
-            // One Undo, through the app's own Edit menu (also leaves the scratch file unmodified to close).
+        } else if text.contains("quick brown") || insertedSince(t0) {
+            // One Undo, through the app's own Edit menu, whenever something was typed, even when the app
+            // hides its text (so the scratch file closes unmodified, with no save prompt).
             _ = SelfTest.pressMenuItem(pid: opened.app.processIdentifier, startingWith: "Undo")
             try? await Task.sleep(for: .milliseconds(600))
             if (SelfTest.value(opened.field) ?? "").contains("quick brown") { failures.append("one Undo did not remove it") }
         }
         return failures
+    }
+
+    /// Whether this run's dictation reached the paste (its History row says inserted).
+    private func insertedSince(_ t0: Date) -> Bool {
+        ((try? store.recent(limit: 3)) ?? []).contains { $0.startedAt >= t0.addingTimeInterval(-1) && $0.status == .inserted }
     }
 
     private func postKey(_ key: Int, flags: CGEventFlags, to pid: pid_t) {
@@ -219,16 +278,29 @@ final class AppMatrix {
         case .webPage:
             if stillFocused(opened) { _ = SelfTest.pressMenuItem(pid: pid, startingWith: "Close Tab") }
         case .document:
-            if target.electron {
-                if stillFocused(opened) { _ = SelfTest.pressMenuItem(pid: pid, startingWith: "Close Editor") }
-            } else {
-                pressClose(opened.window)
-            }
+            pressClose(opened.window)
         case .terminal:
             pressClose(opened.window)
         }
         try? await Task.sleep(for: .milliseconds(800))
+        if target.chromium { Self.assistiveMode(AXUIElementCreateApplication(pid), on: false) }
         if quit { opened.app.terminate() }
+    }
+
+    /// After a skip: switch Chromium's assistive mode back off, close the test tab if it's the front
+    /// tab, and quit the app if this run launched it.
+    private func cleanUpSkipped(_ target: Target, quit: Bool) async {
+        guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: target.bundleId).first else { return }
+        let element = AXUIElementCreateApplication(app.processIdentifier)
+        if target.chromium { Self.assistiveMode(element, on: false) }
+        var window: CFTypeRef?
+        if target.kind == .webPage, app.isActive,
+           AXUIElementCopyAttributeValue(element, kAXFocusedWindowAttribute as CFString, &window) == .success, let window,
+           SelfTest.attribute(window as! AXUIElement, kAXTitleAttribute)?.contains("Murmur matrix") == true {
+            _ = SelfTest.pressMenuItem(pid: app.processIdentifier, startingWith: "Close Tab")
+        }
+        try? await Task.sleep(for: .milliseconds(500))
+        if quit { app.terminate() }
     }
 
     private func pressClose(_ window: AXUIElement?) {

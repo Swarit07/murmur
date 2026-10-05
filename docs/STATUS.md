@@ -16,7 +16,7 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
   - "Shortcuts" stays a submenu.
   - ⌃⌘V and ⌃⌘C stay.
 - **Self-test:** it now confirms its TextEdit document has focus before every dictation, after a run while the owner was typing sent test text into the owner's focused app.
-- **New debug test, the app matrix:** Debug › Run app matrix dictates into blank targets in TextEdit, Safari, Chrome, Firefox, VS Code, Cursor, Terminal and Ghostty. In each it checks that the text is complete, one Undo removes it, the clipboard is restored and focus is unchanged.
+- **New debug test, the app matrix:** Debug › Run app matrix dictates into blank targets in TextEdit, Safari, Chrome, Firefox, Terminal and Ghostty. TextEdit, Firefox, Terminal and Ghostty pass. VS Code and Cursor stay manual because their editors hide text from Accessibility. In each it checks that the text is complete, one Undo removes it, the clipboard is restored and focus is unchanged.
 - **Checks:** unit tests 170 pass, focus test 50/50, self-test 21/21 (before the new cases), latency p50 652 ms and p95 1,340 ms.
 
 **In progress:**
@@ -24,7 +24,9 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 
 **Needs the owner:**
 1. Five minutes off the keyboard and mouse, to run the self-test and the app matrix.
-2. In the logged-in apps (Slack, Discord, Messages, Notion, Gmail and Google Docs in Chrome, ChatGPT, Claude), dictate one sentence each without sending, and check the four matrix items.
+2. In the apps the app matrix can't cover, dictate one sentence each without sending, and check the four matrix items:
+   - the logged-in apps: Slack, Discord, Messages, Notion, Gmail and Google Docs in Chrome, ChatGPT, Claude;
+   - plus VS Code, Cursor and Word.
 3. Flow Bar placement over full-screen, dark and light apps, with the Dock left, right and auto-hidden.
 4. Last: onboarding in a fresh macOS account and the permission revocation test ([m4-gate.md](m4-gate.md)).
 
