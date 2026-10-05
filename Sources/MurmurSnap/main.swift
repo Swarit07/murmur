@@ -105,6 +105,9 @@ enum Snap {
             for page in HubPage.allCases {
                 hub.go(page)
                 pump(0.5)
+                // At rest: no field holding focus (macOS gives the first text field focus on open).
+                window.makeFirstResponder(nil)
+                pump(0.2)
                 capture(window.contentView?.superview ?? window.contentView!, to: dir.appendingPathComponent("hub-\(page.rawValue).png"))
             }
             window.close()

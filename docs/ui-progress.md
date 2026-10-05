@@ -269,3 +269,54 @@ One report per milestone (UI_REDESIGN.md §10), newest last. If a session ends m
 - **The stat strip counts the last 7 days, from the 1,000 most recent dictations.**
 - **Feature-card samples use the user's chosen style per category.** The text is neutral, not the board's "Priya" fixture.
 - **Paper toasts aren't needed on Home yet;** they arrive with Dictionary saves in U5.
+
+## U5: Style, Dictionary, Snippets
+
+**Changed**
+- **`Sources/HubUI/PageParts.swift` (new):**
+  - `HubPageHeader`: the title, a one-line description in `lead` 14/18, and an action aligned to the bottom right.
+  - `HubPageScroll`: the board's 44 / 56 page padding.
+  - `PaperToastHost`: bottom center, 22 above the panel's edge, leaves after 4 s, Undo.
+  - `UsageCounts`: how often a word or a snippet's text appears in the last 1,000 dictations, for "N uses".
+- **`Sources/HubUI/VocabularyPages.swift` (new):**
+  - **`DictionaryPage`:**
+    - "Add word" (ink); search ("Search N words"); filter All | Added by you | Learned.
+    - One bordered list with rows 46 high on the board's grid (200 / flexible / 84 / 72): word, sounds-like in the quote style or "—", an added or learned tag, uses; Edit and Remove on hover.
+    - The add and edit row works in place (word field focused, sounds-like in quote style, Cancel, Save).
+    - Adding shows the paper toast "Added to Dictionary · “word”" with Undo.
+  - **`SnippetsPage`:**
+    - "New snippet" (ink); two columns of cards (radius 12, padding 16) whose rows share a height.
+    - Each card: trigger in italic curly quotes, an arrow, uses; Edit and Delete on hover with the 1.5 pt ink ring; the expansion in a dashed box that keeps line breaks; the edit card works in place.
+  - **Both:**
+    - List the most used first, ties alphabetically.
+    - Keep v1's behavior: add, edit, delete (hover actions and context menu), search.
+    - Keep v1's rule that a plain word stores `term` equal to its spelling.
+- **`Sources/HubUI/StylePage.swift` (new):**
+  - The category segmented control.
+  - **Style cards** (`MSelectableCard`, radius 14, padding 14): name in `card-title`, the board's descriptor, the app's own example in a sunken box. Selection is an ink ring and a filled radio, never clay.
+  - The apps in each category, as a hint.
+  - **Auto cleanup:** caption, description, "You said" plus the raw quote, then None / Light / Medium cards.
+  - **AI edits:** a switch in a settings group. With it off, the cleanup cards are disabled, as before.
+- **Removed:** the old `StylePage`, `Card`, `DictionaryView`, `SnippetsView` and `EditableCell` (stock `Form`, `Table`, `Picker`, `TextField`).
+- **Tokens:**
+  - **Type (board):** `lead` 14/18, `expansion` 13/19.5.
+  - **Geometry (board):** buttons with an icon padded 12 / 16; `titleToSubtitle` 8; subtitle widths 520 and 560; `snippetsSectionGap` 24; the dictionary's grid gap, field widths and edit-row padding; style card gap 10; divider margin 6; snippet header and action gaps.
+  - **Assumed:** `MotionTokens.paperToast` 4 s, `OpacityTokens.disabledGroup` 0.5 (both MEASURE).
+  - **`MTextField`:** gains `autofocus`.
+
+**Done when**
+- **All three pages work with the new components: pass.** No stock list, form, table, picker or field remains on these pages.
+- **Behave exactly as before: pass (by construction).**
+  - Add, edit and delete call the same store functions as v1, with the same `term` / `replacement` rule.
+  - Style writes the same `styles`, `cleanupLevel` and `transformsEnabled` settings.
+  - The two visible changes are list order (most used first) and the "N uses" counts. Both are display only.
+- **Snapshots in both schemes next to their reference crops: pass.**
+  - `Artifacts/ui/after/{light,dark}/hub-{style,dictionary,snippets}.png`.
+  - `Artifacts/ui/sheets/hub-{style,dictionary,snippets}-compare.png` (board left, ours right).
+
+**Visible differences from the boards, on purpose**
+- **Style shows 3 cards per category, not 4.** The app offers "very casual" only for Personal and "Excited!" everywhere else (S4); the board shows all four.
+- **Cleanup descriptions are the app's own.** The board's "Also resolves the corrections you make mid-sentence" isn't a promise the cleanup prompt makes; the samples are the existing implementation's.
+- **"N uses" counts are computed from History** (the store keeps no counter), so a fresh install shows 0.
+- **The board's fixture rows (Priya, Saoirse…) appear only in snapshots.**
+- **In the app, the Dictionary search field takes focus when the page opens** (standard macOS first-responder behavior). Snapshots clear focus to show the resting state.

@@ -41,6 +41,8 @@ public enum MotionTokens {
     public static let toastIn: Double = 0.200 // source: assumed // MEASURE
     public static let toastOut: Double = 0.140 // source: assumed // MEASURE
     public static let toastCancel: Double = 5 // source: board
+    /// How long a paper toast in the Hub stays ("Added to Dictionary · Undo").
+    public static let paperToast: Double = 4 // source: assumed // MEASURE
     public static let alertSticky: Double = 8 // source: board
     public static let alertShake: CGFloat = 2 // source: board
     public static let alertShakeCycles: Double = 3 // source: board

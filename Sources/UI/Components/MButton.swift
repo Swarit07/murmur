@@ -104,7 +104,8 @@ struct MButtonStyle: ButtonStyle {
                     .contentShape(Rectangle())
             } else {
                 label
-                    .padding(.horizontal, small ? HubGeometry.buttonPaddingHSmall : HubGeometry.buttonPaddingH)
+                    .padding(.leading, small ? HubGeometry.buttonPaddingHSmall : (icon == nil ? HubGeometry.buttonPaddingH : HubGeometry.buttonPaddingIconLeading))
+                    .padding(.trailing, small ? HubGeometry.buttonPaddingHSmall : (icon == nil ? HubGeometry.buttonPaddingH : HubGeometry.buttonPaddingIconTrailing))
                     .frame(maxWidth: fullWidth ? .infinity : nil)
                     .frame(height: height)
                     .background(shape.fill(fill))

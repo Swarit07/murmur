@@ -174,9 +174,9 @@ struct HubPageView: View {
             }
             switch model.page {
             case .home: HomePage(model: model)
-            case .dictionary: LegacyPage { DictionaryView(store: model.store) }
-            case .snippets: LegacyPage { SnippetsView(store: model.store) }
-            case .style: LegacyPage { StylePage(model: model) }
+            case .dictionary: DictionaryPage(store: model.store)
+            case .snippets: SnippetsPage(store: model.store)
+            case .style: StylePage(model: model)
             case .general, .system, .experimental, .privacy: SettingsShell(model: model)
             }
         }

@@ -12,6 +12,7 @@ public struct MTextField: View {
     let leading: Icon?
     let onSubmit: () -> Void
     let onCancel: (() -> Void)?
+    let autofocus: Bool
 
     @Environment(\.theme) private var theme
     @Environment(\.isEnabled) private var isEnabled
@@ -20,7 +21,7 @@ public struct MTextField: View {
     @State private var hovering = false
 
     public init(_ placeholder: String, text: Binding<String>, secure: Bool = false, multiline: Bool = false, quote: Bool = false,
-                leading: Icon? = nil, onSubmit: @escaping () -> Void = {}, onCancel: (() -> Void)? = nil) {
+                leading: Icon? = nil, autofocus: Bool = false, onSubmit: @escaping () -> Void = {}, onCancel: (() -> Void)? = nil) {
         self.placeholder = placeholder
         _text = text
         self.secure = secure
@@ -29,6 +30,7 @@ public struct MTextField: View {
         self.leading = leading
         self.onSubmit = onSubmit
         self.onCancel = onCancel
+        self.autofocus = autofocus
     }
 
     public var body: some View {
@@ -88,6 +90,7 @@ public struct MTextField: View {
         }
         .contentShape(shape)
         .onTapGesture { focused = true }
+        .onAppear { if autofocus { focused = true } }
         .onHover { hovering = $0 }
         .focusEffectDisabled()
         .accessibilityElement(children: .contain)

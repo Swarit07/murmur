@@ -90,13 +90,19 @@ public enum HubGeometry {
     public static let pagePaddingSide: CGFloat = 56 // source: board
     public static let sectionGapHome: CGFloat = 28 // source: board
     public static let sectionGap: CGFloat = 22 // source: board
-    public static let titleToSubtitle: CGFloat = 10 // source: board
+    public static let titleToSubtitle: CGFloat = 8 // source: board
+    public static let subtitleMaxWidth: CGFloat = 520 // source: board
+    public static let styleSubtitleMaxWidth: CGFloat = 560 // source: board
+    public static let snippetsSectionGap: CGFloat = 24 // source: board
     public static let contentMaxWidth: CGFloat = 1000 // source: assumed (wide windows) // MEASURE
 
     // Buttons
     public static let buttonHeight: CGFloat = 40 // source: board
     public static let buttonPaddingH: CGFloat = 18 // source: board
     public static let buttonIcon: CGFloat = 15 // source: board
+    /// A button with a leading icon is padded 12 on the icon's side and 16 on the other.
+    public static let buttonPaddingIconLeading: CGFloat = 12 // source: board
+    public static let buttonPaddingIconTrailing: CGFloat = 16 // source: board
     public static let buttonHeightSmall: CGFloat = 28 // source: board
     public static let buttonPaddingHSmall: CGFloat = 12 // source: board
     public static let linkUnderlineOffset: CGFloat = 4 // source: board
@@ -161,12 +167,21 @@ public enum HubGeometry {
     public static let dictionaryTagColumn: CGFloat = 84 // source: board
     public static let dictionaryUsesColumn: CGFloat = 72 // source: board
     public static let dictionaryActionsColumn: CGFloat = 64 // source: board
+    public static let dictionaryColumnGap: CGFloat = 12 // source: board
+    public static let dictionaryWordField: CGFloat = 200 // source: board
+    public static let dictionarySoundsField: CGFloat = 220 // source: board
+    public static let editRowPadding = CGSize(width: 12, height: 10) // source: board
+    public static let editFieldHeight: CGFloat = 34 // source: board
     public static let searchFieldWidth: CGFloat = 320 // source: board
 
     // Snippets, Style, Settings
     public static let snippetPadding: CGFloat = 16 // source: board
     public static let expansionPadding = CGSize(width: 12, height: 10) // source: board
     public static let styleCardPadding: CGFloat = 14 // source: board
+    public static let styleCardGap: CGFloat = 10 // source: board
+    public static let styleDividerMargin: CGFloat = 6 // source: board
+    public static let snippetHeaderGap: CGFloat = 8 // source: board
+    public static let snippetActionsGap: CGFloat = 2 // source: board
     public static let cleanupCardPadding = CGSize(width: 16, height: 14) // source: board
     public static let cardGap: CGFloat = 12 // source: board
     public static let settingsColumnGap: CGFloat = 24 // source: board

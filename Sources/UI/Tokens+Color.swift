@@ -220,6 +220,8 @@ public enum OpacityTokens {
     public static let processingGlyph: Double = 0.45 // source: board
     /// The countdown ring's track (§3.5).
     public static let ringTrack: Double = 0.22 // source: board
+    /// A group of controls that is off because a switch above it is off (cleanup levels with AI edits off).
+    public static let disabledGroup: Double = 0.5 // source: assumed // MEASURE
     /// The dimmed half of a gallery comparison, and backdrops behind floating previews.
     public static let subtle: Double = 0.25 // source: assumed // MEASURE
 }

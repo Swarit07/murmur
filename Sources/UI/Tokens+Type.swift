@@ -73,6 +73,10 @@ public enum TypeTokens {
 
     // Interface (Geist)
     public static let body = TextStyleToken(.sans, 400, size: 14, lineHeight: 22) // source: board
+    /// A page's one-line description under its title (14 px at Geist's normal line height, 1.3).
+    public static let lead = TextStyleToken(.sans, 400, size: 14, lineHeight: 18) // source: board
+    /// A snippet's expansion (13 / 1.5).
+    public static let expansion = TextStyleToken(.sans, 400, size: 13, lineHeight: 19.5) // source: board
     public static let nav = TextStyleToken(.sans, 400, size: 14, lineHeight: 20) // source: board (500 selected)
     public static let button = TextStyleToken(.sans, 500, size: 14, lineHeight: 20) // source: board
     public static let label = TextStyleToken(.sans, 500, size: 13, lineHeight: 18) // source: board
@@ -97,7 +101,7 @@ public enum TypeTokens {
     /// Every style, for tests and the gallery.
     public static let all: [(String, TextStyleToken)] = [
         ("page-title", pageTitle), ("welcome-title", welcomeTitle), ("feature-title", featureTitle), ("step-title", stepTitle),
-        ("card-title", cardTitle), ("trigger", trigger), ("quote", quote), ("sample", sample), ("sample-compact", sampleCompact), ("tag-tight", tagTight), ("body", body), ("nav", nav),
+        ("card-title", cardTitle), ("trigger", trigger), ("quote", quote), ("sample", sample), ("sample-compact", sampleCompact), ("tag-tight", tagTight), ("body", body), ("lead", lead), ("expansion", expansion), ("nav", nav),
         ("button", button), ("label", label), ("control", control), ("control-sm", controlSmall), ("hint", hint), ("flow-sub", flowSub),
         ("caption", caption), ("meta", meta), ("keycap", keycap), ("keycap-inline", keycapInline), ("keycap-lg", keycapLarge), ("keycap-sm", keycapSmall),
         ("stat", stat), ("tag", tag), ("ring-digit", ringDigit),
