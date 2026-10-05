@@ -3,7 +3,7 @@
 A private, on-device dictation app for macOS. Hold a key, speak, let go, and the words appear, cleaned up and punctuated, wherever your cursor is.
 
 - **Local by default.** Speech recognition (NVIDIA Parakeet via FluidAudio, on the Neural Engine) and cleanup (Qwen3.5 4B via MLX, on the GPU) both run on the Mac. Groq and OpenRouter are optional, behind your own keys.
-- **Fast.** Release to text p50 is about 0.45 s for a sentence.
+- **Fast.** Across 38 real dictations, release to text was p50 0.62 s and p95 1.1 s.
 - **Safe with your words:**
   - A guard checker inserts the rule-cleaned transcript whenever the model changes a number, name, URL or negation.
   - The clipboard is restored after every paste.
@@ -45,7 +45,7 @@ The full product spec is in [SPEC.md](SPEC.md). Progress against it is tracked i
   - Launch at login.
   - Never-store mode.
   - Auto-stop at 20 minutes.
-  - Models unload after 10 idle minutes.
+  - Optional model unloading after 10 idle minutes (off by default; see docs/decisions.md).
 
 ## Requirements
 
@@ -89,9 +89,11 @@ This builds the command-line tools with MLX: `murmur-cli` and `murmur-bench`.
 | `murmur-bench vocab-test --pipeline mlx:qwen3.5-4b` | Dictionary recognition (T4) |
 | `murmur-bench vocab-false-test` | Dictionary words appearing where nobody said them (must be 0) |
 | `murmur-bench style-test` | Styles per category on cleaned corpus sentences (S4 gate) |
+| `murmur-bench command-test` | Command Mode quality: 16 instructions with checks |
+| `murmur-bench reload-test` | MLX memory across model reloads |
 | `murmur-bench long-test` | Cleanup time on 34–60-word dictations |
 | `murmur-bench punctuation-test` | Spoken punctuation (C4) |
-| `murmur-bench e2e` | Release-to-paste latency |
+| `murmur-bench e2e` | Release-to-paste latency (replays into TextEdit; needs Accessibility for the terminal) |
 
 In the app, turn on **Settings › System › Debug menu** to get:
 - **Run self-test in TextEdit:** spoken phrases go through the real pipeline and are checked when read back.
@@ -103,11 +105,11 @@ In the app, turn on **Settings › System › Debug menu** to get:
 
 | Path | What |
 |---|---|
-| `Sources/Core` | State machine, text metrics, `SpellingMatcher`, signposts |
+| `Sources/Core` | State machine, text metrics, `SpellingMatcher`, `CorrectionDetector`, recording limits, signposts |
 | `Sources/Hotkey` | Shortcut recognizer, event tap, Caps Lock monitor, global hot keys |
 | `Sources/Audio` | Recorder (AVAudioEngine, device changes), WAV, resampler |
 | `Sources/SpeechEngines` | Parakeet, Whisper, Apple Speech, Groq Whisper behind one protocol |
-| `Sources/Cleanup` | Rules, prompt, guard checker, runner with time limit, providers |
+| `Sources/Cleanup` | Rules, prompts (cleanup and Command Mode), guard checker, styles, runner with time limit, providers |
 | `Sources/CleanupMLX` | Local LLMs through mlx-swift-lm, with prefix KV cache |
 | `Sources/Context`, `Sources/Insertion` | Focus snapshot, clipboard transaction, paste keystroke, smart spacing |
 | `Sources/Store` | History, dictionary and snippets (SQLite through GRDB), settings, Keychain |
@@ -115,7 +117,7 @@ In the app, turn on **Settings › System › Debug menu** to get:
 | `Sources/Pipeline`, `Sources/MurmurKit` | Catalogs, corpus, and the `DictationController` that wires everything together |
 | `App/` | The macOS app target (XcodeGen): Hub, onboarding, menu, self-test |
 | `Sources/MurmurCLI`, `Sources/MurmurBench` | Command-line spike and benchmark tool |
-| `Tests/` | Unit tests |
+| `Tests/` | Unit tests: Core, Hotkey, Store, Cleanup, Insertion, UI |
 | `docs/` | Status, decisions, milestone reports and gate instructions |
 
 ## Docs
