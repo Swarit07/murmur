@@ -16,3 +16,6 @@ Artifacts/ui/before/
 Artifacts/ui/after/
 Artifacts/ui/gallery/
 Tools/.venv/
+Artifacts/ui/*-large/
+Artifacts/ui/*-reduced/
+Artifacts/ui/compare/

@@ -4,14 +4,18 @@ import MurmurKit
 import SwiftUI
 import UI
 
-// murmur-snap [before|after] [--out <dir>]
+// murmur-snap [before|after] [--out <dir>] [--large] [--reduce-motion]
 // Renders every Hub page, onboarding step and Flow Bar state in light and dark at the screen's
-// backing scale (2× on Retina) with demo data, into Artifacts/ui/<set>/<appearance>/. Exits non-zero
-// if any image comes out blank. Windows are drawn offscreen through AppKit's own cacheDisplay rather
+// backing scale (2× on Retina) with demo data, into Artifacts/ui/<set>/<appearance>/. `--large`
+// renders at text scale 1.15 into <set>-large, `--reduce-motion` with Reduce Motion on into
+// <set>-reduced (UI_REDESIGN.md §8). Exits non-zero if any image comes out blank. Windows are drawn offscreen through AppKit's own cacheDisplay rather
 // than ImageRenderer, because ImageRenderer cannot draw AppKit-backed controls such as text fields.
 
 let arguments = Array(CommandLine.arguments.dropFirst())
-let setName = arguments.first { !$0.hasPrefix("-") } ?? "after"
+let large = arguments.contains("--large")
+let reduceMotion = arguments.contains("--reduce-motion")
+let outValue = arguments.firstIndex(of: "--out").flatMap { $0 + 1 < arguments.count ? arguments[$0 + 1] : nil }
+let setName = (arguments.first { !$0.hasPrefix("-") && $0 != outValue } ?? "after") + (large ? "-large" : "") + (reduceMotion ? "-reduced" : "")
 let outRoot: URL = {
     if let i = arguments.firstIndex(of: "--out"), i + 1 < arguments.count { return URL(fileURLWithPath: arguments[i + 1]) }
     return URL(fileURLWithPath: "Artifacts/ui")
@@ -63,6 +67,8 @@ enum Snap {
         app.setActivationPolicy(.prohibited)
         app.finishLaunching()
         if !FontRegistry.registerBundledFonts() { print("murmur-snap: bundled fonts did not register; using system fonts") }
+        if large { UIDebug.shared.textScale = TypeTokens.scaleLarge }
+        if reduceMotion { UIDebug.shared.reduceMotion = true }
 
         guard let store = try? HistoryStore(url: nil) else { fatalError("in-memory store") }
         DemoData.seed(store)
