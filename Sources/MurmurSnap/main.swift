@@ -83,14 +83,6 @@ enum Snap {
             }
             window.close()
 
-            // Design Gallery: every component in every state.
-            let gallery = WindowManager.makeWindow(id: "snap-gallery", title: "Design Gallery", size: NSSize(width: 1100, height: 1900), chrome: .standard) { DesignGallery() }
-            gallery.appearance = NSAppearance(named: look)
-            prepare(gallery)
-            pump(0.8)
-            capture(gallery.contentView!, to: dir.appendingPathComponent("gallery.png"))
-            gallery.close()
-
             // Onboarding: every step, in preview (nothing saved, no microphone).
             let onboarding = OnboardingModel(hub: hub, preview: true)
             let ob = WindowManager.makeWindow(id: "snap-onboarding", title: "Set up Murmur", size: NSSize(width: 640, height: 540), chrome: .transparent) { OnboardingView(model: onboarding) }
@@ -121,6 +113,16 @@ enum Snap {
             model.forced = nil
             bar.close()
         }
+        // Design Gallery: every component in every state, light and dark side by side, at full height.
+        let galleryHost = NSHostingView(rootView: DesignGallery(scrolls: false))
+        let gallerySize = galleryHost.fittingSize
+        let gallery = NSWindow(contentRect: NSRect(origin: .zero, size: gallerySize), styleMask: [.borderless], backing: .buffered, defer: false)
+        gallery.contentView = galleryHost
+        prepare(gallery)
+        pump(1.0)
+        capture(galleryHost, to: outRoot.appendingPathComponent("gallery.png"))
+        gallery.close()
+
         print("murmur-snap: wrote \(written) images to \(outRoot.path)")
         if !blank.isEmpty {
             print("blank images:\n" + blank.joined(separator: "\n"))

@@ -142,3 +142,13 @@ public struct FlowBarColors: Sendable {
 
     public static let standard = FlowBarColors()
 }
+
+/// Opacities used on top of color tokens.
+public enum OpacityTokens {
+    /// Sidebar row hover: `bg-hover` at half strength (§4).
+    public static let hoverHalf: Double = 0.5 // source: ui_redesign §4
+    /// Disabled controls that are not text (tracks, borders, icons).
+    public static let disabled: Double = 0.45 // source: assumed // MEASURE
+    /// The dimmed half of a gallery comparison, and backdrops behind floating previews.
+    public static let subtle: Double = 0.25 // source: assumed // MEASURE
+}

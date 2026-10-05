@@ -4,7 +4,7 @@ import SwiftUI
 // Shared pieces of Murmur's window design: the mark, the sidebar material, stat tiles, search field.
 
 /// Murmur's own mark: a waveform on a rounded square. Original artwork (spec rule 1).
-struct BrandMark: View {
+struct LegacyBrandMark: View {
     var size: CGFloat = 22
 
     var body: some View {

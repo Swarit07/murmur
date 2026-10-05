@@ -167,7 +167,7 @@ struct SourceCheckTests {
     /// silent state it is for.
     static let disabledAllowed: Set<String> = ["Tokens+Color.swift", "Theme.swift", "MButton.swift", "MToggle.swift", "MTextField.swift",
                                                 "MTabs.swift", "MListRow.swift", "MSidebarItem.swift", "MCard.swift", "MCheckbox.swift",
-                                                "MSelect.swift", "MKeycap.swift"]
+                                                "MSelect.swift", "MKeycap.swift", "DesignGallery.swift"]
 
     @Test func textDisabledOnlyWhereAllowed() throws {
         let enumerator = FileManager.default.enumerator(at: Self.repo.appendingPathComponent("Sources"), includingPropertiesForKeys: nil)
@@ -178,5 +178,22 @@ struct SourceCheckTests {
             if text.contains("textDisabled") { offenders.append(url.lastPathComponent) }
         }
         #expect(offenders.isEmpty, "text-disabled used in \(offenders)")
+    }
+}
+
+/// Reduce Motion (§6.2): springs become short fades, scale and offset changes disappear.
+@Suite("Motion")
+struct MotionTests {
+    @Test func reduceMotionDropsScaleAndOffset() {
+        let reduced = Motion(reduce: true)
+        #expect(reduced.scale(HubGeometry.pressScale) == 1)
+        #expect(reduced.offset(HubGeometry.pageRise) == 0)
+        let normal = Motion(reduce: false)
+        #expect(normal.scale(HubGeometry.pressScale) == HubGeometry.pressScale)
+        #expect(normal.offset(HubGeometry.pageRise) == HubGeometry.pageRise)
+    }
+
+    @Test func timeScaleSlowsEverything() {
+        #expect(Motion(reduce: false, timeScale: 0.2).seconds(MotionTokens.pageSwitch) == MotionTokens.pageSwitch / 0.2)
     }
 }

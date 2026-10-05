@@ -22,6 +22,8 @@ patterns=(
   'spacing: *[1-9]'
   'duration: *[0-9]'
   '\.opacity\( *0?\.[0-9]'
+  'withAnimation\(\.(easeIn|easeOut|easeInOut|linear|spring|default|smooth|snappy|bouncy)'
+  '\.animation\(\.(easeIn|easeOut|easeInOut|linear|spring|default|smooth|snappy|bouncy)'
 )
 fail=0
 for file in Sources/UI/**/*.swift(N) Sources/HubUI/**/*.swift(N); do

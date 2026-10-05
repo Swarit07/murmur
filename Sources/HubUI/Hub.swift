@@ -175,7 +175,7 @@ struct HubSidebar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 8) {
-                BrandMark(size: 22)
+                LegacyBrandMark(size: 22)
                 Text("Murmur").font(.headline)
             }
             .padding(.horizontal, 10)

@@ -62,6 +62,7 @@ public enum HubGeometry {
     public static let buttonHeight: CGFloat = 40 // source: wis
     public static let buttonHeightLarge: CGFloat = 48 // source: assumed // MEASURE
     public static let buttonMinWidth: CGFloat = 100 // source: wis
+    public static let buttonMinWidthSmall: CGFloat = 56 // source: assumed // MEASURE
     public static let buttonRadius: CGFloat = 10 // source: ant (9.6)
     public static let buttonPaddingH: CGFloat = 15 // source: wis
     public static let iconButton: CGFloat = 32 // source: assumed // MEASURE
@@ -79,6 +80,7 @@ public enum HubGeometry {
 
     public static let statChipHeight: CGFloat = 32 // source: wis
     public static let statChipWidth: CGFloat = 313 // source: wis
+    public static let statChipSeparatorHeight: CGFloat = 16 // source: assumed // MEASURE
     public static let badgeHeight: CGFloat = 26 // source: wis
     public static let badgeRadius: CGFloat = 7 // source: wis (estimated) // MEASURE
     public static let notificationDot: CGFloat = 14 // source: wis
@@ -91,10 +93,19 @@ public enum HubGeometry {
     public static let fieldRadius: CGFloat = 10 // source: assumed // MEASURE
     public static let toggleSize = CGSize(width: 40, height: 24) // source: assumed // MEASURE
     public static let toggleKnobInset: CGFloat = 3 // source: assumed // MEASURE
+    public static let checkbox: CGFloat = 18 // source: assumed // MEASURE
+    public static let checkboxRadius: CGFloat = 5 // source: assumed // MEASURE
+    public static let checkGlyph: CGFloat = 14 // source: assumed // MEASURE
     public static let keycapMin: CGFloat = 26 // source: assumed // MEASURE
     public static let keycapRadius: CGFloat = 6 // source: assumed // MEASURE
     public static let tabHeight: CGFloat = 32 // source: assumed // MEASURE
+    public static let tabInset: CGFloat = 3 // source: assumed // MEASURE
     public static let dialogWidth: CGFloat = 440 // source: assumed // MEASURE
+    public static let toastMaxWidth: CGFloat = 420 // source: assumed // MEASURE
+    public static let tooltipOffset: CGFloat = 6 // source: assumed // MEASURE
+    public static let menuMinWidth: CGFloat = 200 // source: assumed // MEASURE
+    public static let settingsRowMinHeight: CGFloat = 56 // source: assumed // MEASURE
+    public static let emptyStateMaxWidth: CGFloat = 380 // source: assumed // MEASURE
     public static let onboardingColumn: CGFloat = 560 // source: assumed // MEASURE
     public static let brandMarkSidebar: CGFloat = 22 // source: assumed // MEASURE
     public static let brandMarkLarge: CGFloat = 56 // source: assumed // MEASURE

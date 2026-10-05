@@ -117,7 +117,7 @@ public struct OnboardingView: View {
         VStack(spacing: 0) {
             VStack(spacing: 10) {
                 HStack(spacing: 8) {
-                    BrandMark(size: 18)
+                    LegacyBrandMark(size: 18)
                     Text("Set up Murmur").font(.callout.weight(.semibold))
                     Spacer()
                     Text("Step \(model.step.rawValue + 1) of \(OnboardingStep.allCases.count)").font(.callout).foregroundStyle(.secondary).monospacedDigit()
