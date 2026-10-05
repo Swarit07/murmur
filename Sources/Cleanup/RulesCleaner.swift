@@ -1,3 +1,4 @@
+import Core
 import Foundation
 
 public struct DictionaryEntry: Sendable, Codable, Equatable {
@@ -41,11 +42,18 @@ public struct RulesCleaner: Sendable {
     public var dictionary: [DictionaryEntry]
     public var snippets: [Snippet]
     public var removeFillers: Bool
+    /// Near misses for dictionary spellings ("use effect" → useEffect), built from `dictionary`.
+    public var spellings: SpellingMatcher
 
     public init(dictionary: [DictionaryEntry] = [], snippets: [Snippet] = [], removeFillers: Bool = true) {
         self.dictionary = dictionary
         self.snippets = snippets
         self.removeFillers = removeFillers
+        var heard: [String: [String]] = [:]
+        for entry in dictionary {
+            heard[entry.replacement, default: []] += entry.term == entry.replacement ? [] : [entry.term]
+        }
+        spellings = SpellingMatcher(spellings: heard)
     }
 
     /// Hesitation sounds only. Words like "like" or "so" carry meaning too often to drop by rule;
@@ -119,6 +127,7 @@ public struct RulesCleaner: Sendable {
             let pattern = #"(?i)(?<![\w])"# + NSRegularExpression.escapedPattern(for: entry.term) + #"(?![\w])"#
             text = text.replacingOccurrences(of: pattern, with: NSRegularExpression.escapedTemplate(for: entry.replacement), options: .regularExpression)
         }
+        text = spellings.apply(text)
 
         return RulesOutput(text: Self.tidy(text), placeholders: placeholders)
     }

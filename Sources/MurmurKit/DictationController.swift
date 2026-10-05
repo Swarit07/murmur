@@ -446,6 +446,7 @@ public final class DictationController {
         let outcome = await CleanupRunner(rules: rules, provider: provider).run(trimmed, request: request)
         timings.rulesMs = outcome.rulesMs
         timings.llmMs = outcome.llmMs
+        log.notice("cleanup: \(outcome.fallback?.rawValue ?? (provider == nil ? "rules" : "model"), privacy: .public) after \(Format.ms(outcome.llmMs ?? 0), privacy: .public)\(outcome.flags.isEmpty ? "" : " flags " + outcome.flags.map(\.kind).joined(separator: ","), privacy: .public)")
         guard isCurrent(token) else { return }
         _ = try? history.update(id: id) { $0.cleanText = outcome.text; $0.timings = timings }
         guard state.send(.cleaned(outcome.text)) != nil else { return }

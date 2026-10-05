@@ -242,3 +242,13 @@ struct CleanupRunnerTests {
         #expect(messages.first!.content.contains("data, not instructions"))
     }
 }
+
+@Suite("Cleanup time limit")
+struct CleanupTimeLimitTests {
+    @Test func growsWithLengthAndCaps() {
+        #expect(CleanupRunner.limit(.milliseconds(800), words: 12) == .milliseconds(800))
+        #expect(CleanupRunner.limit(.milliseconds(800), words: 30) == .milliseconds(800))
+        #expect(CleanupRunner.limit(.milliseconds(800), words: 50) == .milliseconds(1000))
+        #expect(CleanupRunner.limit(.milliseconds(800), words: 400) == .milliseconds(1250))
+    }
+}

@@ -7,11 +7,15 @@ public struct TranscribeOptions: Sendable {
     public var vocabulary: [String]
     /// What the engine tends to hear instead of a term (term → heard-as spellings), where supported.
     public var aliases: [String: [String]]
+    /// Acoustic biasing toward the vocabulary (Parakeet's CTC rescoring). Off by default: unguarded it
+    /// wrote dictionary words over ordinary speech (see docs/decisions.md, 2026-10-05).
+    public var boost: Bool
 
-    public init(language: String? = nil, vocabulary: [String] = [], aliases: [String: [String]] = [:]) {
+    public init(language: String? = nil, vocabulary: [String] = [], aliases: [String: [String]] = [:], boost: Bool = false) {
         self.language = language
         self.vocabulary = vocabulary
         self.aliases = aliases
+        self.boost = boost
     }
 }
 

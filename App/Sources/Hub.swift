@@ -514,11 +514,12 @@ struct StylePage: View {
     @State private var transforms = AppSettings.shared.transformsEnabled
 
     static let categories = [("personal", "Personal messages"), ("work", "Work messages"), ("email", "Email"), ("other", "Other")]
-    static let styleOptions: [(id: String, name: String, example: String, categories: Set<String>)] = [
-        ("formal", "Formal", "Hey, are you free for lunch tomorrow? Let's do 12 if that works.", ["personal", "work", "email", "other"]),
-        ("casual", "Casual", "Hey are you free for lunch tomorrow? Let's do 12 if that works", ["personal", "work", "email", "other"]),
-        ("veryCasual", "Very casual", "hey are you free for lunch tomorrow? let's do 12 if that works", ["personal"]),
-        ("excited", "Excited", "Hey, are you free for lunch tomorrow? Let's do 12 if that works!", ["work", "email", "other"]),
+    /// Names are written in their own style, as in the spec (S4).
+    static let styleOptions: [(id: String, name: String, detail: String, example: String, categories: Set<String>)] = [
+        ("formal", "Formal.", "Caps and punctuation", "Hey, are you free for lunch tomorrow? Let's do 12 if that works.", ["personal", "work", "email", "other"]),
+        ("casual", "Casual", "Caps, less punctuation", "Hey are you free for lunch tomorrow? Let's do 12 if that works", ["personal", "work", "email", "other"]),
+        ("veryCasual", "very casual", "No caps, less punctuation", "hey are you free for lunch tomorrow? let's do 12 if that works", ["personal"]),
+        ("excited", "Excited!", "More exclamation marks", "Hey, are you free for lunch tomorrow? Let's do 12 if that works!", ["work", "email", "other"]),
     ]
 
     var body: some View {
@@ -530,7 +531,7 @@ struct StylePage: View {
                 .pickerStyle(.segmented)
                 HStack(alignment: .top, spacing: 10) {
                     ForEach(Self.styleOptions.filter { $0.categories.contains(category) }, id: \.id) { option in
-                        Card(title: option.name, example: option.example, selected: (styles[category] ?? "formal") == option.id) {
+                        Card(title: option.name, detail: option.detail, example: option.example, selected: (styles[category] ?? "formal") == option.id) {
                             styles[category] = option.id
                             model.settings.styles = styles
                         }
@@ -577,6 +578,7 @@ struct StylePage: View {
 
 struct Card: View {
     let title: String
+    var detail: String?
     let example: String
     let selected: Bool
     let action: () -> Void
@@ -591,6 +593,7 @@ struct Card: View {
                     Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                         .foregroundStyle(selected ? Color.accentColor : Color.secondary.opacity(0.5))
                 }
+                if let detail { Text(detail).font(.caption.weight(.medium)).foregroundStyle(.secondary) }
                 Text(example).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }

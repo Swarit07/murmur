@@ -62,8 +62,9 @@ public struct CleanupRunner: Sendable {
         let messages = CleanupPrompt.messages(
             for: ruled.text, level: request.level, vocabulary: request.vocabulary, smartFormatting: request.smartFormatting)
         let maxTokens = CleanupPrompt.maxTokens(for: ruled.text)
+        let limit = Self.limit(timeLimit, words: ruled.text.split(whereSeparator: \.isWhitespace).count)
         let (result, llmMs) = await Signposts.measure(.llm) {
-            await Self.withTimeLimit(timeLimit) {
+            await Self.withTimeLimit(limit) {
                 try await provider.complete(messages, maxTokens: maxTokens)
             }
         }
@@ -83,6 +84,12 @@ public struct CleanupRunner: Sendable {
             }
             return CleanupOutcome(text: ruled.restore(cleaned), rulesText: rulesText, modelText: cleaned, fallback: nil, flags: [], error: nil, rulesMs: rulesMs, llmMs: llmMs)
         }
+    }
+
+    /// C6, as amended 2026-10-05: the base limit plus 10 ms per word over 30, at most 450 ms more, so a
+    /// long dictation can finish cleanup while a stalled model still lands text within 1.5 s.
+    public static func limit(_ base: Duration, words: Int) -> Duration {
+        base + .milliseconds(min(450, 10 * max(0, words - 30)))
     }
 
     enum Timed<T: Sendable>: Sendable {

@@ -41,7 +41,7 @@ public enum CleanupPrompt {
             prompt += """
 
             Formatting (after resolving self-corrections; a correction is never a list):
-            - Only when the speaker clearly lists three or more separate items ("first … second … third", "one … two … three"), put each item on its own line as a numbered list (1. 2. 3.).
+            - Only when the speaker clearly lists three or more separate items ("first … second … third", "one … two … three"), put each item on its own line as a numbered list (1. 2. 3.). Keep the words that introduce the list as their own line ending in a colon, for example "My three goals for today are:" then "1. Ship the app." Never drop them.
             - Split a long dictation (more than about 80 words) into paragraphs where the topic changes.
             """
         }

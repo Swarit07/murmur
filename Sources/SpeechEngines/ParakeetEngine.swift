@@ -1,4 +1,5 @@
 import Audio
+import Core
 import FluidAudio
 import Foundation
 
@@ -50,13 +51,29 @@ public actor ParakeetEngine: SpeechEngine {
         let language = options.language.flatMap { Language(rawValue: $0) }
         let result = try await manager.transcribe(padded, decoderState: &state, language: language)
         var text = result.text
-        if !options.vocabulary.isEmpty, let timings = result.tokenTimings, !timings.isEmpty,
+        if options.boost, !options.vocabulary.isEmpty, let timings = result.tokenTimings, !timings.isEmpty,
            let session = try? await boostingSession(options) {
-            if let rescored = await session.rescore(text: text, tokenTimings: timings, audioSamples: padded), rescored.wasModified {
+            if let rescored = await session.rescore(text: text, tokenTimings: timings, audioSamples: padded), rescored.wasModified,
+               Self.safeRescoring(from: text, to: rescored.text, options: options) {
                 text = rescored.text
             }
         }
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Accepts the rescored transcript only if every change writes a dictionary spelling over words
+    /// that are a close match for it (`SpellingMatcher`). The rescorer alone replaced words like
+    /// "meeting" with "Mei-Ling", and with a one-word dictionary rewrote most sentences.
+    static func safeRescoring(from original: String, to rescored: String, options: TranscribeOptions) -> Bool {
+        if ProcessInfo.processInfo.environment["MURMUR_VOCAB_UNGUARDED"] == "1" { return true }
+        let matcher = SpellingMatcher(spellings: Dictionary(options.vocabulary.map { ($0, options.aliases[$0] ?? []) }, uniquingKeysWith: { a, _ in a }))
+        let words = { (s: String) in s.split(whereSeparator: \.isWhitespace).map(String.init) }
+        return SpellingMatcher.changes(from: words(original), to: words(rescored)).allSatisfy { change in
+            let inserted = SpellingMatcher.key(change.inserted.joined(separator: " "))
+            if inserted == SpellingMatcher.key(change.removed.joined(separator: " ")) { return true }
+            guard let spelling = options.vocabulary.first(where: { SpellingMatcher.key($0) == inserted }) else { return false }
+            return matcher.accepts(heard: change.removed.joined(separator: " "), as: spelling)
+        }
     }
 
     /// One boosting session per distinct dictionary; rebuilt when the dictionary changes.

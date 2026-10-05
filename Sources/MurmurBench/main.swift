@@ -13,7 +13,7 @@ struct MurmurBench: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "murmur-bench",
         abstract: "Milestone 0 bake-off: record the corpus, run engines and cleanup models, write the report.",
-        subcommands: [RecordCorpus.self, Run.self, EnginePass.self, CleanupPass.self, StallTest.self, E2E.self, Report.self, Status.self, VocabTest.self, LongTest.self, GuardTest.self, PunctuationTest.self],
+        subcommands: [RecordCorpus.self, Run.self, EnginePass.self, CleanupPass.self, StallTest.self, E2E.self, Report.self, Status.self, VocabTest.self, VocabFalseTest.self, LongTest.self, GuardTest.self, PunctuationTest.self],
         defaultSubcommand: Status.self
     )
 }
@@ -331,12 +331,14 @@ struct StallTest: AsyncParsableCommand {
     func run() async throws {
         let runner = CleanupRunner(provider: StalledCleanupProvider(), timeLimit: .milliseconds(800))
         var times: [Double] = []
+        // Half short, half long (the limit grows with length up to 1,250 ms).
+        let long = Array(repeating: "so the plan for the launch is that we ship the beta on Friday and then collect feedback", count: 5).joined(separator: " and ")
         for i in 0..<trials {
             let start = Clock.now()
-            let o = await runner.run("um let's meet at 3 at the cafe", request: CleanupRequest())
+            let o = await runner.run(i % 2 == 0 ? "um let's meet at 3 at the cafe" : long, request: CleanupRequest())
             let ms = Clock.ms(since: start)
             times.append(ms)
-            print("  trial \(i + 1): \(Format.ms(ms)) · fallback \(o.fallback?.rawValue ?? "none") · \(o.text)")
+            print("  trial \(i + 1): \(Format.ms(ms)) · fallback \(o.fallback?.rawValue ?? "none") · \(o.text.prefix(40))")
         }
         let summary: [String: Double] = ["max": times.max() ?? 0, "p50": Stats.percentile(times, 50) ?? 0, "trials": Double(trials)]
         try ResultFiles.write(summary, to: paths.resultsURL.appendingPathComponent("stall-test.json"))
@@ -422,6 +424,7 @@ struct VocabTest: AsyncParsableCommand {
     @Option var engine: String = "parakeet-ultra"
     @Option(help: "Also run the rules (with the dictionary) and this cleanup provider with the vocabulary, and score the final text.")
     var pipeline: String?
+    @Flag(help: "Bias the engine acoustically toward the terms (off in the app).") var boost = false
 
     func run() async throws {
         let corpus = try Corpus.load(from: paths.corpusURL)
@@ -448,7 +451,7 @@ struct VocabTest: AsyncParsableCommand {
             let bare = try await engine.transcribe(samples, options: TranscribeOptions(language: "en"))
             bareMs.append(Clock.ms(since: t))
             t = Clock.now()
-            var biased = try await engine.transcribe(samples, options: TranscribeOptions(language: "en", vocabulary: terms))
+            var biased = try await engine.transcribe(samples, options: TranscribeOptions(language: "en", vocabulary: terms, boost: boost))
             biasedMs.append(Clock.ms(since: t))
             if let runner {
                 biased = await runner.run(biased, request: CleanupRequest(level: .light, vocabulary: terms)).text
@@ -470,6 +473,118 @@ struct VocabTest: AsyncParsableCommand {
         let summary: [String: Double] = ["occurrences": Double(rows.count), "missedBare": Double(missedBare.count), "fixed": Double(fixed.count), "broken": Double(broke.count),
                                          "bareP50": Stats.percentile(bareMs, 50) ?? 0, "biasedP50": Stats.percentile(Array(biasedMs.dropFirst()), 50) ?? 0]
         try ResultFiles.write(summary, to: paths.resultsURL.appendingPathComponent("vocab-test-\(ResultFiles.safeName(engine.id)).json"))
+    }
+}
+
+// MARK: - vocab-false-test
+
+struct VocabFalseTest: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "vocab-false-test",
+        abstract: "T4 false insertions: transcribes every clip (and system-voice phrases) with a dictionary and counts dictionary words that appear where nobody said them, and words the dictionary changed in clips that contain none of its terms."
+    )
+    @OptionGroup var paths: CommonPaths
+    @Option var engine: String = "parakeet-ultra"
+    @Flag(help: "Print every changed clip.") var verbose = false
+    @Option(help: "Use only these entries instead of the corpus names: \"Term=alias|alias,Term2\".") var terms: String?
+
+    static let phrases = [
+        "The quick brown fox jumps over the lazy dog.",
+        "Please add my quality signature.",
+        "Um, so I think we should, uh, move the launch to Friday.",
+        "My three goals for today are, first, ship the app, second, write the docs, and third, take a break.",
+        "Let's grab coffee after the meeting.",
+        "Can you send me the slides before the three pm sync?",
+        "Remind me to water the plants when I get home tonight.",
+        "I think the new design looks a lot cleaner than the old one.",
+    ]
+
+    func run() async throws {
+        let corpus = try Corpus.load(from: paths.corpusURL)
+        let names = Array(Set(corpus.clips.filter { ["names", "numbers"].contains($0.set) }.flatMap { $0.entities ?? [] }.filter { e in
+            e.first?.isLetter == true && !e.contains("/") && !e.contains("@") && e.rangeOfCharacter(from: .decimalDigits) == nil
+                && !["Friday", "Monday", "staging", "doesn't", "macOS 14"].contains(e)
+        })).sorted()
+        var aliases: [String: [String]] = ["Murmurly": ["marmalade"], "Siobhan": ["Chivan", "Shivon"]]
+        var terms = names + aliases.keys.filter { !names.contains($0) }.sorted()
+        if let custom = self.terms {
+            aliases = [:]
+            terms = custom.split(separator: ",").map { entry in
+                let parts = entry.split(separator: "=", maxSplits: 1).map(String.init)
+                if parts.count == 2 { aliases[parts[0]] = parts[1].split(separator: "|").map(String.init) }
+                return parts[0]
+            }
+        }
+        print("Dictionary (\(terms.count)): \(terms.joined(separator: ", "))")
+
+        var clips: [(id: String, reference: String, samples: [Float])] = []
+        for clip in corpus.clips where !clip.isSilence {
+            if let samples = try? WAV.read(Corpus.audioURL(clip, in: paths.corpusURL)), !samples.isEmpty {
+                clips.append((clip.id, clip.reference, samples))
+            }
+        }
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("murmur-vocab-false")
+        try? FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        for (i, phrase) in Self.phrases.enumerated() {
+            let url = tmp.appendingPathComponent("say-\(i).wav")
+            let say = Process()
+            say.executableURL = URL(fileURLWithPath: "/usr/bin/say")
+            say.arguments = ["-o", url.path, "--file-format=WAVE", "--data-format=LEI16@16000", phrase]
+            try say.run()
+            say.waitUntilExit()
+            let pad = [Float](repeating: 0, count: 8_000)
+            if let samples = try? WAV.read(url) { clips.append(("say-\(i)", phrase, pad + samples + pad)) }
+        }
+
+        let engine = try EngineCatalog.make(engine)
+        try await engine.load()
+        var mappings: [DictionaryEntry] = []
+        for term in terms {
+            mappings.append(DictionaryEntry(term: term, replacement: term))
+            for alias in aliases[term] ?? [] { mappings.append(DictionaryEntry(term: alias, replacement: term)) }
+        }
+        let plain = RulesCleaner(), ruled = RulesCleaner(dictionary: mappings)
+        struct Tally { var falseInsertions = 0, changedClean = 0, fixed = 0, broken = 0 }
+        let configs = ["boost", "rules", "boost+rules"]
+        var tallies = Dictionary(uniqueKeysWithValues: configs.map { ($0, Tally()) })
+        var cleanClips = 0, termClips = 0
+        for clip in clips {
+            let bare = try await engine.transcribe(clip.samples, options: TranscribeOptions(language: "en"))
+            let boosted = try await engine.transcribe(clip.samples, options: TranscribeOptions(language: "en", vocabulary: terms, aliases: aliases, boost: true))
+            let plainBare = plain.apply(bare).restoredText
+            let outputs: [String: (base: String, out: String)] = [
+                "boost": (bare, boosted),
+                "rules": (plainBare, ruled.apply(bare).restoredText),
+                "boost+rules": (plainBare, ruled.apply(boosted).restoredText),
+            ]
+            let said = terms.filter { CorpusChecks.contains(clip.reference, $0) || (aliases[$0] ?? []).contains { CorpusChecks.contains(clip.reference, $0) } }
+            if said.isEmpty { cleanClips += 1 } else { termClips += 1 }
+            for config in configs {
+                let (base, out) = outputs[config]!
+                let inserted = terms.filter { CorpusChecks.contains(out, $0) && !CorpusChecks.contains(base, $0) && !said.contains($0) }
+                let changed = TextMetrics.normalizedWords(base) != TextMetrics.normalizedWords(out)
+                tallies[config]!.falseInsertions += inserted.count
+                if said.isEmpty, changed { tallies[config]!.changedClean += 1 }
+                for term in said {
+                    let b = CorpusChecks.contains(base, term), v = CorpusChecks.contains(out, term)
+                    if !b && v { tallies[config]!.fixed += 1 }
+                    if b && !v { tallies[config]!.broken += 1 }
+                }
+                if (changed && (said.isEmpty || verbose)) || !inserted.isEmpty {
+                    print("\(inserted.isEmpty ? "~" : "!") \(config) [\(clip.id)] \(base)\n      → \(out)")
+                }
+            }
+        }
+        print("\nClips: \(clips.count) (\(cleanClips) with no dictionary word said, \(termClips) with one)")
+        var summary: [String: Double] = ["clips": Double(clips.count)]
+        for config in configs {
+            let t = tallies[config]!
+            print("\(config.padding(toLength: 12, withPad: " ", startingAt: 0)) false insertions \(t.falseInsertions), clean clips changed \(t.changedClean), terms fixed \(t.fixed), terms broken \(t.broken)")
+            summary["\(config).falseInsertions"] = Double(t.falseInsertions)
+            summary["\(config).fixed"] = Double(t.fixed)
+            summary["\(config).broken"] = Double(t.broken)
+        }
+        try ResultFiles.write(summary, to: paths.resultsURL.appendingPathComponent("vocab-false-test-\(ResultFiles.safeName(engine.id)).json"))
     }
 }
 

@@ -15,6 +15,8 @@ public enum GuardFlag: Sendable, Codable, Equatable, CustomStringConvertible {
     case placeholderLost(String)
     case lengthRatio(Double)
     case reordered(String)
+    /// A numbered list with fewer than three items: Smart Formatting lists only three or more.
+    case shortList(Int)
 
     public var description: String {
         switch self {
@@ -31,6 +33,7 @@ public enum GuardFlag: Sendable, Codable, Equatable, CustomStringConvertible {
         case .placeholderLost(let s): "snippet placeholder lost: \(s)"
         case .lengthRatio(let r): String(format: "length ratio %.2f", r)
         case .reordered(let s): "words moved: \(s)"
+        case .shortList(let n): "list of \(n) item\(n == 1 ? "" : "s")"
         }
     }
 
@@ -47,6 +50,7 @@ public enum GuardFlag: Sendable, Codable, Equatable, CustomStringConvertible {
         case .placeholderLost: "placeholder"
         case .lengthRatio: "length"
         case .reordered: "order"
+        case .shortList: "list"
         }
     }
 }
@@ -123,6 +127,7 @@ public struct GuardChecker: Sendable {
         if trimmed.isEmpty && !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return [.empty]
         }
+        if (1...2).contains(listItems) { flags.append(.shortList(listItems)) }
         let lowerOut = trimmed.lowercased()
         let lowerIn = input.lowercased()
         for a in Self.artifacts where lowerOut.contains(a) && !lowerIn.contains(a) {
