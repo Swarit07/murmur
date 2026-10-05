@@ -142,3 +142,11 @@ Newest last. Each entry: date, decision, reason.
   - Keep "Shortcuts" as a submenu.
   - Keep ⌃⌘V and ⌃⌘C for Paste and Copy last.
 - **2026-10-05 · The self-test checks focus before every dictation.** A run while the owner was typing put about 18 test dictations into the owner's focused Claude prompt box, because a test dictation targets whatever has focus when it starts. The insertion's own focus guard only covers focus changes after the start. The self-test now confirms that TextEdit is frontmost and its scratch document has focus before every dictation, Command Mode instruction, Paste last and recording. If not, it stops the run and reports it.
+- **2026-10-05 · Milestone 7 (Windows) is dropped (owner).** Murmur stays macOS-only.
+- **2026-10-05 · Health check before committing (owner asked to make sure the app fully works).**
+  - The Release build is installed and running, with no crash since 14:29.
+  - 170 unit tests, the token lint and the layout check pass.
+  - Self-test 23/23 and app matrix 6/6, both on the current dictation code.
+  - The owner's own dictations on this build were inserted in 291 to 779 ms.
+  - Idle CPU is about 0%.
+  - Commit `a74823d` also picked up 16 of the landing page's source files: another session is building it in `website/` in this same folder, and `git add -A` caught them. They were left in place rather than rewriting history under an active session; app commits now stage only app paths.

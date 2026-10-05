@@ -74,7 +74,7 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 | 4 | App windows | Done, plus QA and redesign pass | **Deferred to the end by owner** | Fresh-account onboarding and permission revocation need the owner's hands; steps in [m4-gate](m4-gate.md). QA pass: [m4-qa](m4-qa.md) |
 | 5 | Context | Done | **Passed** (automated) | Style test 64/64; Command Mode round trip with one-step Undo; self-test 19/19. [m5-report](m5-report.md) |
 | 6 | Polish | **In progress** | Needs the owner | S2, I9, A6, idle unload and the performance pass done; measured tokens and the app matrix need the owner. [m6-report](m6-report.md) |
-| 7 | Windows (optional) | Not planned | — | |
+| 7 | Windows (optional) | **Dropped by owner** (2026-10-05) | — | Not building a Windows version |
 
 ## Requirements
 
