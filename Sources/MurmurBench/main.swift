@@ -13,7 +13,7 @@ struct MurmurBench: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "murmur-bench",
         abstract: "Milestone 0 bake-off: record the corpus, run engines and cleanup models, write the report.",
-        subcommands: [RecordCorpus.self, Run.self, EnginePass.self, CleanupPass.self, StallTest.self, E2E.self, Report.self, Status.self, VocabTest.self, VocabFalseTest.self, LongTest.self, GuardTest.self, PunctuationTest.self],
+        subcommands: [RecordCorpus.self, Run.self, EnginePass.self, CleanupPass.self, StallTest.self, E2E.self, Report.self, Status.self, VocabTest.self, VocabFalseTest.self, StyleTest.self, LongTest.self, GuardTest.self, PunctuationTest.self],
         defaultSubcommand: Status.self
     )
 }
@@ -585,6 +585,57 @@ struct VocabFalseTest: AsyncParsableCommand {
             summary["\(config).broken"] = Double(t.broken)
         }
         try ResultFiles.write(summary, to: paths.resultsURL.appendingPathComponent("vocab-false-test-\(ResultFiles.safeName(engine.id)).json"))
+    }
+}
+
+// MARK: - style-test
+
+struct StyleTest: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "style-test",
+        abstract: "S4 gate: cleans a few corpus sentences with the real model, applies every style offered in each category, and checks each style's mark (Formal. punctuated, Casual no final period, very casual no capitals at sentence starts, Excited! an exclamation)."
+    )
+    @OptionGroup var paths: CommonPaths
+    @Option var provider: String = "mlx:qwen3.5-4b"
+
+    /// A sample app per category, to show the category map at work.
+    static let apps: [(AppCategory, String, URL?)] = [
+        (.personal, "com.apple.MobileSMS", nil), (.work, "com.tinyspeck.slackmacgap", nil),
+        (.email, "com.google.Chrome", URL(string: "https://mail.google.com/mail/u/0/")), (.other, "com.apple.TextEdit", nil),
+    ]
+
+    func run() async throws {
+        let corpus = try Corpus.load(from: paths.corpusURL)
+        let sentences = ["plain-02", "plain-07", "plain-13", "levels-06", "levels-19"].compactMap { id in corpus.clips.first { $0.id == id }?.reference }
+        let provider = try CleanupCatalog.make(provider)
+        try await provider?.load()
+        let runner = CleanupRunner(provider: provider, timeLimit: .seconds(3))
+        var cleaned: [String] = []
+        for sentence in sentences { cleaned.append(await runner.run(sentence, request: CleanupRequest()).text) }
+        var passed = 0, total = 0
+        for (category, bundle, url) in Self.apps {
+            let found = AppCategory.of(bundleId: bundle, url: url)
+            print("\n## \(category.rawValue) (\(url?.host ?? bundle) → \(found.rawValue))")
+            total += 1
+            if found == category { passed += 1 } else { print("  ✗ category map") }
+            for style in category.styles {
+                for text in cleaned {
+                    let out = style.apply(to: text)
+                    let ok: Bool = switch style {
+                    case .formal: out == text
+                    case .casual: !out.hasSuffix(".") && out.first?.isUppercase == true
+                    case .veryCasual: !out.hasSuffix(".") && out.first?.isUppercase != true
+                    case .excited: out.hasSuffix("!") || out.hasSuffix("?")
+                    }
+                    total += 1
+                    if ok { passed += 1 }
+                    print("  \(ok ? "✓" : "✗") \(style.rawValue.padding(toLength: 10, withPad: " ", startingAt: 0)) \(out)")
+                }
+            }
+        }
+        print("\nStyle checks: \(passed)/\(total) \(passed == total ? "PASS" : "FAIL")")
+        try ResultFiles.write(["passed": Double(passed), "total": Double(total)], to: paths.resultsURL.appendingPathComponent("style-test.json"))
+        await provider?.unload()
     }
 }
 

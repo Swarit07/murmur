@@ -11,7 +11,7 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 | 2 | Flow Bar | Done | **Passed** | 50/50 kept focus, 50/50 clicks reached the bar, all 10 states reachable. [m2-report](m2-report.md) |
 | 3 | Cleanup | Done | **Passed** | 27/30 corrections (28/30 re-run with Smart Formatting), guard 291/291, stall 855 ms. T4 re-measured, see below. [m3-report](m3-report.md) |
 | 4 | App windows | Done, plus QA and redesign pass | **Deferred to the end by owner** | Fresh-account onboarding and permission revocation need the owner's hands; steps in [m4-gate](m4-gate.md). QA pass: [m4-qa](m4-qa.md) |
-| 5 | Context | **In progress** | — | Next: S4 styles applied, Command Mode, C11, D4 done, D5, D7, I4, I8, I10 |
+| 5 | Context | Done | **Passed** (automated) | Style test 64/64; Command Mode round trip with one-step Undo; self-test 19/19. [m5-report](m5-report.md) |
 | 6 | Polish | Not started | — | Needs measured tokens from recordings of the reference app (owner) |
 | 7 | Windows (optional) | Not planned | — | |
 
@@ -26,9 +26,9 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 | D2 Hands-free | P0 | ✅ | Double-tap, Fn+Space, Flow Bar click (M2 focus test 50/50) |
 | D3 Cancel | P0 | ✅ | Esc or X; the History row is kept; Undo on the notice. The self-test checks cancel during processing, then Undo |
 | D4 Rapid-tap guard | P1 | ✅ | Built in M1 (spec places it in M5); unit tests in HotkeyTests |
-| D5 Ignore input while busy | P1 | 🟡 | Busy presses and mic-test presses are ignored; a scripted check is planned for M5 |
+| D5 Ignore input while busy | P1 | ✅ | State-machine tests; self-test: a second start during processing is ignored |
 | D6 Silence and short clips | P0 | ✅ | Energy gate plus Silero VAD; silence set inserts nothing |
-| D7 Auto-stop at 20 min | P1 | ⬜ | M5 |
+| D7 Auto-stop at 20 min | P1 | ✅ | Warn at 19, stop at 20, stop on 3 s without audio; self-test with a 6 s limit |
 | D8 Custom shortcuts | P1 | ✅ | M4; the menu's presets reset custom shortcuts |
 | D9 Microphone choice | P1 | ✅ | M4; device changes rebuild the engine, retry notice |
 
@@ -46,14 +46,14 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 | C1 Levels + Transforms | P0 | ✅ | Style › Auto Cleanup; the AI edits switch is in the Hub |
 | C2 Backtracking | P0 | ✅ | 27–28/30 |
 | C3 Smart Formatting | P1 | ✅ | Lists of 3+ keep their lead-in; lists of 1–2 items are a guard flag |
-| C4 Spoken punctuation | P0 | 🟡 | Synthetic voices: ? 10/10, new paragraph 10/10, new line 9/10, comma 6/10 (the engine hears "Kama"). Real-voice clips optional (owner) |
+| C4 Spoken punctuation | P0 | 🟡 | Synthetic voices (latest run): ? 10/10, new paragraph 10/10, new line 9/10, comma 8/10 (earlier 6/10). Real-voice clips optional (owner) |
 | C5 Guardrails | P0 | ✅ | guard-test 291/291 |
 | C6 Time limit | P0 | ✅ | Amended: 800 ms + 10 ms per word over 30, cap 1,250 ms; stall test max 1.34 s |
 | C7 Transcript is data | P0 | ✅ | 4/4 |
 | C8 No translation | P2 | ✅ | Prompt rule |
-| C9 Native undo | P0 | 🟡 | One paste per dictation by design; app-by-app check was part of the skipped M1 report. Planned: a TextEdit check in the self-test |
+| C9 Native undo | P0 | 🟡 | One paste per dictation by design; one Undo restores a Command Mode rewrite in TextEdit (self-test). Other apps were part of the skipped M1 report |
 | C10 Undo AI edit | P1 | ✅ | History context menu |
-| C11 "Press enter" | P2 | ⬜ | M5 (Experimental toggle shown, disabled) |
+| C11 "Press enter" | P2 | ✅ | Experimental, confirmed once; self-test |
 
 ### Insertion
 | ID | Pri | Status | Evidence / notes |
@@ -67,8 +67,8 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 | I7 Paste and copy last | P0 | ✅ | ⌃⌘V / ⌃⌘C; the self-test checks Paste last |
 | I8 Layout-independent paste | P1 | ✅ | Key code looked up per paste for the current layout |
 | I9 Fallback typing | P2 | ⬜ | |
-| I10 One insertion at a time | P1 | 🟡 | State machine allows one dictation; queued paste ordering to verify in M5 |
-| I11 Remote desktop delay | P2 | ⬜ | |
+| I10 One insertion at a time | P1 | ✅ | Insertion gate; regression test fails without it |
+| I11 Remote desktop delay | P2 | ✅ | 5 s restore delay for remote desktop apps (built in M1) |
 
 ### Personalization, Command Mode, App shell
 | ID | Pri | Status | Evidence / notes |
@@ -76,8 +76,8 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 | S1 Dictionary | P1 | ✅ | Add, edit, delete; "Heard as"; spelling matcher |
 | S2 Suggestions | P2 | ⬜ | |
 | S3 Snippets | P1 | ✅ | Multi-line expansions; protected from cleanup |
-| S4 Styles | P1 | 🟡 | Per-category choice is stored and shown; applying it in cleanup is M5 |
-| M1–M3 Command Mode | P1/P2 | ⬜ | M5 |
+| S4 Styles | P1 | ✅ | Category from app or web address; deterministic styles; style-test 64/64 |
+| M1–M3 Command Mode | P1/P2 | ✅ | Rewrite selection or draft; one Undo; badge in History; self-test |
 | A1 Menu-bar app | P0 | ✅ | |
 | A2 Flow Bar never takes focus | P0 | ✅ | 50/50 |
 | A3 Onboarding + permissions | P1 | ✅ | Revocation test deferred with the M4 gate |
@@ -114,3 +114,12 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 - **C6** amended for long dictations. **Smart Formatting** keeps list lead-ins. Cleanup logs its outcome (reason and timing only).
 - **Repository:** private GitHub repo with `main` and the milestone branches; README; this status file.
 - **Self-test:** 10/10. **Unit tests:** 106 pass.
+- **Milestone 5, built and gated:**
+  - S4 styles (style-test 64/64).
+  - Command Mode: rewrite or draft, with one-step Undo verified.
+  - C11 Press enter.
+  - D7 auto-stop.
+  - I10 insertion gate, which fixed a clipboard race.
+  - D5 check.
+  - Flow Bar Command accent.
+  - Self-test 19/19, 129 unit tests.
