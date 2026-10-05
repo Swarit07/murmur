@@ -2,6 +2,39 @@
 
 Last updated 2026-10-05. This file tracks where every milestone and requirement in [SPEC.md](../SPEC.md) stands. It also lists what was skipped or deferred and why, the overnight work log, and what still needs the owner. Decisions and their measurements are in [decisions.md](decisions.md).
 
+## Morning summary (2026-10-05)
+
+**Done overnight:**
+- **QA and redesign of every screen.** 13 issues fixed.
+- **Milestone 5 (Context) built and gated:**
+  - styles per app;
+  - Command Mode, a spoken instruction that rewrites the selection or drafts text, with one-step Undo;
+  - "press enter";
+  - auto-stop at 20 minutes;
+  - one insertion at a time, which fixed a clipboard race.
+- **Most of Milestone 6 (Polish):**
+  - suggestions to add a word you corrected to the dictionary;
+  - typing instead of pasting;
+  - hide with Undo;
+  - performance pass: p50 0.62 s, p95 1.1 s on your real dictations.
+- **A dictionary bug the self-test caught**, where one dictionary word overwrote ordinary speech, is fixed. It was measured on all your recordings and now inserts nothing wrong.
+- **Private GitHub repo** with `main`, milestone branches and gate tags.
+- **Checks:**
+  - unit tests: 144 pass;
+  - self-test: 21/21 in TextEdit;
+  - soak: 210/210 over 10 runs, no crash.
+
+**Decided for you (details in [decisions.md](decisions.md)):**
+- Engine dictionary boosting is off; a safer matcher replaces it.
+- The cleanup time limit grows a little for long dictations.
+- Style names follow the spec ("Formal.", "very casual").
+- Idle model unloading is built but off by default: each reload leaks ~400 MB inside the MLX library. A follow-up task is flagged.
+
+**Needs you:**
+1. The M4 gate: a fresh-account onboarding and the permission revocation test ([m4-gate.md](m4-gate.md), ~15 min). The latest build is in /Applications.
+2. Screen recordings of the reference app, to measure the Flow Bar tokens (M6 gate).
+3. To try Command Mode: Settings › Experimental › Command Mode, select some text, hold Fn+Control, and say "make this friendlier".
+
 ## Milestones
 
 | # | Milestone | Work | Gate | Notes |
