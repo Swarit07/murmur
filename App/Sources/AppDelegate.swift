@@ -115,6 +115,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 app.runFocusTest(delay: 2)
             }
         }
+        // Design review and profiling: force a Flow Bar gallery state by name ("none" clears it).
+        DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.swaritsheel.Murmur.debug.forceFlowBar"), object: nil, queue: .main) { note in
+            let name = note.object as? String
+            MainActor.assumeIsolated {
+                guard let app = Self.shared, app.settings.debugMenu else { return }
+                app.flowBar.model.force(FlowBarState.gallery.first { $0.name == name })
+            }
+        }
         // Performance pass (U3): a 10-second hands-free recording, then discarded (nothing is inserted
         // or kept), so the Flow Bar can be profiled while it draws the live waveform.
         DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.swaritsheel.Murmur.debug.recordTenSeconds"), object: nil, queue: .main) { _ in

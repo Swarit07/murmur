@@ -139,3 +139,69 @@ One report per milestone (UI_REDESIGN.md §10), newest last. If a session ends m
 **Judgment calls**
 - **App icon in the gallery:** it shows the running app's icon, so in `murmur-snap` it's the generic one. The real icon is in the app bundle and in `App/AppIcon.iconset`.
 - **Hub tooltips** use the Flow Bar's ink pill style: the boards show no Hub tooltip, and §4 lists `MTooltip` without a look.
+
+## U3: Flow Bar
+
+**Changed**
+- **`Sources/UI/FlowBarModel.swift`:**
+  - Notices and timings per §5.1:
+    - cancelled: 5 s with a ring, Undo and Open History;
+    - paste error: 4 s;
+    - transcription and mic errors: sticky 8 s with Retry;
+    - no text box: until dismissed;
+    - no audio: sticky 8 s, Switch microphone and Test mic.
+  - `FlowSurface` (the one morphing surface), idle fade after 10 s, hover with a tooltip after 400 ms ("Hold [key] to dictate").
+  - Hands-free timer from 3 s, inserted word count.
+  - Gallery entries for all twelve board states plus the SPEC notices.
+  - The right-click menu matches §5.1 #12 (Start hands-free, Paste last transcript, Hide for 1 hour, Settings…) plus Reset Flow Bar position.
+- **`Sources/UI/FlowBarView.swift`:** rewritten.
+  - **Surface:** one surface on a width spring (240 ms), bottom-anchored. Cards replace the pill in place, and their content fades and rises in.
+  - **Size:** computed from tokens and measured text, so the shape springs to its final size before the content lays out.
+  - **`FlowWave`:** `drawWave` ported into one `Canvas` inside a `TimelineView` that runs only while listening; per-frame one-pole smoothing (50 / 180 ms) with gain 2.1.
+  - **`FlowDots`, `FlowRing`, `FlowCheck`:** ported from `murmur-motion.js`.
+  - **Effects:** the transcription-error shake (2 pt, 3 cycles) and the 5-minute nudge.
+  - **VoiceOver:** labels and a state description on every state.
+  - **Reduce Motion:** fades only, still lobes, a dot pulse, no shake.
+- **`Sources/UI/FlowBarPanel.swift`:**
+  - fixed canvas sized from the largest card;
+  - hit-testing on the surface (the idle pill answers over the hover pill's area) and the tooltip;
+  - follows the **system** appearance (`AppleInterfaceThemeChangedNotification`), not the Hub's setting;
+  - sits 8 pt above the Dock.
+- **`App/Sources/FlowBarWiring.swift`:** inserted word count (a count only), the new actions and menu items.
+- **`App/Sources/AppDelegate.swift`:** debug hooks, gated by the Debug menu setting:
+  - `debug.forceFlowBar <state>`;
+  - `debug.recordTenSeconds`, a hands-free recording that is discarded, used for profiling.
+- **Removed:** `Sources/UI/TokensV1.swift`; nothing uses the v1 tokens any more.
+- **Tools:**
+  - `Tools/compare.py` and `murmur-snap --compare` crop the board's state tiles and write board-and-ours sheets.
+  - `Tests/UITests/FlowBarStateTests.swift` rewritten for v2: board sizes, card sizes inside the canvas, notice buttons and timings, tooltip, idle fade, timer, level source, wave shape, saved overrides.
+
+**Done when**
+- **All states snapshot side by side with the board crops: pass.**
+  - The sheet is `Artifacts/ui/sheets/flowbar-compare.png` (board left, ours right, 11 board states). Raw captures are in `Artifacts/ui/after/{light,dark}/flowbar-*.png`.
+  - **Sizes:** the 52 × 12, 76 × 28, 160 × 36, 144 × 36 and 276 sizes, and the card layouts, match the board.
+  - **Visible differences:** copy where the board's would be untrue (below), and the snapshot moment of the processing dots and countdown ring.
+- **"Never takes focus" test: pass.** 50/50 kept focus in TextEdit, 50/50 clicks reached the bar, 50/50 started hands-free (`Scripts/focus-test.sh`).
+- **Idle CPU with the bar visible: pass.** 0.00% over 30 s. The only wakeups are the existing 2 s permission watchdog; the bar runs no timers or animations while idle.
+- **10 s dictation profile within the SPEC frame budget (16.7 ms at 60 fps): partial.**
+  - **Method:** Instruments Animation Hitches, forced live wave over a real hands-free recording.
+  - **Bar alone:** 60 updates/s, app commit p99 5.5 ms, max 11.7 ms, 0 frames over budget.
+  - **During a recording:** 60 updates/s, commit p50 1.8 ms, p95 2.7 ms, p99 29.8 ms; 12 of 572 frames (2%) over 16.7 ms.
+  - **Cause:** a main-thread sample during recording shows the thread about 92% idle. The slow frames are Core Animation commits waiting on the Metal command queue and a render-server lock while the speech engine uses the GPU and ANE; the bar's own view work is under 2 ms. Reducing it means changing how the engine shares the GPU, which is dictation behavior, so it is left as is.
+
+**Tokens not in the brief**
+- **`FlowGeometry`:**
+  - board: `inlineKeyBottom` 1.5, `pasteKeyGap` 3, `buttonGap` 6, `buttonIconGap` 6, `cancelledLabelTrail` 4, `noAudioInset` 2 (from `Main.dc.html`);
+  - assumed, MEASURE: `timerWidth` 30, `cardTextMaxWidth` 260, `canvasCardWidth` 420, `canvasCardHeight` 96.
+- **`TypeTokens.keycapSmall`:** mono 11/500 (board), for the paste key caps and the timer.
+- **`WaveTokens`:** `previewLevel` 0.6, the hash constants and `stillTime` (board, from the motion reference).
+- **`MotionTokens.contentDelayShare`:** 1/3 (assumed, MEASURE).
+
+**Judgment calls**
+- **Copy changed where the board's would be untrue:**
+  - The no-text-box sub-line says "Saved to History · ⌃⌘V pastes it". Insertion stops before the clipboard, so "Saved to History and clipboard" is not true here.
+  - The transcription-error sub-line says "Audio saved in History", because the engine's reason isn't passed to the bar.
+- **Timings follow v2 over SPEC §6's table:** paste error 4 s, no text box until dismissed, cancelled 5 s, transcription error sticky 8 s. Listed in `docs/ui-todo.md` for the owner.
+- **Test mic and Switch microphone both open Settings,** where the microphone picker and the level meter live, rather than an onboarding sheet.
+- **Command Mode looks the same as dictation on the bar.** v2 has no separate treatment, and clay is reserved for the live mic; VoiceOver says "Command Mode".
+- **The forced (debug) listening state draws the motion reference's default level of 0.6,** not its demo `speech()` signal, which the brief says never to ship.

@@ -4,7 +4,7 @@ import MurmurKit
 import SwiftUI
 import UI
 
-// murmur-snap [before|after] [--out <dir>] [--large] [--reduce-motion]
+// murmur-snap [before|after] [--out <dir>] [--large] [--reduce-motion] [--compare]
 // Renders every Hub page, onboarding step and Flow Bar state in light and dark at the screen's
 // backing scale (2× on Retina) with demo data, into Artifacts/ui/<set>/<appearance>/. `--large`
 // renders at text scale 1.15 into <set>-large, `--reduce-motion` with Reduce Motion on into
@@ -14,6 +14,7 @@ import UI
 let arguments = Array(CommandLine.arguments.dropFirst())
 let large = arguments.contains("--large")
 let reduceMotion = arguments.contains("--reduce-motion")
+let compare = arguments.contains("--compare")
 let outValue = arguments.firstIndex(of: "--out").flatMap { $0 + 1 < arguments.count ? arguments[$0 + 1] : nil }
 let setName = (arguments.first { !$0.hasPrefix("-") && $0 != outValue } ?? "after") + (large ? "-large" : "") + (reduceMotion ? "-reduced" : "")
 let outRoot: URL = {
@@ -62,6 +63,22 @@ enum Snap {
 
     static let looks: [(String, NSAppearance.Name)] = [("light", .aqua), ("dark", .darkAqua)]
 
+    /// `--compare`: crops each board in Design/reference to the matching region and writes side-by-side
+    /// sheets to Artifacts/ui/compare (Tools/compare.py does the image work).
+    static func runCompare() {
+        let process = Process()
+        let venv = URL(fileURLWithPath: "Tools/.venv/bin/python")
+        let useVenv = FileManager.default.isExecutableFile(atPath: venv.path)
+        process.executableURL = useVenv ? venv : URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = (useVenv ? [] : ["python3"]) + ["Tools/compare.py", outRoot.path]
+        do {
+            try process.run()
+            process.waitUntilExit()
+        } catch {
+            print("murmur-snap: could not run Tools/compare.py: \(error)")
+        }
+    }
+
     static func run() {
         let app = NSApplication.shared
         app.setActivationPolicy(.prohibited)
@@ -106,7 +123,8 @@ enum Snap {
             let model = FlowBarModel()
             model.showAtAllTimes = true
             let canvas = FlowBarController.canvas
-            let backdrop = lookName == "light" ? Color(white: 0.86) : Color(white: 0.18)
+            // The boards' stage colors: the sunken paper desk in light, a dark desktop in dark.
+            let backdrop = lookName == "light" ? ThemeColors.light.bgSunken.color : ThemeColors.dark.bgWindow.color
             let host = NSHostingView(rootView: ZStack { backdrop; FlowBarView(model: model) }.frame(width: canvas.width, height: canvas.height))
             let bar = NSWindow(contentRect: NSRect(origin: .zero, size: canvas), styleMask: [.borderless], backing: .buffered, defer: false)
             bar.contentView = host
@@ -117,14 +135,6 @@ enum Snap {
                 pump(0.6)
                 capture(host, to: dir.appendingPathComponent("flowbar-\(entry.name).png"), mayBeBlank: entry.state == .hidden, fine: true)
             }
-            // Command Mode draws the bars and the shimmer in clay.
-            model.command = true
-            for (name, state) in [("command-hold", FlowBarState.listening(handsFree: false)), ("command-processing", .processing)] {
-                model.forced = state
-                pump(0.6)
-                capture(host, to: dir.appendingPathComponent("flowbar-\(name).png"))
-            }
-            model.command = false
             model.force(nil)
             bar.close()
         }
@@ -139,6 +149,7 @@ enum Snap {
         gallery.close()
 
         print("murmur-snap: wrote \(written) images to \(outRoot.path)")
+        if compare { runCompare() }
         if !blank.isEmpty {
             print("blank images:\n" + blank.joined(separator: "\n"))
             exit(1)

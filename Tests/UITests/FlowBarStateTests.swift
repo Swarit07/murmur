@@ -1,105 +1,61 @@
 import Core
 import Foundation
+import SwiftUI
 import Testing
 @testable import UI
 
-/// Section 8: every Flow Bar state against the token values it must use.
+/// §8 and UI_REDESIGN.md v2 §5.1: every Flow Bar state against the board values it must use.
 @Suite("Flow Bar states")
 @MainActor
 struct FlowBarStateTests {
     let t = Tokens.defaults
 
-    func size(_ state: FlowBarState, hover: Bool = false) -> CGSize {
+    func model(_ state: FlowBarState, hover: Bool = false, elapsed: TimeInterval? = nil, words: Int? = nil) -> FlowBarModel {
         let model = FlowBarModel()
         model.showAtAllTimes = true
-        model.force(FlowBarGalleryEntry(state.name, state, hover: hover))
-        return model.pillSize
+        model.force(FlowBarGalleryEntry(state.name, state, hover: hover, elapsed: elapsed, words: words))
+        return model
     }
 
-    /// §3.5 and §5.1: the pill's size in every state, from the tokens.
-    @Test func geometryComesFromTheTokens() {
+    func size(_ state: FlowBarState, hover: Bool = false, timer: Bool = false) -> CGSize {
+        let m = model(state, hover: hover)
+        return FlowMetrics.size(m.surface, model: m, timer: timer)
+    }
+
+    /// §3.5: the board's sizes, from the tokens.
+    @Test func pillSizesMatchTheBoard() {
         LiveTokens.shared.reset()
         #expect(size(.hidden) == .zero)
-        #expect(size(.idle) == CGSize(width: t.idleWidth, height: t.idleHeight))
-        #expect(size(.idle, hover: true) == CGSize(width: t.hoverWidth, height: t.activeHeight))
-        #expect(size(.listening(handsFree: false)) == CGSize(width: t.activeWidth, height: t.activeHeight))
-        #expect(size(.listening(handsFree: true)) == CGSize(width: t.handsFreeWidth, height: t.activeHeight))
-        #expect(size(.processing) == CGSize(width: t.activeWidth, height: t.activeHeight))
-        #expect(size(.inserted) == CGSize(width: t.activeWidth, height: t.activeHeight))
-        // A notice sits above the idle pill.
-        for kind in FlowBarNotice.Kind.allCases where kind != .hidden {
-            #expect(size(.notice(FlowBarNotice(kind: kind, message: "x"))) == CGSize(width: t.idleWidth, height: t.idleHeight))
-        }
+        #expect(size(.idle) == CGSize(width: 52, height: 12))
+        #expect(size(.idle, hover: true) == CGSize(width: 76, height: 28))
+        // Hold: padding 16, a 6 pt live dot, gap 10, a 112 pt wave, padding 16.
+        #expect(size(.listening(handsFree: false)) == CGSize(width: 160, height: 36))
+        // Hands-free: padding 6, two 24 pt buttons, a 96 pt wave, gaps of 10; the timer adds a column.
+        #expect(size(.listening(handsFree: true)) == CGSize(width: 176, height: 36))
+        #expect(size(.listening(handsFree: true), timer: true).width == 176 + 10 + FlowGeometry.timerWidth)
+        #expect(size(.processing) == CGSize(width: 144, height: 36))
     }
 
-    /// The measured proportions (§3.5). The brief's absolute column (68, 102 at H = 28) implies H ≈ 29
-    /// for its ratio column, so the widths are checked against each other and the rest against H loosely.
-    @Test func proportionsMatchTheReference() {
-        let h = V1Flow.pillHeight
-        #expect(abs(V1Flow.activeWidth / V1Flow.hoverWidth - 3.54 / 2.33) < 0.03)
-        #expect(abs(V1Flow.buttonDiameter / h - 0.60) < 0.05)
-        #expect(abs(V1Flow.buttonPadding / h - 0.19) < 0.03)
-        // A silent bar is a square, so silence looks like the idle squares.
-        #expect(t.waveformMinHeight == t.waveformBarWidth)
-        // The idle squares and the bars share one centre area (~37 pt).
-        let squares = Double(t.idleSquares - 1) * t.squarePitch + t.squareSide
-        let bars = Double(t.waveformBars - 1) * (t.waveformBarWidth + t.waveformBarGap) + t.waveformBarWidth
-        #expect(abs(squares - bars) < 1.5)
-    }
-
-    @Test func alertsAndToasts() {
-        #expect(FlowBarNotice(kind: .transcriptionError, message: "").style == .alert)
-        #expect(FlowBarNotice(kind: .noAudio, message: "").style == .alert)
-        #expect(FlowBarNotice(kind: .micError, message: "").style == .alert)
-        for kind in [FlowBarNotice.Kind.pasteError, .cancelled, .noTextBox, .info, .hidden, .suggestion] {
-            #expect(FlowBarNotice(kind: kind, message: "").style == .toast)
-        }
-    }
-
-    /// The panel is fixed at the largest state, so it never resizes while the content animates.
-    @Test func canvasHoldsTheLargestState() {
+    @Test func cardsMatchTheBoard() {
         LiveTokens.shared.reset()
+        FontRegistry.registerBundledFonts()
+        let noAudio = size(.notice(FlowBarNotice(kind: .noAudio, message: "")))
+        #expect(noAudio.width == 276)
+        #expect(size(.notice(FlowBarNotice(kind: .pasteError, message: ""))).height == 40)
+        #expect(size(.notice(FlowBarNotice(kind: .cancelled, message: ""))).height == 42)
+        // Every card fits the panel's fixed canvas, so the window never resizes.
         let canvas = FlowBarController.canvas
-        #expect(canvas.width >= t.noticeWidth + V1Flow.canvasMargin * 2)
-        #expect(canvas.width >= V1Flow.toastMaxWidth + V1Flow.canvasMargin * 2)
-        #expect(canvas.height >= t.activeHeight + t.tooltipGap + V1Flow.alertMaxHeight + V1Flow.canvasMargin * 2)
-    }
-
-    /// The tooltip waits for its delay and shows only over the idle pill.
-    @Test func tooltipFollowsHover() async throws {
-        let model = FlowBarModel()
-        model.state = .idle
-        model.setHovering(true)
-        #expect(model.pill == .hover)
-        #expect(!model.tooltipVisible)
-        try await Task.sleep(for: .seconds(t.tooltipDelay + 0.2))
-        #expect(model.tooltipVisible)
-        model.state = .listening(handsFree: false)
-        #expect(!model.tooltipVisible)
-        model.state = .idle
-        model.setHovering(false)
-        #expect(model.pill == .idle)
-        #expect(!model.tooltipVisible)
-        model.shortcutLabel = "⌃ Ctrl"
-        #expect(model.tooltipText == "Click or hold ⌃ Ctrl to start dictating")
-    }
-
-    /// Levels are read from the lock-protected source; nothing is pushed per buffer.
-    @Test func levelsComeFromTheSource() {
-        LiveTokens.shared.reset()
-        let model = FlowBarModel()
-        let source = MicLevelSource()
-        model.levelSource = source
-        #expect(model.level(at: 0) == 0)
-        source.write(Float(t.waveformCeilingDb))
-        #expect(model.level(at: 0) == 1)
-        source.write(Float(t.waveformFloorDb))
-        #expect(model.level(at: 0) == 0)
+        for entry in FlowBarState.gallery {
+            let m = model(entry.state, hover: entry.hover, words: entry.words)
+            let s = FlowMetrics.size(m.surface, model: m, timer: true)
+            #expect(s.width + FlowGeometry.canvasMargin * 2 <= canvas.width, "\(entry.name) is \(s.width) wide")
+            #expect(s.height + FlowGeometry.canvasMargin * 2 <= canvas.height, "\(entry.name) is \(s.height) high")
+        }
     }
 
     @Test func tunedTokensChangeTheBar() {
         var tuned = Tokens.defaults
-        tuned.activeWidth = 150
+        tuned.processingWidth = 150
         tuned.idleHeight = 8
         LiveTokens.shared.value = tuned
         defer { LiveTokens.shared.reset() }
@@ -107,25 +63,28 @@ struct FlowBarStateTests {
         #expect(size(.idle).height == 8)
     }
 
-    /// The spec's state table: buttons per notice.
+    /// §5.1: buttons per notice, primary first.
     @Test func noticeButtons() {
         func actions(_ kind: FlowBarNotice.Kind) -> [FlowBarNotice.Action] { FlowBarNotice(kind: kind, message: "").actions }
-        #expect(actions(.pasteError) == [.dismiss])
-        #expect(actions(.transcriptionError) == [.retry, .dismiss])
-        #expect(actions(.micError) == [.retry, .dismiss])
         #expect(actions(.cancelled) == [.undo, .openHistory])
+        #expect(actions(.pasteError) == [])
+        #expect(actions(.transcriptionError) == [.retry])
         #expect(actions(.noTextBox) == [.dismiss])
+        #expect(actions(.noAudio) == [.switchMicrophone, .testMic])
         #expect(actions(.hidden) == [.undo])
         #expect(actions(.suggestion) == [.add, .dismiss])
-        #expect(actions(.noAudio) == [.selectMicrophone, .troubleshoot])
     }
 
+    /// §5.1 timings: cancelled 5 s with a ring, paste error 4 s, alerts sticky 8 s, no text box until
+    /// dismissed.
     @Test func countdownsComeFromTheTokens() {
         LiveTokens.shared.reset()
-        #expect(FlowBarNotice(kind: .cancelled, message: "").countdown == t.cancelledToastDuration)
-        #expect(FlowBarNotice(kind: .noTextBox, message: "").countdown == t.noticeDuration)
-        #expect(FlowBarNotice(kind: .pasteError, message: "").countdown == nil)
-        #expect(FlowBarNotice(kind: .transcriptionError, message: "").countdown == nil)
+        #expect(FlowBarNotice(kind: .cancelled, message: "").countdown == 5)
+        #expect(FlowBarNotice(kind: .cancelled, message: "").showsRing)
+        #expect(FlowBarNotice(kind: .pasteError, message: "").countdown == 4)
+        #expect(FlowBarNotice(kind: .transcriptionError, message: "").countdown == 8)
+        #expect(FlowBarNotice(kind: .noAudio, message: "").countdown == 8)
+        #expect(FlowBarNotice(kind: .noTextBox, message: "").countdown == nil)
     }
 
     @Test func hiddenForAnHourOnlyHidesTheIdleBar() {
@@ -150,12 +109,80 @@ struct FlowBarStateTests {
         #expect(model.displayed == .idle)
     }
 
+    /// The tooltip waits for its delay, shows only over the idle pill, and names the user's key.
+    @Test func tooltipFollowsHover() async throws {
+        LiveTokens.shared.reset()
+        let model = FlowBarModel()
+        model.state = .idle
+        model.setHovering(true)
+        #expect(model.surface == .hover)
+        #expect(!model.tooltipVisible)
+        try await Task.sleep(for: .seconds(t.tooltipDelay + 0.2))
+        #expect(model.tooltipVisible)
+        model.state = .listening(handsFree: false)
+        #expect(!model.tooltipVisible)
+        model.state = .idle
+        model.setHovering(false)
+        #expect(model.surface == .idle)
+        model.shortcutLabel = "⌃ Ctrl"
+        #expect(model.tooltipText == "Hold ⌃ Ctrl to dictate")
+    }
+
+    /// §6.1 `bar.idleFade`: the idle pill fades after a quiet spell, and hovering brings it back.
+    @Test func idlePillFades() async throws {
+        var tuned = Tokens.defaults
+        tuned.idleFadeDelay = 0.2
+        LiveTokens.shared.value = tuned
+        defer { LiveTokens.shared.reset() }
+        let model = FlowBarModel()
+        model.state = .listening(handsFree: false)
+        model.state = .idle
+        #expect(!model.idleFaded)
+        try await Task.sleep(for: .seconds(0.5))
+        #expect(model.idleFaded)
+        model.setHovering(true)
+        #expect(!model.idleFaded)
+    }
+
+    /// The hands-free timer appears after 3 s.
+    @Test func handsFreeTimerAppearsLater() {
+        LiveTokens.shared.reset()
+        let early = model(.listening(handsFree: true), elapsed: 1)
+        #expect(!early.timerVisible(at: Date()))
+        let later = model(.listening(handsFree: true), elapsed: 7)
+        #expect(later.timerVisible(at: Date()))
+        #expect(FlowTimer.text(7) == "0:07")
+        #expect(FlowTimer.text(312) == "5:12")
+    }
+
+    /// Levels are read from the lock-protected source; nothing is pushed per buffer.
+    @Test func levelsComeFromTheSource() {
+        LiveTokens.shared.reset()
+        let model = FlowBarModel()
+        let source = MicLevelSource()
+        model.levelSource = source
+        #expect(model.level(at: 0) == 0)
+        source.write(Float(t.waveformCeilingDb))
+        #expect(model.level(at: 0) == 1)
+        source.write(Float(t.waveformFloorDb))
+        #expect(model.level(at: 0) == 0)
+    }
+
+    /// §6.2: silence is the 0.7 pt hairline; full level stays inside the frame.
+    @Test func waveShape() {
+        let silent = FlowWave.path(width: 112, height: 22, time: 3, level: 0).boundingRect
+        #expect(abs(silent.height - WaveTokens.hairline * 2) < 0.01)
+        let loud = FlowWave.path(width: 112, height: 22, time: 3, level: 1).boundingRect
+        #expect(loud.minY >= 0 && loud.maxY <= 22)
+        #expect(loud.height > 10)
+    }
+
     @Test func savedOverridesSurviveNewTokens() throws {
         // An override saved before a token existed still loads, and keeps its value.
-        let saved = try JSONSerialization.data(withJSONObject: ["activeWidth": 140.0])
+        let saved = try JSONSerialization.data(withJSONObject: ["processingWidth": 140.0])
         let merged = try #require(Tokens.merged(over: saved))
-        #expect(merged.activeWidth == 140)
-        #expect(merged.commandLight == Tokens.defaults.commandLight)
+        #expect(merged.processingWidth == 140)
+        #expect(merged.liveLight == Tokens.defaults.liveLight)
     }
 }
 

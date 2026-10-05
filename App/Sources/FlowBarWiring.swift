@@ -40,8 +40,8 @@ final class FlowBarWiring {
             case .dismiss:
                 if notice.kind == .suggestion { app.controller.dismissSuggestion() } else { app.controller.clearMessage() }
             case .pasteLast: app.controller.pasteLast()
-            case .selectMicrophone, .troubleshoot:
-                // Both open the microphone settings until the Hub has a Help page (U4).
+            case .switchMicrophone, .testMic:
+                // Both open the microphone settings, where the device picker and the level meter live.
                 app.controller.clearMessage()
                 app.showSettings()
             }
@@ -49,13 +49,12 @@ final class FlowBarWiring {
         model.onMenu = { [weak self, weak app] item in
             guard let self, let app else { return }
             switch item {
+            case .startHandsFree: app.controller.toggleHandsFree()
             case .pasteLast: app.controller.pasteLast()
-            case .copyLast: app.controller.copyLast()
             case .hideForHour:
                 self.bar.hide(for: 3600)
                 app.controller.notice("Flow Bar hidden for an hour.", kind: .flowBarHidden)
             case .resetPosition: self.bar.resetPosition()
-            case .openHistory: app.showHistory()
             case .settings: app.showSettings()
             }
         }
@@ -77,6 +76,10 @@ final class FlowBarWiring {
         }
         lastPhase = status.phase
         model.command = status.command
+        if status.phase == .inserted {
+            // "Inserted · 24 words": a count only; the text itself never leaves the controller's status.
+            model.insertedWords = status.lastTranscript.map { $0.split(whereSeparator: \.isWhitespace).count }
+        }
         if status.notice != nil { model.microphoneName = app.controller.microphoneName }
         model.state = Self.state(for: status)
     }

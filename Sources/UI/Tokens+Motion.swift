@@ -55,6 +55,8 @@ public enum MotionTokens {
     public static let toggleKnob = SpringToken(response: 0.22, damping: 0.80) // source: assumed // MEASURE
     public static let segmentedSelect = SpringToken(response: 0.28, damping: 0.85) // source: assumed // MEASURE
     public static let rowActionsFade: Double = 0.100 // source: board
+    /// A card's content fades in once the surface is this far into its width spring.
+    public static let contentDelayShare: Double = 1.0 / 3 // source: assumed // MEASURE
     /// What every spring and longer fade becomes under Reduce Motion.
     public static let reducedFade: Double = 0.120 // source: board
 }
@@ -85,6 +87,15 @@ public enum WaveTokens {
     public static let lobeSpeedSpread: Double = 2.2 // source: board
     /// The smoothed mic level is multiplied by this, then capped at 1.
     public static let gain: Double = 2.1 // source: board
+    /// The level a forced (debug) listening state draws, so the wave can be judged without speaking
+    /// (`MurmurWave`'s default level).
+    public static let previewLevel: Double = 0.6 // source: board
+    /// The reference's per-lobe pseudo-random hash (`lobeHeight`): sin(k × a + salt × b) × scale.
+    public static let hashA: Double = 12.9898 // source: board
+    public static let hashB: Double = 78.233 // source: board
+    public static let hashScale: Double = 43758.5453 // source: board
+    /// A fixed moment for still waves (hover pill, gallery), so every render matches.
+    public static let stillTime: Double = 1.3 // source: board
 }
 
 /// The processing dots, countdown ring and onboarding level meter (§6.2: `MurmurDots`, `MurmurRing`,
@@ -123,6 +134,11 @@ public struct Motion: Sendable {
 
     public func easeIn(_ duration: Double) -> Animation {
         .easeIn(duration: (reduce ? min(duration, MotionTokens.reducedFade) : duration) / timeScale)
+    }
+
+    /// A constant-speed animation (the countdown ring, the shake), shortened under Reduce Motion.
+    public func linear(_ duration: Double) -> Animation {
+        .linear(duration: (reduce ? min(duration, MotionTokens.reducedFade) : duration) / timeScale)
     }
 
     public func easeInOut(_ duration: Double) -> Animation {

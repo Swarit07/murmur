@@ -84,6 +84,8 @@ public enum TypeTokens {
     public static let keycap = TextStyleToken(.mono, 500, size: 12, lineHeight: 16) // source: board (10-13 by size)
     public static let keycapInline = TextStyleToken(.mono, 500, size: 10, lineHeight: 14) // source: board
     public static let keycapLarge = TextStyleToken(.mono, 500, size: 13, lineHeight: 16) // source: board
+    /// The Flow Bar's paste key caps and hands-free timer (mono 11/500).
+    public static let keycapSmall = TextStyleToken(.mono, 500, size: 11, lineHeight: 14) // source: board
     public static let stat = TextStyleToken(.mono, 500, size: 12, lineHeight: 16) // source: board
     public static let tag = TextStyleToken(.mono, 400, size: 10, lineHeight: 14) // source: board
     /// The countdown ring's digit: a numeral inside a 22 pt ring, the one size below the 10 pt floor (§3.5).
@@ -94,7 +96,7 @@ public enum TypeTokens {
         ("page-title", pageTitle), ("welcome-title", welcomeTitle), ("feature-title", featureTitle), ("step-title", stepTitle),
         ("card-title", cardTitle), ("trigger", trigger), ("quote", quote), ("sample", sample), ("body", body), ("nav", nav),
         ("button", button), ("label", label), ("control", control), ("control-sm", controlSmall), ("hint", hint), ("flow-sub", flowSub),
-        ("caption", caption), ("meta", meta), ("keycap", keycap), ("keycap-inline", keycapInline), ("keycap-lg", keycapLarge),
+        ("caption", caption), ("meta", meta), ("keycap", keycap), ("keycap-inline", keycapInline), ("keycap-lg", keycapLarge), ("keycap-sm", keycapSmall),
         ("stat", stat), ("tag", tag), ("ring-digit", ringDigit),
     ]
 

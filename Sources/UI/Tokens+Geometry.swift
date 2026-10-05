@@ -202,10 +202,12 @@ public enum FlowGeometry {
     public static let tooltipHeight: CGFloat = 28 // source: board
     public static let tooltipPaddingH: CGFloat = 10 // source: board
     public static let tooltipGap: CGFloat = 6 // source: board
-    public static let tooltipKeyGap: CGFloat = 6 // source: assumed // MEASURE
+    public static let tooltipKeyGap: CGFloat = 6 // source: board
     public static let inlineKeyHeight: CGFloat = 18 // source: board
-    public static let inlineKeyPaddingH: CGFloat = 5 // source: assumed // MEASURE
+    public static let inlineKeyPaddingH: CGFloat = 5 // source: board
+    public static let inlineKeyBottom: CGFloat = 1.5 // source: board
     public static let pasteKeyHeight: CGFloat = 20 // source: board
+    public static let pasteKeyGap: CGFloat = 3 // source: board
     public static let activeHeight: CGFloat = 36 // source: board
     public static let liveDot: CGFloat = 6 // source: board
     public static let waveHold = CGSize(width: 112, height: 22) // source: board
@@ -242,7 +244,13 @@ public enum FlowGeometry {
     public static let buttonRadius: CGFloat = 8 // source: board
     public static let buttonPaddingH: CGFloat = 10 // source: board
     public static let buttonIcon: CGFloat = 12 // source: board
-    public static let buttonIconGap: CGFloat = 5 // source: assumed // MEASURE
+    public static let buttonIconGap: CGFloat = 6 // source: board
+    public static let buttonGap: CGFloat = 6 // source: board (between toast buttons in a row)
+    public static let cancelledLabelTrail: CGFloat = 4 // source: board
+    public static let noAudioInset: CGFloat = 2 // source: board (icon row)
+    public static let timerWidth: CGFloat = 30 // source: assumed (room for "0:07" in mono 11) // MEASURE
+    /// A card's text column stops here; longer SPEC messages truncate.
+    public static let cardTextMaxWidth: CGFloat = 260 // source: assumed // MEASURE
     public static let textGap: CGFloat = 1 // source: assumed (title to sub-line) // MEASURE
     public static let ring: CGFloat = 22 // source: board
     public static let ringStroke: CGFloat = 2 // source: board

@@ -59,6 +59,7 @@ public final class FlowBarController {
         host.sizingOptions = []
         panel.contentView = host
         panel.ignoresMouseEvents = true
+        applySystemAppearance()
         layout()
         panel.orderFrontRegardless()
         observe()
@@ -71,14 +72,13 @@ public final class FlowBarController {
     /// the content animates inside it (§5.1).
     var canvasSize: CGSize { Self.canvas }
 
-    /// The panel's fixed size (also used by the snapshot tool): the widest card, and the pill with the
-    /// tallest card above it.
+    /// The panel's fixed size (also used by the snapshot tool): the widest card, and the tallest of
+    /// the no-audio card and the hover pill with its tooltip.
     public static var canvas: CGSize {
         let t = LiveTokens.shared.value
-        let margin = V1Flow.canvasMargin
-        let width = max(t.noticeWidth, V1Flow.toastMaxWidth, t.handsFreeWidth)
-        let above = max(V1Flow.alertMaxHeight, t.noticeHeight, t.tooltipHeight)
-        return CGSize(width: (width + margin * 2).rounded(.up), height: (t.activeHeight + t.tooltipGap + above + margin * 2).rounded(.up))
+        let margin = FlowGeometry.canvasMargin
+        let height = max(FlowGeometry.canvasCardHeight, t.hoverHeight + t.tooltipGap + t.tooltipHeight)
+        return CGSize(width: (FlowGeometry.canvasCardWidth + margin * 2).rounded(.up), height: (height + margin * 2).rounded(.up))
     }
 
     /// Bottom-center point the bar sits on: just above the Dock in the visible frame of the screen
@@ -100,7 +100,7 @@ public final class FlowBarController {
         guard let screen else { return }
         let a = anchor(on: screen)
         let size = canvasSize
-        let frame = NSRect(x: (a.x - size.width / 2).rounded(), y: (a.y - V1Flow.canvasMargin).rounded(), width: size.width, height: size.height)
+        let frame = NSRect(x: (a.x - size.width / 2).rounded(), y: (a.y - FlowGeometry.canvasMargin).rounded(), width: size.width, height: size.height)
         if panel.frame != frame { panel.setFrame(frame, display: true) }
         updateMouseHandling()
     }
@@ -132,45 +132,45 @@ public final class FlowBarController {
 
     // MARK: Mouse
 
-    /// The pill's mouse target in screen coordinates (the hover pill's area while idle).
-    var pillRect: NSRect {
-        let target = model.pillTarget
-        let frame = panel.frame
-        return NSRect(x: frame.midX - target.width / 2, y: frame.minY + V1Flow.canvasMargin - V1Flow.hoverTargetSlop,
-                      width: target.width, height: target.height)
-    }
-
-    /// Where the tooltip or card starts: the pill's drawn top plus the gap (no gap without a pill).
-    private var aboveY: CGFloat {
+    /// The surface's rectangle in screen coordinates (the hover pill's area while idle, so the tiny pill
+    /// is easy to reach), with the hit slop.
+    var surfaceRect: NSRect {
         let t = LiveTokens.shared.value
-        let pill = model.pillSize.height
-        return panel.frame.minY + V1Flow.canvasMargin + (pill > 0 ? pill + t.tooltipGap : 0)
-    }
-
-    /// The alert's or toast's rectangle, while one shows.
-    var cardRect: NSRect {
-        guard model.notice != nil else { return .zero }
-        let size = model.cardSize
-        return NSRect(x: panel.frame.midX - size.width / 2, y: aboveY, width: size.width, height: size.height)
+        let size = model.surface == .idle ? CGSize(width: t.hoverWidth, height: t.hoverHeight)
+            : FlowMetrics.size(model.surface, model: model, timer: model.timerVisible(at: Date()))
+        let frame = panel.frame
+        let slop = FlowGeometry.hoverTargetSlop
+        return NSRect(x: frame.midX - size.width / 2 - slop, y: frame.minY + FlowGeometry.canvasMargin - slop,
+                      width: size.width + slop * 2, height: size.height + slop * 2)
     }
 
     var tooltipRect: NSRect {
-        let size = model.tooltipSize
-        guard size != .zero else { return .zero }
-        return NSRect(x: panel.frame.midX - size.width / 2, y: aboveY, width: size.width, height: size.height)
+        guard model.tooltipVisible else { return .zero }
+        let t = LiveTokens.shared.value
+        let size = FlowMetrics.tooltip(key: model.shortcutLabel)
+        return NSRect(x: panel.frame.midX - size.width / 2, y: panel.frame.minY + FlowGeometry.canvasMargin + t.hoverHeight + t.tooltipGap,
+                      width: size.width, height: size.height)
     }
 
-    /// Only the pill, the tooltip and the card take mouse events; the rest of the canvas passes clicks
-    /// through. Also drives the pill's hover and pauses a toast's countdown under the pointer.
+    /// Only the surface and the tooltip take mouse events; the rest of the canvas passes clicks
+    /// through. Also drives the idle pill's hover and pauses a card's countdown under the pointer.
     func updateMouseHandling() {
         let mouse = NSEvent.mouseLocation
-        let overPill = model.pill != .none && pillRect.contains(mouse)
-        let overCard = cardRect.contains(mouse)
+        let overSurface = model.surface != .none && surfaceRect.contains(mouse)
         let overTip = tooltipRect.contains(mouse)
-        model.setHovering(overPill || (overTip && model.pill == .hover))
-        if model.notice != nil, model.countdownPaused != overCard { model.countdownPaused = overCard }
-        let inside = overPill || overCard || overTip
+        model.setHovering((overSurface || overTip) && (model.displayed == .idle))
+        if model.notice != nil, model.countdownPaused != overSurface { model.countdownPaused = overSurface }
+        let inside = overSurface || overTip
         if panel.ignoresMouseEvents == inside { panel.ignoresMouseEvents = !inside }
+    }
+
+    // MARK: Appearance
+
+    /// The bar follows the system appearance, not the Hub's Appearance setting (§2.5): the app's own
+    /// appearance override must not reach this panel.
+    func applySystemAppearance() {
+        let dark = UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark"
+        panel.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
     }
 
     private func observe() {
@@ -183,6 +183,9 @@ public final class FlowBarController {
             return event
         }) { mouseMonitors.append(local) }
 
+        observers.append(DistributedNotificationCenter.default().addObserver(forName: Notification.Name("AppleInterfaceThemeChangedNotification"), object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.applySystemAppearance() }
+        })
         let center = NotificationCenter.default
         observers.append(center.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
@@ -202,7 +205,6 @@ public final class FlowBarController {
     private func trackChanges() {
         withObservationTracking {
             _ = model.displayed
-            _ = model.cardSize
             _ = LiveTokens.shared.value
         } onChange: { [weak self] in
             Task { @MainActor in
@@ -256,7 +258,7 @@ public final class FlowBarController {
     public var panelForSnapshots: NSWindow { panel }
 
     /// The pill's center in screen coordinates, for the automated focus test.
-    public var barCenter: NSPoint { NSPoint(x: pillRect.midX, y: pillRect.midY) }
+    public var barCenter: NSPoint { NSPoint(x: surfaceRect.midX, y: surfaceRect.midY) }
 
     /// Re-evaluates click-through now (the test moves the pointer, then clicks without waiting for the
     /// mouse-moved monitor).
