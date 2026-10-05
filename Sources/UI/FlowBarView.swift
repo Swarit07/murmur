@@ -287,7 +287,7 @@ struct FlowRoundButton: View {
                 Circle().fill(kind == .cancel ? Color.token(t.cancelLight, t.cancelDark) : Color.token(t.stopLight, t.stopDark))
                 switch kind {
                 case .cancel:
-                    IconShape(.close)
+                    IconShape(.cancel)
                         .stroke(Color.token(t.cancelGlyphLight, t.cancelGlyphDark), style: StrokeStyle(lineWidth: V1Flow.glyphStroke, lineCap: .round))
                         .frame(width: V1Flow.cancelGlyph, height: V1Flow.cancelGlyph)
                 case .stop:
@@ -387,7 +387,7 @@ struct FlowNoticeIcon: View {
     private var t: Tokens { LiveTokens.shared.value }
 
     var body: some View {
-        IconView(.warning, size: V1Flow.alertIcon,
+        IconView(.alert, size: V1Flow.alertIcon,
                  color: error ? Color.token(t.errorLight, t.errorDark) : Color.token(t.infoLight, t.infoDark))
     }
 }
@@ -464,7 +464,7 @@ struct FlowAlert: View {
                     .lineLimit(1)
                 Spacer(minLength: V1Flow.iconGap)
                 Button { model.onAction?(.dismiss, notice) } label: {
-                    IconShape(.close)
+                    IconShape(.cancel)
                         .stroke(Color.token(t.secondaryTextLight, t.secondaryTextDark), style: StrokeStyle(lineWidth: V1Flow.glyphStroke, lineCap: .round))
                         .frame(width: V1Flow.alertClose, height: V1Flow.alertClose)
                         .contentShape(Rectangle())

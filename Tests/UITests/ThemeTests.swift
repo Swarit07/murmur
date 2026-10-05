@@ -271,7 +271,7 @@ struct SourceCheckTests {
 
     /// Files allowed to use `accentClay`: primary buttons, the brand mark, the recording menu bar icon,
     /// the mic-test meter, the theme and the gallery's swatches. The Flow Bar's live clay is `flowLive`.
-    static let clayAllowed: Set<String> = ["MButton.swift", "BrandMark.swift", "StatusItem.swift", "MLevelMeter.swift",
+    static let clayAllowed: Set<String> = ["MButton.swift", "BrandMark.swift", "MenuBarGlyph.swift", "MLevelMeter.swift",
                                            "Theme.swift", "DesignGallery.swift", "TokenPanel.swift"]
 
     @Test func clayOnlyWhereAllowed() throws {

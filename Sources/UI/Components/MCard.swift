@@ -1,30 +1,35 @@
 import SwiftUI
 
-/// A plain card (§4): card fill, hairline border, 14-point radius, 20-point padding.
+/// A plain card (§4): paper, a 1 pt ink hairline, radius 12.
 public struct MCard<Content: View>: View {
     @Environment(\.theme) private var theme
     let padding: CGFloat
+    let radius: CGFloat
     let content: Content
 
-    public init(padding: CGFloat = V1Hub.cardPadding, @ViewBuilder content: () -> Content) {
+    public init(padding: CGFloat = Spacing.s16, radius: CGFloat = Radius.card, @ViewBuilder content: () -> Content) {
         self.padding = padding
+        self.radius = radius
         self.content = content()
     }
 
     public var body: some View {
-        let shape = RoundedRectangle(cornerRadius: V1Hub.cardRadius, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(shape.fill(theme.v1.bgCard.color))
-            .overlay(shape.strokeBorder(theme.v1.borderPanel.color, lineWidth: V1Hub.hairline))
+            .background(shape.fill(theme.colors.bgPanel.color))
+            .overlay(shape.strokeBorder(theme.colors.borderHairline.color, lineWidth: Stroke.hairline))
     }
 }
 
-/// A selectable card (§4): when selected, a 2-point clay border and the clay tint. Under Increase
-/// Contrast the tint becomes the hover fill (the border stays).
+/// A selectable card (§4): paper, radius 14 (12 for snippets), a 1 pt hairline. Selected: a 1.5 pt
+/// ink ring (2 pt under Increase Contrast) and, with `radio`, a filled radio top-right. Never clay.
 public struct MSelectableCard<Content: View>: View {
     let selected: Bool
+    let radius: CGFloat
+    let padding: CGFloat
+    let radio: Bool
     let action: () -> Void
     let label: String
     let content: Content
@@ -35,25 +40,33 @@ public struct MSelectableCard<Content: View>: View {
     @State private var hovering = false
     @FocusState private var focused: Bool
 
-    public init(selected: Bool, label: String, action: @escaping () -> Void, @ViewBuilder content: () -> Content) {
+    public init(selected: Bool, label: String, radius: CGFloat = Radius.cardLarge, padding: CGFloat = HubGeometry.styleCardPadding,
+                radio: Bool = true, action: @escaping () -> Void, @ViewBuilder content: () -> Content) {
         self.selected = selected
         self.label = label
+        self.radius = radius
+        self.padding = padding
+        self.radio = radio
         self.action = action
         self.content = content()
     }
 
     public var body: some View {
         let state = resolvedState(forced: forced, enabled: isEnabled, pressed: false, focused: focused, hovering: hovering)
-        let c = theme.v1
-        let shape = RoundedRectangle(cornerRadius: V1Hub.cardRadius, style: .continuous)
+        let c = theme.colors
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        let ring = theme.increaseContrast ? Stroke.selectedIncreased : Stroke.selected
         Button(action: action) {
             content
-                .padding(V1Hub.cardPadding)
+                .padding(padding)
+                .padding(.trailing, radio ? HubGeometry.radio + Spacing.s8 : 0)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(shape.fill(selected ? c.accentClayTint.color : (state == .hover ? c.bgHover.color : c.bgCard.color)))
-                .overlay(shape.strokeBorder(selected ? c.accentClay.color : c.borderPanel.color,
-                                            lineWidth: selected ? V1Hub.selectedBorder : V1Hub.hairline))
-                .opacity(state == .disabled ? V1Opacity.disabled : 1)
+                .overlay(alignment: .topTrailing) {
+                    if radio { MRadio(selected: selected).padding(padding).padding(.top, Spacing.s4) }
+                }
+                .background(shape.fill(state == .hover && !selected ? c.fillHover.color : .clear))
+                .background(shape.fill(state == .disabled ? c.fillSelected.color : c.bgPanel.color))
+                .overlay(shape.strokeBorder(selected ? c.inkFill.color : c.borderHairline.color, lineWidth: selected ? ring : Stroke.hairline))
                 .contentShape(shape)
         }
         .buttonStyle(.plain)
@@ -61,54 +74,53 @@ public struct MSelectableCard<Content: View>: View {
         .focused($focused)
         .focusEffectDisabled()
         .onHover { hovering = $0 }
-        .focusRing(state == .focused, radius: V1Hub.cardRadius)
-        .animation(theme.motion.easeOut(V1Motion.hover), value: state)
+        .focusRing(state == .focused, radius: radius)
+        .animation(theme.motion.easeOut(MotionTokens.hover), value: state)
         .accessibilityLabel(label)
         .accessibilityAddTraits(selected ? [.isSelected, .isButton] : .isButton)
     }
 }
 
-/// The warm feature card (§4): the logo's cream, a serif title with one italic word, a paragraph and an
-/// optional primary button. At most one per page.
-public struct MFeatureCard<Body: View>: View {
+/// The feature card (§4): the sunken fill, radius 16, padding 28, 32 between text and visual. At most
+/// one per page.
+public struct MFeatureCard<Text: View, Visual: View>: View {
     @Environment(\.theme) private var theme
-    let title: SerifTitle
-    let paragraph: Body
-    let buttonTitle: String?
-    let action: () -> Void
-    let onDismiss: (() -> Void)?
+    let text: Text
+    let visual: Visual
 
-    public init(title: SerifTitle, buttonTitle: String? = nil, action: @escaping () -> Void = {}, onDismiss: (() -> Void)? = nil,
-                @ViewBuilder paragraph: () -> Body) {
-        self.title = title
-        self.buttonTitle = buttonTitle
-        self.action = action
-        self.onDismiss = onDismiss
-        self.paragraph = paragraph()
+    public init(@ViewBuilder text: () -> Text, @ViewBuilder visual: () -> Visual) {
+        self.text = text()
+        self.visual = visual()
     }
 
     public var body: some View {
-        let shape = RoundedRectangle(cornerRadius: V1Hub.cardRadius, style: .continuous)
-        VStack(alignment: .leading, spacing: 0) {
-            title
-            paragraph
-                .textStyle(V1Type.body)
-                .foregroundStyle(theme.v1.textBody.color)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, V1Hub.featureTitleToBody)
-            if let buttonTitle {
-                MButton(buttonTitle, kind: .primary, action: action)
-                    .padding(.top, V1Hub.featureBodyToButton)
-            }
+        HStack(alignment: .center, spacing: HubGeometry.featureGap) {
+            text.frame(maxWidth: .infinity, alignment: .leading)
+            visual
         }
-        .padding(V1Hub.featureCardPadding)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(shape.fill(theme.v1.bgFeature.color))
-        .overlay(shape.strokeBorder(theme.v1.borderFeature.color, lineWidth: V1Hub.hairline))
-        .overlay(alignment: .topTrailing) {
-            if let onDismiss {
-                MIconButton(.close, label: "Dismiss", action: onDismiss).padding(V1Spacing.sm)
-            }
-        }
+        .padding(HubGeometry.featurePadding)
+        .background(RoundedRectangle(cornerRadius: Radius.feature, style: .continuous).fill(theme.colors.bgSunken.color))
+    }
+}
+
+/// A sunken box for samples and illustrations: radius 10 or 12, the sunken fill.
+public struct MWell<Content: View>: View {
+    @Environment(\.theme) private var theme
+    let radius: CGFloat
+    let padding: CGSize
+    let content: Content
+
+    public init(radius: CGFloat = Radius.button, padding: CGSize = HubGeometry.samplePadding, @ViewBuilder content: () -> Content) {
+        self.radius = radius
+        self.padding = padding
+        self.content = content()
+    }
+
+    public var body: some View {
+        content
+            .padding(.horizontal, padding.width)
+            .padding(.vertical, padding.height)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: radius, style: .continuous).fill(theme.colors.bgSunken.color))
     }
 }

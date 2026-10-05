@@ -128,6 +128,8 @@ public enum HubGeometry {
     public static let appTile: CGFloat = 24 // source: board
     public static let appTileIcon: CGFloat = 13 // source: board
     public static let chipHeight: CGFloat = 32 // source: board (onboarding language chips)
+    public static let chipPaddingH: CGFloat = 12 // source: assumed // MEASURE
+    public static let chipCheck: CGFloat = 12 // source: assumed // MEASURE
 
     // Cards
     public static let featurePadding: CGFloat = 28 // source: board
@@ -182,6 +184,7 @@ public enum OnboardingGeometry {
     public static let meterBarWidth: CGFloat = 8 // source: board
     public static let meterBarGap: CGFloat = 4 // source: board
     public static let meterHeight: CGFloat = 64 // source: board
+    public static let meterBarRadius: CGFloat = 4 // source: board
     public static let meterLowest: CGFloat = 0.30 // source: board (bar heights ramp 30-100%)
     public static let meterClayFrom: Double = 2.0 / 3 // source: board (lit bars in the last third are clay)
 }
@@ -251,4 +254,18 @@ public enum FlowGeometry {
     public static let canvasCardHeight: CGFloat = 96 // source: assumed // MEASURE
     /// The pill's hover target extends this far past its drawn edge.
     public static let hoverTargetSlop: CGFloat = 2 // source: assumed // MEASURE
+}
+
+/// The menu bar glyph and its states (§3.6).
+public enum MenuBarGeometry {
+    public static let glyph: CGFloat = 18 // source: board
+    public static let recordingDot: CGFloat = 5 // source: board
+    public static let recordingGap: CGFloat = 4 // source: board
+    public static let processingDot: CGFloat = 2.5 // source: board
+    public static let processingDots = 5 // source: board
+    public static let processingGap: CGFloat = 3 // source: assumed (glyph to first dot) // MEASURE
+    public static let processingDotGap: CGFloat = 1.5 // source: assumed // MEASURE
+    public static let badge: CGFloat = 9 // source: board
+    public static let badgeCutout: CGFloat = 1.5 // source: board
+    public static let badgeMarkSize: CGFloat = 7 // source: board (bold "!")
 }

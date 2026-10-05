@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A settings group (§5.3): a section caption, then an `MCard` whose rows are divided by hairlines.
+/// A settings group (§5.3): a mono caption, then a list container (radius 12) of rows.
 public struct MSettingsGroup<Content: View>: View {
     @Environment(\.theme) private var theme
     let title: String?
@@ -14,24 +14,21 @@ public struct MSettingsGroup<Content: View>: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: V1Spacing.xs) {
-            if let title { MSectionCaption(title).padding(.leading, V1Spacing.xxs) }
-            MCard(padding: 0) {
-                // Each row draws the divider under it; the last one falls on the card's own border.
-                VStack(alignment: .leading, spacing: 0) { content }
-            }
+        VStack(alignment: .leading, spacing: Spacing.s10) {
+            if let title { MCaption(title) }
+            // Each row draws the divider under it; the last one falls on the container's own ring.
+            MListContainer { content }
             if let footer {
                 Text(footer)
-                    .textStyle(V1Type.meta)
-                    .foregroundStyle(theme.v1.textSecondary.color)
+                    .textStyle(TypeTokens.hint)
+                    .foregroundStyle(theme.colors.textTertiary.color)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, V1Spacing.xxs)
             }
         }
     }
 }
 
-/// A settings row: label and a one-line description on the left, the control on the right.
+/// A settings row (§5.3): `label` and a `hint` on the left, the control on the right, padding 12 × 14.
 public struct MSettingsRow<Control: View>: View {
     @Environment(\.theme) private var theme
     let title: String
@@ -45,31 +42,32 @@ public struct MSettingsRow<Control: View>: View {
     }
 
     public var body: some View {
-        HStack(alignment: .center, spacing: V1Spacing.md) {
-            VStack(alignment: .leading, spacing: V1Spacing.xxs) {
-                Text(title).textStyle(V1Type.body.weight(500)).foregroundStyle(theme.v1.textPrimary.color)
-                if let detail {
-                    Text(detail).textStyle(V1Type.meta).foregroundStyle(theme.v1.textSecondary.color)
-                        .fixedSize(horizontal: false, vertical: true)
+        let c = theme.colors
+        VStack(spacing: 0) {
+            HStack(alignment: .center, spacing: Spacing.s16) {
+                VStack(alignment: .leading, spacing: Spacing.s4 / 2) {
+                    Text(title).textStyle(TypeTokens.label).foregroundStyle(c.textPrimary.color)
+                    if let detail {
+                        Text(detail).textStyle(TypeTokens.hint).foregroundStyle(c.textSecondary.color)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                control
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            control
+            .padding(.horizontal, HubGeometry.settingsRowPadding.width)
+            .padding(.vertical, HubGeometry.settingsRowPadding.height)
+            Hairline()
         }
-        .padding(.horizontal, V1Spacing.lg)
-        .padding(.vertical, V1Spacing.sm)
-        .frame(minHeight: V1Hub.settingsRowMinHeight)
-        .overlay(alignment: .bottom) { Hairline(\.borderDivider) }
         .accessibilityElement(children: .contain)
     }
 }
 
-/// A settings row whose whole width toggles its switch (§4).
+/// A settings row whose control is a switch; the whole row toggles it.
 public struct MToggleRow: View {
     let title: String
     let detail: String?
     @Binding var isOn: Bool
-    @Environment(\.isEnabled) private var isEnabled
 
     public init(_ title: String, detail: String? = nil, isOn: Binding<Bool>) {
         self.title = title
@@ -78,10 +76,38 @@ public struct MToggleRow: View {
     }
 
     public var body: some View {
-        MSettingsRow(title, detail: detail) {
-            MToggle(isOn: $isOn, label: title)
+        MSettingsRow(title, detail: detail) { MToggle(isOn: $isOn, label: title) }
+            .contentShape(Rectangle())
+            .onTapGesture { isOn.toggle() }
+    }
+}
+
+/// The info card under a settings column (§5.3): sunken, radius 12, padding 14, an icon, a label and a
+/// hint.
+public struct MInfoCard: View {
+    @Environment(\.theme) private var theme
+    let icon: Icon
+    let title: String
+    let detail: String
+
+    public init(_ title: String, detail: String, icon: Icon = .shield) {
+        self.title = title
+        self.detail = detail
+        self.icon = icon
+    }
+
+    public var body: some View {
+        let c = theme.colors
+        HStack(alignment: .top, spacing: Spacing.s12) {
+            IconView(icon, size: HubGeometry.iconGlyph, color: c.textPrimary.color)
+            VStack(alignment: .leading, spacing: Spacing.s4) {
+                Text(title).textStyle(TypeTokens.label).foregroundStyle(c.textPrimary.color)
+                Text(detail).textStyle(TypeTokens.hint).foregroundStyle(c.textSecondary.color).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
         }
-        .contentShape(Rectangle())
-        .onTapGesture { if isEnabled { isOn.toggle() } }
+        .padding(HubGeometry.infoCardPadding)
+        .background(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).fill(c.bgSunken.color))
+        .accessibilityElement(children: .combine)
     }
 }

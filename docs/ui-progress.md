@@ -95,3 +95,47 @@ One report per milestone (UI_REDESIGN.md §10), newest last. If a session ends m
 
 **Judgment calls**
 - **Two Newsreader optical cuts instead of one.** The boards are rendered by a browser, which sets the optical size from the font size; one 24 pt cut would set the 40 pt titles visibly heavier than the reference.
+
+## U2: Components, icons, brand
+
+**Changed** (all in `Sources/UI/Components/` unless noted)
+- **New or rebuilt components:**
+  - `MButton`: primary, ink, outline, link; regular 40 and small 28; optional 15 pt icon.
+  - `MIconButton` (32 or 28), `MToggle` (regular and small), `MSegmented` (replaces v1 `MTabs`; regular and small, arrow keys, sliding selection), `MRadio` (replaces v1 `MCheckbox`).
+  - `MTextField` (plain, quote, secure, multiline; focus border plus halo), `MSearchField`, `MSelect` (native menu; mono variant), `MNavigateSelect`.
+  - `MKeycap` (inline and standard, pressed) and `MShortcut`, `MTag` (outline and filled), `MStatStrip` (drops missing stats), `MAppTile` (normal and faint).
+  - `MCard`, `MSelectableCard` (ink ring and radio, never clay; 2 pt under Increase Contrast), `MFeatureCard`, `MWell`.
+  - `MList`, `MListContainer` and `MListRow` (hover fill, trailing actions fade in over 100 ms).
+  - `MSidebarItem`, `MStatusCard`, `MSettingsGroup`, `MSettingsRow`, `MToggleRow`, `MInfoCard`.
+  - `MPaperToast` (with `shadow-float`), `MTooltip` / `TooltipPill`, `MDialog`, `MEmptyState` with `FlowIdlePill`, `MLevelMeter` (onboarding mic test), `MChip`, `MStepFrame` with `MIllustrationWell`.
+- **Shared plumbing (`ComponentSupport.swift`):** focus ring 2 pt with a 2 pt gap, press moves down 1 pt (no scale), `insetRing`, `floatShadow`, `SerifTitle`, `MCaption`, `Hairline`.
+- **`SVGPath.swift`:** a full SVG path parser (M L H V C S Q T A Z, absolute and relative, arcs to Béziers).
+- **`Icons.swift`:** 45 icons from the boards' path strings; the stroke scales with size as the boards draw it.
+- **`BrandMark.swift`:** the v2 mark, parsed from `Design/brand/murmur-mark.svg`, in the theme's clay.
+- **`Sources/UI/MenuBarGlyph.swift`:** idle (template), recording (clay copy and 5 pt dot), processing (45% template and five rippling dots, phase-driven), error (template with a cut-out "!" badge, never red).
+- **Icon assets (`Tools/make_icons.py`, cairosvg):**
+  - `App/AppIcon.iconset`, 16–1024 px; `iconutil` builds an `.icns` from it.
+  - `App/Assets.xcassets/AppIcon.appiconset`; `App/project.yml` adds the catalog and `ASSETCATALOG_COMPILER_APPICON_NAME`.
+  - `Sources/UI/Resources/MenuBar/menubar-template{,@2x,@3x}.png`.
+- **Design Gallery (`HubUI/DesignGallery.swift`):** rewritten for v2, every component in every state, light and dark side by side:
+  - brand, menu bar states, icons, type specimens, color swatches;
+  - all controls, cards, lists, settings, toast, tooltip, dialog, empty state, level meter;
+  - the Flow Bar cells, which stay v1 until U3.
+
+**Done when**
+- **Gallery snapshots exist for all components in both schemes: pass.** `Artifacts/ui/after/gallery.png` (two columns).
+- **Keyboard focus visible on every interactive component: pass.**
+  - Every control takes focus (`focusable` plus `FocusState`) and draws `FocusRing`.
+  - The gallery shows the forced focused state for buttons, icon buttons, links, toggles, chips, segmented controls, selects, fields, selectable cards and sidebar items.
+- **Every component respects Reduce Motion: pass.**
+  - Every animation goes through `theme.motion`: springs become 120 ms fades, the press drop and other offsets go to 0. The token lint fails on any direct `.animation(.…)` or `withAnimation(.…)`.
+  - The segmented control cross-fades in place under Reduce Motion.
+
+**Tokens not in the brief**
+- **Stroke and spacing:** `Stroke.dash` (assumed, MEASURE); `HubGeometry.fieldPaddingH`, `keycapPaddingHInline` (assumed); `chipPaddingH`, `chipCheck` (assumed); `OnboardingGeometry.meterBarRadius` (board, from the motion reference).
+- **`MenuBarGeometry`:** glyph, dot, badge and cut-out are board values; the processing dots' gap after the glyph (3) and between dots (1.5) are assumed, MEASURE.
+- **`IconTokens` stroke steps:** 1.6, 1.7, 1.8 grid units by size (board).
+
+**Judgment calls**
+- **App icon in the gallery:** it shows the running app's icon, so in `murmur-snap` it's the generic one. The real icon is in the app bundle and in `App/AppIcon.iconset`.
+- **Hub tooltips** use the Flow Bar's ink pill style: the boards show no Hub tooltip, and §4 lists `MTooltip` without a look.

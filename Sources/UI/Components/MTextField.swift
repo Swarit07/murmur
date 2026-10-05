@@ -1,43 +1,51 @@
 import SwiftUI
 
-/// A 40-point text field (§4): field fill, control border, focus ring, placeholder in placeholder ink.
-/// `secure` hides the text (API keys); `multiline` grows to a few lines.
+/// A text field (§4): 36 high, radius 8, paper fill, 1 pt `border-control`. Focus: a 1 pt ink border
+/// plus a 3 pt halo. `quote` sets the text in the italic serif (a "sounds like" hint); `secure` hides
+/// it (API keys); `multiline` grows to a few lines (snippet expansions).
 public struct MTextField: View {
     let placeholder: String
     @Binding var text: String
     let secure: Bool
     let multiline: Bool
+    let quote: Bool
     let leading: Icon?
     let onSubmit: () -> Void
+    let onCancel: (() -> Void)?
 
     @Environment(\.theme) private var theme
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.forcedInteraction) private var forced
     @FocusState private var focused: Bool
+    @State private var hovering = false
 
-    public init(_ placeholder: String, text: Binding<String>, secure: Bool = false, multiline: Bool = false, leading: Icon? = nil,
-                onSubmit: @escaping () -> Void = {}) {
+    public init(_ placeholder: String, text: Binding<String>, secure: Bool = false, multiline: Bool = false, quote: Bool = false,
+                leading: Icon? = nil, onSubmit: @escaping () -> Void = {}, onCancel: (() -> Void)? = nil) {
         self.placeholder = placeholder
         _text = text
         self.secure = secure
         self.multiline = multiline
+        self.quote = quote
         self.leading = leading
         self.onSubmit = onSubmit
+        self.onCancel = onCancel
     }
 
     public var body: some View {
-        let state = resolvedState(forced: forced, enabled: isEnabled, pressed: false, focused: focused, hovering: false)
-        let c = theme.v1
-        let shape = RoundedRectangle(cornerRadius: V1Hub.fieldRadius, style: .continuous)
-        HStack(spacing: V1Spacing.xs) {
-            if let leading { IconView(leading, size: V1Hub.iconGlyph, color: c.textSecondary.color) }
+        let state = resolvedState(forced: forced, enabled: isEnabled, pressed: false, focused: focused, hovering: hovering)
+        let c = theme.colors
+        let style = quote ? TypeTokens.quote : TypeTokens.label.weight(400)
+        let shape = RoundedRectangle(cornerRadius: Radius.control, style: .continuous)
+        let isFocused = state == .focused
+        HStack(spacing: Spacing.s8) {
+            if let leading { IconView(leading, size: HubGeometry.searchIcon, color: c.textTertiary.color) }
             // The placeholder is drawn here rather than as the field's prompt: AppKit colors prompts with the
             // system appearance, not the theme.
             ZStack(alignment: .leading) {
                 if text.isEmpty {
                     Text(placeholder)
-                        .textStyle(V1Type.body)
-                        .foregroundStyle(state == .disabled ? c.textDisabled.color : c.textPlaceholder.color)
+                        .textStyle(style)
+                        .foregroundStyle(c.textTertiary.color)
                         .lineLimit(1)
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
@@ -46,37 +54,48 @@ public struct MTextField: View {
                     if secure {
                         SecureField("", text: $text)
                     } else if multiline {
-                        TextField("", text: $text, axis: .vertical).lineLimit(1...4)
+                        TextField("", text: $text, axis: .vertical).lineLimit(1...6)
                     } else {
                         TextField("", text: $text)
                     }
                 }
+                .textFieldStyle(.plain)
+                .textStyle(style)
+                .foregroundStyle(state == .disabled ? c.textTertiary.color : c.textPrimary.color)
+                .focused($focused)
+                .onSubmit(onSubmit)
+                .onExitCommand { onCancel?() }
             }
-            .textFieldStyle(.plain)
-            .textStyle(V1Type.body)
-            .foregroundStyle(state == .disabled ? c.textDisabled.color : c.textPrimary.color)
-            .focused($focused)
-            .onSubmit(onSubmit)
             if !text.isEmpty && leading == .search {
-                Button { text = "" } label: { IconView(.close, size: V1Hub.checkGlyph, color: c.textSecondary.color) }
+                Button { text = "" } label: { IconView(.cancel, size: HubGeometry.searchIcon, color: c.textTertiary.color) }
                     .buttonStyle(.plain)
-                    .help("Clear")
-                    .accessibilityLabel("Clear")
+                    .focusable(false)
+                    .accessibilityLabel("Clear search")
             }
         }
-        .padding(.horizontal, V1Spacing.sm)
-        .padding(.vertical, multiline ? V1Spacing.xs : 0)
-        .frame(minHeight: V1Hub.fieldHeight)
-        .background(shape.fill(c.bgField.color))
-        .overlay(shape.strokeBorder(c.borderControl.color.opacity(state == .disabled ? V1Opacity.disabled : 1), lineWidth: V1Hub.hairline))
-        .focusRing(state == .focused, radius: V1Hub.fieldRadius)
+        .padding(.horizontal, HubGeometry.fieldPaddingH)
+        .padding(.vertical, multiline ? Spacing.s8 : 0)
+        .frame(minHeight: HubGeometry.fieldHeight)
+        .background(shape.fill(state == .disabled ? c.fillSelected.color : c.bgPanel.color))
+        .overlay(shape.strokeBorder(isFocused ? c.textPrimary.color : (state == .disabled ? c.borderDivider.color : c.borderControl.color), lineWidth: Stroke.hairline))
+        .background {
+            // The focus halo: 3 pt of ink at 8% around the field.
+            if isFocused {
+                RoundedRectangle(cornerRadius: Radius.control + Stroke.fieldHalo, style: .continuous)
+                    .fill(c.fieldHalo.color)
+                    .padding(-Stroke.fieldHalo)
+            }
+        }
+        .contentShape(shape)
+        .onTapGesture { focused = true }
+        .onHover { hovering = $0 }
         .focusEffectDisabled()
         .accessibilityElement(children: .contain)
         .accessibilityLabel(placeholder)
     }
 }
 
-/// A search field: a leading magnifier and a clear button.
+/// A search field: a 14 pt leading magnifier and a clear button.
 public struct MSearchField: View {
     let placeholder: String
     @Binding var text: String
@@ -87,6 +106,6 @@ public struct MSearchField: View {
     }
 
     public var body: some View {
-        MTextField(placeholder, text: $text, leading: .search)
+        MTextField(placeholder, text: $text, leading: .search, onCancel: { text = "" })
     }
 }

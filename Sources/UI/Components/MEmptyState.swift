@@ -1,30 +1,29 @@
 import SwiftUI
 
-/// The Flow Bar's idle squares on a black pill: the motif for empty states (§4).
-public struct FlowSquaresMotif: View {
+/// The idle Flow Bar pill: 52 × 12 of flow ink with a centered 20 × 1.5 dash. The empty-state motif,
+/// and the pill in onboarding's last step.
+public struct FlowIdlePill: View {
     @Environment(\.theme) private var theme
 
     public init() {}
 
     public var body: some View {
-        let width = V1Flow.hoverWidth, height = V1Flow.pillHeight
-        Canvas { context, size in
-            let count = V1Flow.idleSquares
-            let total = CGFloat(count - 1) * V1Flow.squarePitch + V1Flow.squareSide
-            let x0 = (size.width - total) / 2, y = (size.height - V1Flow.squareSide) / 2
-            for i in 0..<count {
-                let rect = CGRect(x: x0 + CGFloat(i) * V1Flow.squarePitch, y: y, width: V1Flow.squareSide, height: V1Flow.squareSide)
-                context.fill(Path(rect), with: .color(theme.v1flow.dot.color))
+        let f = theme.flow
+        Capsule(style: .circular)
+            .fill(f.flowFill.color)
+            .overlay(Capsule(style: .circular).strokeBorder(f.flowRing.color, lineWidth: Stroke.hairline))
+            .overlay {
+                RoundedRectangle(cornerRadius: FlowGeometry.idleDashRadius, style: .continuous)
+                    .fill(f.flowIdleMark.color)
+                    .frame(width: FlowGeometry.idleDash.width, height: FlowGeometry.idleDash.height)
             }
-        }
-        .frame(width: width, height: height)
-        .background(Capsule(style: .circular).fill(theme.v1flow.fill.color))
-        .overlay(Capsule(style: .circular).strokeBorder(theme.v1flow.border.color, lineWidth: V1Flow.border))
-        .accessibilityHidden(true)
+            .frame(width: FlowGeometry.idleSize.width, height: FlowGeometry.idleSize.height)
+            .accessibilityHidden(true)
     }
 }
 
-/// What an empty page shows (§4): the motif, one line of text and an optional primary button.
+/// An empty state [ASSUMED]: a sunken well with the idle Flow Bar pill, one `body` line, an optional
+/// primary button.
 public struct MEmptyState: View {
     @Environment(\.theme) private var theme
     let text: String
@@ -38,18 +37,19 @@ public struct MEmptyState: View {
     }
 
     public var body: some View {
-        VStack(spacing: V1Spacing.lg) {
-            FlowSquaresMotif()
+        VStack(spacing: Spacing.s16) {
+            FlowIdlePill()
             Text(text)
-                .textStyle(V1Type.body)
-                .foregroundStyle(theme.v1.textSecondary.color)
+                .textStyle(TypeTokens.body)
+                .foregroundStyle(theme.colors.textSecondary.color)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: V1Hub.emptyStateMaxWidth)
+                .frame(maxWidth: HubGeometry.emptyStateMaxWidth)
                 .fixedSize(horizontal: false, vertical: true)
             if let buttonTitle { MButton(buttonTitle, kind: .primary, action: action) }
         }
-        .padding(V1Spacing.x5)
+        .padding(Spacing.s32)
         .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .combine)
+        .background(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).fill(theme.colors.bgSunken.color))
+        .accessibilityElement(children: .contain)
     }
 }
