@@ -122,6 +122,7 @@ struct HubView: View {
                 }
                 .padding(.horizontal, 12)
                 .frame(height: Self.headerHeight)
+                .background(WindowDragArea())
                 .background(Color(nsColor: .windowBackgroundColor))
                 .zIndex(1)
                 Divider().zIndex(1)
@@ -189,6 +190,7 @@ struct HubSidebar: View {
         .padding(.top, HubView.headerHeight + 2)
         .padding(.bottom, 12)
         .frame(maxHeight: .infinity, alignment: .top)
+        .overlay(alignment: .top) { WindowDragArea().frame(height: HubView.headerHeight) }
         .background(VisualEffect(material: .sidebar))
     }
 
@@ -620,11 +622,11 @@ struct GeneralPage: View {
             Section("Microphone") { MicrophoneSettings(model: model) }
             Section {
                 Picker("Speech engine", selection: $engine) {
-                    ForEach(EngineCatalog.ids.filter { SettingsView.engineNames[$0] != nil }, id: \.self) { Text(SettingsView.engineNames[$0] ?? $0).tag($0) }
+                    ForEach(EngineCatalog.ids.filter { ModelNames.engines[$0] != nil }, id: \.self) { Text(ModelNames.engines[$0] ?? $0).tag($0) }
                 }
                 .onChange(of: engine) { model.settings.engine = engine }
                 Picker("Cleanup model", selection: $cleanup) {
-                    ForEach(Self.cleanupOrder.filter { SettingsView.cleanupNames[$0] != nil }, id: \.self) { Text(SettingsView.cleanupNames[$0] ?? $0).tag($0) }
+                    ForEach(Self.cleanupOrder.filter { ModelNames.cleanup[$0] != nil }, id: \.self) { Text(ModelNames.cleanup[$0] ?? $0).tag($0) }
                 }
                 .onChange(of: cleanup) { model.settings.cleanupProvider = cleanup }
             } header: {
@@ -800,8 +802,23 @@ struct PermissionsSummary: View {
             row("Microphone", snapshot.microphone, pane: "Privacy_Microphone") { AVCaptureDevice.requestAccess(for: .audio) { _ in } }
             row("Accessibility", snapshot.accessibility, pane: "Privacy_Accessibility") { Permissions.promptAccessibility() }
             row("Input Monitoring", snapshot.inputMonitoring, pane: "Privacy_ListenEvent") { Permissions.requestInputMonitoring() }
+            if !snapshot.inputMonitoring {
+                HStack {
+                    Footnote("After you turn on Input Monitoring, macOS may need Murmur to restart.")
+                    Spacer()
+                    Button("Restart Murmur") { Self.relaunch() }
+                }
+            }
         }
         .onReceive(timer) { _ in snapshot = .current() }
+    }
+
+    static func relaunch() {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/sh")
+        task.arguments = ["-c", "sleep 0.5; open \"\(Bundle.main.bundlePath)\""]
+        try? task.run()
+        NSApp.terminate(nil)
     }
 
     func row(_ name: String, _ ok: Bool, pane: String, request: @escaping () -> Void) -> some View {

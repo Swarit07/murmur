@@ -232,10 +232,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(item("Check permissions…", #selector(showPermissions)))
         if settings.debugMenu { menu.addItem(debugMenu()) }
         menu.addItem(.separator())
-        let info = NSMenuItem(title: "\(controller.engineDescription) · \(controller.cleanupDescription)", action: nil, keyEquivalent: "")
+        let info = NSMenuItem(title: modelsLine, action: nil, keyEquivalent: "")
         info.isEnabled = false
         menu.addItem(info)
         menu.addItem(item("Quit Murmur", #selector(NSApplication.terminate(_:)), key: "q", target: NSApp))
+    }
+
+    /// “Parakeet ultra · Qwen3.5 4B”, or what is still loading.
+    var modelsLine: String {
+        func name(_ table: [String: String], _ id: String) -> String {
+            (table[id] ?? id).replacingOccurrences(of: " (recommended)", with: "")
+        }
+        let engine = controller.engineDescription
+        let cleanup = controller.cleanupDescription
+        return "\(name(ModelNames.engines, engine)) · \(name(ModelNames.cleanup, cleanup == "rules only" ? "rules" : cleanup))"
     }
 
     func menuDidClose(_ menu: NSMenu) {
@@ -270,23 +280,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func shortcutsMenu() -> NSMenuItem {
         let parent = NSMenuItem(title: "Shortcuts", action: nil, keyEquivalent: "")
         let sub = NSMenu()
-        let apple = settings.keyboardLayout != "other"
-        for line in apple
-            ? ["Hold Fn (🌐) to talk", "Double-tap Fn or press Fn+Space for hands-free", "Esc cancels"]
-            : ["Hold Control+Option to talk", "Press Control+Option+Space for hands-free", "Esc cancels"] {
+        let config = DictationController.shortcutConfiguration(settings)
+        let ptt = config.pushToTalk.displayName
+        for line in ["Hold \(ptt) to talk", "Press \(config.handsFree.displayName) or double-tap \(ptt) for hands-free", "Esc cancels"] {
             let info = NSMenuItem(title: line, action: nil, keyEquivalent: "")
             info.isEnabled = false
             sub.addItem(info)
         }
         sub.addItem(.separator())
+        func matches(_ preset: HotkeyConfiguration) -> Bool {
+            config.pushToTalk == preset.pushToTalk && config.handsFree == preset.handsFree
+        }
         let fn = item("Use Fn (Apple keyboard)", #selector(chooseKeyboard(_:)))
         fn.representedObject = "apple"
-        fn.state = apple ? .on : .off
+        fn.state = matches(.appleKeyboard) ? .on : .off
         let other = item("Use Control+Option (other keyboards)", #selector(chooseKeyboard(_:)))
         other.representedObject = "other"
-        other.state = apple ? .off : .on
+        other.state = matches(.otherKeyboard) ? .on : .off
         sub.addItem(fn)
         sub.addItem(other)
+        sub.addItem(item("Change shortcuts…", #selector(showSettings)))
         parent.submenu = sub
         return parent
     }
@@ -401,6 +414,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let back = NSPoint(x: 214 + 1 + 12 + 13, y: height - HubView.headerHeight / 2)
             let hit = window.contentView?.superview?.hitTest(back)
             checks.append("hit test at Back: \(hit.map { String(describing: type(of: $0)) } ?? "nothing")")
+            for (label, point) in [("empty header", NSPoint(x: 640, y: height - HubView.headerHeight / 2)), ("sidebar top", NSPoint(x: 150, y: height - 20))] {
+                let view = window.contentView?.superview?.hitTest(point)
+                let drags = view is WindowDragArea.DragView || view?.mouseDownCanMoveWindow == true
+                checks.append("Drag from \(label): \(drags ? "PASS" : "FAIL") (\(view.map { String(describing: type(of: $0)) } ?? "nothing"))")
+            }
             await Self.click(window, at: back)
             checks.append("Back button: \(demo.page == .dictionary ? "PASS" : "FAIL (page \(demo.page.rawValue))")")
             await Self.click(window, at: NSPoint(x: 60, y: height - (HubView.headerHeight + 2 + 34 + 3 * 30 + 15)))
@@ -560,8 +578,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settings.microphoneUID = sender.representedObject as? String
     }
 
+    /// A preset replaces any custom shortcuts, so the choice always takes effect.
     @objc func chooseKeyboard(_ sender: NSMenuItem) {
         settings.keyboardLayout = sender.representedObject as? String ?? "apple"
+        controller.setShortcuts(nil)
     }
 
     @objc func showHistory() { showHub(.home) }

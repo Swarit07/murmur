@@ -89,3 +89,26 @@ struct Footnote: View {
         Text(text).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
     }
 }
+
+/// An empty strip that moves the window, for the parts of a transparent title bar that SwiftUI content
+/// covers (AppKit only drags from the title bar itself). Double-click follows the system setting.
+struct WindowDragArea: NSViewRepresentable {
+    final class DragView: NSView {
+        override var mouseDownCanMoveWindow: Bool { true }
+
+        override func mouseDown(with event: NSEvent) {
+            guard event.clickCount == 2 else {
+                window?.performDrag(with: event)
+                return
+            }
+            switch UserDefaults.standard.string(forKey: "AppleActionOnDoubleClick") {
+            case "Minimize": window?.performMiniaturize(nil)
+            case "None": break
+            default: window?.performZoom(nil)
+            }
+        }
+    }
+
+    func makeNSView(context: Context) -> NSView { DragView() }
+    func updateNSView(_ view: NSView, context: Context) {}
+}

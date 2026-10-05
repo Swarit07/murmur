@@ -152,6 +152,7 @@ struct OnboardingView: View {
             .padding(.vertical, 16)
         }
         .frame(width: 640, height: 540)
+        .overlay(alignment: .top) { WindowDragArea().frame(height: 32) }
         .ignoresSafeArea()
         .onReceive(timer) { _ in tick += 1 }
         .onChange(of: tick) { autoAdvance() }
@@ -224,7 +225,7 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Murmur's speech and cleanup models run on this Mac. The first time, they download (about 3 GB); after that they load in a few seconds.")
                 if model.modelsReady {
-                    Label("Ready: \(Self.friendly(SettingsView.engineNames, model.settings.engine)) and \(Self.friendly(SettingsView.cleanupNames, model.settings.cleanupProvider))", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                    Label("Ready: \(Self.friendly(ModelNames.engines, model.settings.engine)) and \(Self.friendly(ModelNames.cleanup, model.settings.cleanupProvider))", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
                 } else {
                     HStack { ProgressView().controlSize(.small); Text("Downloading and loading…").foregroundStyle(.secondary) }
                     Text("You can keep going; Murmur finishes this in the background.").font(.caption).foregroundStyle(.secondary)
