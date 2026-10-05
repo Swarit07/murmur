@@ -60,13 +60,16 @@ struct HomePage: View {
             Text(Date().formatted(.dateTime.weekday(.wide).day().month(.wide)))
                 .textStyle(TypeTokens.caption)
                 .foregroundStyle(c.textTertiary.color)
-            HStack(alignment: .center, spacing: Spacing.s16) {
-                if let name, !name.isEmpty {
-                    SerifTitle("Welcome back, ", italic: name)
-                } else {
-                    SerifTitle("Welcome back")
+            // The stats sit right of the greeting, or under it when the window is narrow.
+            AdaptivePair(spacing: Spacing.s16, stackedSpacing: Spacing.s12, minLeading: HubGeometry.homeTitleMin) {
+                Group {
+                    if let name, !name.isEmpty {
+                        SerifTitle("Welcome back, ", italic: name)
+                    } else {
+                        SerifTitle("Welcome back")
+                    }
                 }
-                Spacer(minLength: Spacing.s16)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 MStatStrip(stats)
             }
         }
@@ -134,7 +137,8 @@ struct HomePage: View {
                     }
                 }
             }
-            .frame(width: HubGeometry.featureSamplesWidth)
+            // 320 beside the copy; full width when the card stacks.
+            .frame(idealWidth: HubGeometry.featureSamplesWidth, maxWidth: .infinity)
         }
     }
 

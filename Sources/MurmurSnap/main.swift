@@ -17,7 +17,13 @@ let reduceMotion = arguments.contains("--reduce-motion")
 let increaseContrast = arguments.contains("--contrast")
 let compare = arguments.contains("--compare")
 let outValue = arguments.firstIndex(of: "--out").flatMap { $0 + 1 < arguments.count ? arguments[$0 + 1] : nil }
-let setName = (arguments.first { !$0.hasPrefix("-") && $0 != outValue } ?? "after") + (large ? "-large" : "") + (reduceMotion ? "-reduced" : "") + (increaseContrast ? "-contrast" : "")
+/// `--size 880x560` renders the Hub at that window size (default: the board's 1180 × 740).
+let sizeValue = arguments.firstIndex(of: "--size").flatMap { $0 + 1 < arguments.count ? arguments[$0 + 1] : nil }
+let hubSize: CGSize = {
+    let parts = sizeValue?.split(separator: "x").compactMap { Double($0) } ?? []
+    return parts.count == 2 ? CGSize(width: parts[0], height: parts[1]) : HubGeometry.defaultWindow
+}()
+let setName = (arguments.first { !$0.hasPrefix("-") && $0 != outValue && $0 != sizeValue } ?? "after") + (large ? "-large" : "") + (reduceMotion ? "-reduced" : "") + (increaseContrast ? "-contrast" : "") + (sizeValue.map { "-" + $0 } ?? "")
 let outRoot: URL = {
     if let i = arguments.firstIndex(of: "--out"), i + 1 < arguments.count { return URL(fileURLWithPath: arguments[i + 1]) }
     return URL(fileURLWithPath: "Artifacts/ui")
@@ -101,7 +107,7 @@ enum Snap {
             let dir = outRoot.appendingPathComponent(lookName)
 
             // Hub: every page at the board's window size (1180 × 740).
-            let window = WindowManager.makeWindow(id: "snap-hub", title: "Murmur", size: HubGeometry.defaultWindow, chrome: .unified) { HubView(model: hub) }
+            let window = WindowManager.makeWindow(id: "snap-hub", title: "Murmur", size: hubSize, chrome: .unified) { HubView(model: hub) }
             window.appearance = NSAppearance(named: look)
             prepare(window)
             for page in HubPage.allCases {

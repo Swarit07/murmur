@@ -67,7 +67,8 @@ struct SettingsColumns<Left: View, Right: View>: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: HubGeometry.settingsColumnGap) {
+        // Two columns while each is wide enough; one column in a narrow window or at Large text.
+        AdaptiveColumns(spacing: HubGeometry.settingsColumnGap, stackedSpacing: HubGeometry.settingsGroupGap, minColumn: HubGeometry.settingsColumnMin) {
             VStack(alignment: .leading, spacing: HubGeometry.settingsGroupGap) { left }.frame(maxWidth: .infinity, alignment: .topLeading)
             VStack(alignment: .leading, spacing: HubGeometry.settingsGroupGap) { right }.frame(maxWidth: .infinity, alignment: .topLeading)
         }
@@ -123,7 +124,7 @@ struct GeneralSettings: View {
                     }
                 }
                 if config.pushToTalk == .modifiers([.fn]) || config.handsFree == .key(keyCode: 49, modifiers: [.fn]), Permissions.fnUsageType != 0 {
-                    MSettingsRow("The Globe key may open emoji or dictation", detail: "Set System Settings › Keyboard › “Press 🌐 key to” to Do Nothing.") {
+                    MSettingsRow("The Globe key may open emoji or dictation", detail: "In System Settings › Keyboard, set “Press Globe key to” to Do Nothing.") {
                         MButton("Open", kind: .outline, size: .small) {
                             if let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension") { NSWorkspace.shared.open(url) }
                         }
