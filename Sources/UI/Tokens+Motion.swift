@@ -110,6 +110,8 @@ public enum MeterTokens {
     /// Meter smoothing toward a rising and a falling level, per frame at 60 fps.
     public static let attackPerFrame: Double = 0.35 // source: board
     public static let releasePerFrame: Double = 0.08 // source: board
+    /// The level a still meter shows (the reference's reduced-motion frame).
+    public static let previewLevel: Double = 0.72 // source: board
     /// The countdown digit is this share of the ring's size.
     public static let ringDigitShare: Double = 0.42 // source: board
 }

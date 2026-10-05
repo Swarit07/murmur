@@ -389,3 +389,65 @@ One report per milestone (UI_REDESIGN.md §10), newest last. If a session ends m
   - The Globe-key notice, when it applies.
   - These are existing settings the board leaves out.
 - **The speech engine select shows the engine's full display name,** not a short id.
+
+## U7: Onboarding
+
+**What changed**
+- **`Onboarding.swift` is rewritten to §5.4.**
+  - Each step is 400 × 560 on the ivory window. It has a mono header ("04 / 12 · Permissions" with the 120 × 2 progress bar), a sunken illustration well, a Newsreader title, Geist body text and one clay primary action. Steps cross-fade with the 12 pt upward drift, and the drift is off under Reduce Motion.
+  - `StepScaffold`, `StepHeader` and `StepFooter` are shared by every step.
+- **The illustrations are drawn in SwiftUI from tokens:**
+  - the microphone prompt and the Accessibility list mock (with the brand icon);
+  - the held key with its down/held meter;
+  - models ready (or the waiting line while they load);
+  - the mic-test meter with the reading line and microphone picker;
+  - the two shortcut cards;
+  - the language chips with search;
+  - the practice field with a live copy of the Flow Bar;
+  - the data choice cards;
+  - the Flow Bar sketch above a Dock.
+- **The app icon is bundled** as `Sources/UI/Resources/Brand/app-icon{,@2x}.png`, rendered from `Design/brand/app-icon.svg` by `Tools/make_icons.py`. It is shown on the welcome step and in the Accessibility mock.
+- **The onboarding window** is fixed at `OnboardingGeometry.step` with transparent chrome (`Windows.swift`: `sizingOptions = []`, then `setFrame`).
+- **Long copy can't push the footer out of the window.** The illustration well shrinks from 200 to at most 160 (`wellMinHeight`) when a step's text needs the room. The language chips scroll when they don't fit. Every step's primary button ends 28 pt from the bottom in both schemes (measured on the snapshots).
+- **Removed v1 code:**
+  - `ShortcutSettings`, `ShortcutRow`, `MicrophoneSettings`, `LevelMeter` and `PermissionsSummary` from `Hub.swift`. `PermissionsSummary.relaunch()` became `AppRelaunch.now()`.
+  - `VocabularyWindows.swift`: `LanguagePicker` and `EmptyState`.
+  - From `Design.swift`: `LegacyBrandMark`, `VisualEffect`, `StatTile`, `SearchField` and `Footnote`. What remains is renamed `WindowDragArea.swift`.
+- **The token lint now covers** `Hub.swift`, `Onboarding.swift` and `WindowDragArea.swift`. The only exemptions left are the two debug tools (`TokenPanel.swift`, `DesignGallery.swift`).
+- **New tokens:**
+  - `OnboardingGeometry`: well, prompt card, settings card, hold key and meter, mock sizes, Dock sketch, arrow, `wellMinHeight` (derived).
+  - `TypeTokens.keycapHold` (16/20 mono).
+  - `MeterTokens.previewLevel`.
+  - `rippleDot` is assumed and marked MEASURE.
+
+**Done when**
+- **Every step renders in snapshots in both schemes: pass.**
+  - 12 steps × light/dark: `Artifacts/ui/after/{light,dark}/onboarding-*.png`, at 800 × 1120 px.
+- **Resume-where-stopped and skip-granted-steps: pass, by unit test, not by `tccutil`.**
+  - Not run: `tccutil reset All` would revoke Murmur's real permissions on this Mac, and the run rules forbid changing security settings.
+  - Instead, `Tests/HubUITests/OnboardingTests.swift` (4 tests, passing) drives the real `OnboardingModel` with permission state injected through `isDoneOverride`. It checks that onboarding:
+    - resumes at the saved step;
+    - skips granted steps forward and back;
+    - saves progress, except in the design preview;
+    - keeps SPEC §6's 12 steps in order.
+  - The live check with a reset is on the owner's checklist.
+- **The permission-revocation test is unchanged and still pending with the owner** (`docs/m4-gate.md`, part B).
+  - The detection code in `AppDelegate` was not touched; only its notice copy changed, to name "Settings › System".
+  - Neither this test nor the fresh-account run can be automated here.
+- **Tests:** 167 pass (`MURMUR_NO_MLX=1 swift test`). Token lint passes. The Release app builds and installs (`Scripts/install-app.sh`).
+
+**Visible differences from the board, on purpose**
+- **12 steps, not the board's 10.**
+  - The board folds the model download into another step and has one practice step. SPEC §6 has a models step and two practice steps (hold, then hands-free).
+  - The SPEC's behavior wins, so the counter reads "/ 12".
+- **Real values in place of placeholders:**
+  - `[HOTKEY]` shows the configured key ("fn"); hands-free shows the configured keys.
+  - `[VERSION]` shows `CFBundleShortVersionString` ("dev" in snapshots).
+  - The language count is the app's own list (17), not the board's 99.
+- **Permission steps show the real state.** Their primary reads "Allow microphone" or "Open System Settings" until the permission is granted, then "Continue". The snapshots show whatever the `murmur-snap` process has, so the microphone step there reads "Continue".
+- **The Input Monitoring step adds one line:** macOS may ask to quit and reopen Murmur. That is true on macOS 14 and up, and without it people abandon setup there.
+- **Data step:**
+  - The board's "Share anonymous crash reports" card is dropped: Murmur has no crash reporting, and the copy must be true.
+  - The two cards are the existing choice: keep History on this Mac, or keep nothing.
+  - "Keep audio" uses the real retention, 14 days.
+- **Shortcut cards** show both modes as in use, with a Change button each, instead of a radio choice. Push-to-talk and hands-free both always work.

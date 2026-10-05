@@ -114,7 +114,7 @@ enum Snap {
 
             // Onboarding: every step, in preview (nothing saved, no microphone).
             let onboarding = OnboardingModel(hub: hub, preview: true)
-            let ob = WindowManager.makeWindow(id: "snap-onboarding", title: "Set up Murmur", size: NSSize(width: 640, height: 540), chrome: .transparent) { OnboardingView(model: onboarding) }
+            let ob = WindowManager.makeWindow(id: "snap-onboarding", title: "Set up Murmur", size: OnboardingGeometry.step, chrome: .transparent) { OnboardingView(model: onboarding) }
             ob.appearance = NSAppearance(named: look)
             prepare(ob)
             for step in OnboardingStep.allCases {

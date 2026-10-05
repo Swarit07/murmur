@@ -91,3 +91,21 @@ public enum MenuBarGlyph {
         }
     }
 }
+
+/// The app icon as an image (rendered from `Design/brand/app-icon.svg` by `Tools/make_icons.py`), for
+/// onboarding's welcome step and the Accessibility illustration.
+@MainActor
+public enum BrandImages {
+    public static let appIcon: NSImage = {
+        let size = NSSize(width: OnboardingGeometry.appIcon, height: OnboardingGeometry.appIcon)
+        let image = NSImage(size: size)
+        for suffix in ["", "@2x"] {
+            if let url = Bundle.module.url(forResource: "app-icon" + suffix, withExtension: "png", subdirectory: "Brand"),
+               let rep = NSImageRep(contentsOf: url) {
+                rep.size = size
+                image.addRepresentation(rep)
+            }
+        }
+        return image
+    }()
+}

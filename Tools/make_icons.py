@@ -44,6 +44,15 @@ def app_icon():
     print("app icon: App/AppIcon.iconset, App/Assets.xcassets/AppIcon.appiconset (iconutil ok)")
 
 
+def brand():
+    """The app icon as an image the UI can show (onboarding's welcome step, the Accessibility mock)."""
+    out = ROOT / "Sources/UI/Resources/Brand"
+    out.mkdir(parents=True, exist_ok=True)
+    for scale, suffix in ((1, ""), (2, "@2x")):
+        render(BRAND / "app-icon.svg", 128 * scale, out / f"app-icon{suffix}.png")
+    print("brand: Sources/UI/Resources/Brand/app-icon{,@2x}.png")
+
+
 def menu_bar():
     out = ROOT / "Sources/UI/Resources/MenuBar"
     out.mkdir(parents=True, exist_ok=True)
@@ -54,4 +63,5 @@ def menu_bar():
 
 if __name__ == "__main__":
     app_icon()
+    brand()
     menu_bar()

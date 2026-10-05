@@ -1,12 +1,5 @@
 # Files written before the redesign that still use raw literals. Each milestone rewrites its files and
 # removes them from this list; U8 leaves only debug tools.
-# U4 (Hub shell and Home)
-Sources/HubUI/Hub.swift
-Sources/HubUI/Design.swift
-# U5 (Dictionary, Snippets, Style)
-Sources/HubUI/VocabularyWindows.swift
-# U7 (Onboarding)
-Sources/HubUI/Onboarding.swift
 # Debug tools (not shipped UI)
 Sources/HubUI/TokenPanel.swift
 Sources/HubUI/DesignGallery.swift

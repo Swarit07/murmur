@@ -168,7 +168,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if lastPermissions.accessibility && !now.accessibility { lost.append("Accessibility") }
         if lastPermissions.inputMonitoring && !now.inputMonitoring { lost.append("Input Monitoring") }
         if !lost.isEmpty {
-            controller.notice("Murmur lost the \(lost.joined(separator: " and ")) permission. Open Murmur › Settings › General to turn it back on.")
+            controller.notice("Murmur lost the \(lost.joined(separator: " and ")) permission. Open Murmur › Settings › System to turn it back on.")
         }
         if now.inputMonitoring && !lastPermissions.inputMonitoring { controller.startKeyTap() }
         if now.allGranted && !lastPermissions.allGranted { controller.clearMessage() }
@@ -489,7 +489,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
             // Onboarding, every step, in a preview that changes no settings and starts nothing.
             let preview = OnboardingModel(hub: hub, preview: true)
-            windows.show("onboarding-preview", title: "Set up Murmur (preview)", size: NSSize(width: 640, height: 540), chrome: .transparent) { OnboardingView(model: preview) }
+            windows.show("onboarding-preview", title: "Set up Murmur (preview)", size: OnboardingGeometry.step, chrome: .transparent) { OnboardingView(model: preview) }
             if let ob = windows.window("onboarding-preview") {
                 for (lookName, look) in looks {
                     ob.appearance = NSAppearance(named: look)
@@ -646,6 +646,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.windows.close("onboarding")
             self?.showHub(.home)
         }
-        windows.show("onboarding", title: "Set up Murmur", size: NSSize(width: 640, height: 540), chrome: .transparent) { OnboardingView(model: model) }
+        windows.show("onboarding", title: "Set up Murmur", size: OnboardingGeometry.step, chrome: .transparent) { OnboardingView(model: model) }
     }
 }

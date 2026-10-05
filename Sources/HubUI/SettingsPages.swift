@@ -481,7 +481,7 @@ struct PermissionSettingsRows: View {
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in snapshot = .current() }
         if !snapshot.inputMonitoring {
             MSettingsRow("Restart Murmur", detail: "After you turn on Input Monitoring, macOS may need Murmur to restart.") {
-                MButton("Restart", kind: .outline, size: .small) { PermissionsSummary.relaunch() }
+                MButton("Restart", kind: .outline, size: .small) { AppRelaunch.now() }
             }
         }
     }

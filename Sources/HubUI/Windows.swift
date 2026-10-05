@@ -41,7 +41,10 @@ public final class WindowManager {
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = title
         window.isReleasedWhenClosed = false
-        window.contentViewController = NSHostingController(rootView: content())
+        let host = NSHostingController(rootView: content())
+        // Onboarding's window is exactly its step; the view must not resize it to its content.
+        if chrome == .transparent { host.sizingOptions = [] }
+        window.contentViewController = host
         if chrome != .standard {
             window.styleMask.insert(.fullSizeContentView)
             window.titlebarAppearsTransparent = true
@@ -52,7 +55,13 @@ public final class WindowManager {
             window.toolbar = NSToolbar(identifier: "murmur.\(id)")
             window.toolbarStyle = .unified
         }
-        window.setContentSize(size)
+        if chrome == .transparent {
+            // The content draws under the title bar, so the whole frame is the content (onboarding's
+            // 400 × 560 step is the window).
+            window.setFrame(NSRect(origin: window.frame.origin, size: size), display: false)
+        } else {
+            window.setContentSize(size)
+        }
         return window
     }
 

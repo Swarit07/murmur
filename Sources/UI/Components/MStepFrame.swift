@@ -40,7 +40,7 @@ public struct MStepFrame<Illustration: View, Extra: View>: View {
         VStack(alignment: .leading, spacing: OnboardingGeometry.gap) {
             HStack {
                 Text(String(format: "%02d / %02d", index, count) + (section.map { " · \($0)" } ?? ""))
-                    .textStyle(TypeTokens.tag)
+                    .textStyle(TypeTokens.keycapSmall)
                     .foregroundStyle(c.textTertiary.color)
                 Spacer()
                 ZStack(alignment: .leading) {
@@ -53,7 +53,7 @@ public struct MStepFrame<Illustration: View, Extra: View>: View {
                 .accessibilityLabel("Step \(index) of \(count)")
             }
             illustration
-            VStack(alignment: .leading, spacing: Spacing.s10) {
+            VStack(alignment: .leading, spacing: OnboardingGeometry.titleGap) {
                 Text(title).textStyle(TypeTokens.stepTitle).foregroundStyle(c.textPrimary.color)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
@@ -92,7 +92,7 @@ public struct MIllustrationWell<Content: View>: View {
     public var body: some View {
         content
             .frame(maxWidth: .infinity)
-            .frame(height: OnboardingGeometry.wellHeight)
+            .frame(minHeight: OnboardingGeometry.wellMinHeight, maxHeight: OnboardingGeometry.wellHeight)
             .background(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).fill(theme.colors.bgSunken.color))
     }
 }
