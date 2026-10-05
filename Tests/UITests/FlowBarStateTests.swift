@@ -1,3 +1,4 @@
+import AppKit
 import Core
 import Foundation
 import SwiftUI
@@ -187,6 +188,37 @@ struct FlowBarStateTests {
 }
 
 /// §6.3: the bundled WAVs match the sound tokens (rerun Tools/make_sounds.py after changing one).
+/// A saved drag offset (from another display, or a drag past the edge) can never put the bar off screen.
+@Suite("Flow Bar placement")
+@MainActor
+struct FlowBarPlacementTests {
+    let visible = NSRect(x: 0, y: 0, width: 1512, height: 949)
+    let canvas = FlowBarController.canvas
+    var base: NSPoint { NSPoint(x: visible.midX, y: visible.minY + LiveTokens.shared.value.bottomMargin) }
+
+    @Test func offScreenOffsetIsPulledBack() {
+        // The offset that hid the bar on a 1512 × 982 MacBook screen (320 pt below its resting place).
+        let o = FlowBarController.clamp(CGSize(width: 87.5, height: -319.9), base: base, visible: visible, canvas: canvas)
+        #expect(o.width == 87.5)
+        #expect(o.height == 0)
+    }
+
+    @Test func staysInsideEveryEdge() {
+        for drag in [CGSize(width: -5000, height: 0), CGSize(width: 5000, height: 0), CGSize(width: 0, height: 5000)] {
+            let o = FlowBarController.clamp(drag, base: base, visible: visible, canvas: canvas)
+            let x = base.x + o.width, y = base.y + o.height
+            #expect(x - canvas.width / 2 >= visible.minX)
+            #expect(x + canvas.width / 2 <= visible.maxX)
+            #expect(y + canvas.height - FlowGeometry.canvasMargin <= visible.maxY)
+        }
+    }
+
+    @Test func ordinaryDragIsKept() {
+        let o = FlowBarController.clamp(CGSize(width: -120, height: 40), base: base, visible: visible, canvas: canvas)
+        #expect(o == CGSize(width: -120, height: 40))
+    }
+}
+
 @Suite("Sound files")
 struct SoundFileTests {
     @Test func wavsMatchTheTokens() throws {

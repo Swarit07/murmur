@@ -82,8 +82,15 @@ public final class FlowBarController {
     }
 
     /// Bottom-center point the bar sits on: just above the Dock in the visible frame of the screen
-    /// holding the focused window, plus any offset the user dragged it to.
+    /// holding the focused window, plus any offset the user dragged it to, kept on that screen.
     func anchor(on screen: NSScreen) -> NSPoint {
+        let base = restingPoint(on: screen)
+        let o = Self.clamp(offset, base: base, visible: screen.visibleFrame, canvas: canvasSize)
+        return NSPoint(x: base.x + o.width, y: base.y + o.height)
+    }
+
+    /// Where the bar rests with no drag offset.
+    func restingPoint(on screen: NSScreen) -> NSPoint {
         let t = LiveTokens.shared.value
         let visible = screen.visibleFrame
         let full = screen.frame
@@ -92,7 +99,19 @@ public final class FlowBarController {
         let noBottomDock = visible.minY <= full.minY + 1
         let lift = noBottomDock ? t.fullScreenLift : 0
         let sideOffset = visible.minX > full.minX + 1 ? t.dockSideOffset : (visible.maxX < full.maxX - 1 ? -t.dockSideOffset : 0)
-        return NSPoint(x: visible.midX + sideOffset + offset.width, y: visible.minY + t.bottomMargin + lift + offset.height)
+        return NSPoint(x: visible.midX + sideOffset, y: visible.minY + t.bottomMargin + lift)
+    }
+
+    /// Limits a drag offset so the whole canvas (the widest card, the hover tooltip) stays inside the
+    /// screen's visible frame. A saved offset from another display, or a drag past the edge, can never
+    /// put the bar off screen.
+    public static func clamp(_ offset: CGSize, base: NSPoint, visible: NSRect, canvas: CGSize) -> CGSize {
+        let margin = FlowGeometry.canvasMargin
+        let minX = visible.minX + canvas.width / 2, maxX = visible.maxX - canvas.width / 2
+        let minY = visible.minY + LiveTokens.shared.value.bottomMargin, maxY = visible.maxY - (canvas.height - margin)
+        let x = min(max(base.x + offset.width, minX), max(minX, maxX))
+        let y = min(max(base.y + offset.height, minY), max(minY, maxY))
+        return CGSize(width: x - base.x, height: y - base.y)
     }
 
     public func layout() {
@@ -222,9 +241,14 @@ public final class FlowBarController {
                 MainActor.assumeIsolated {
                     guard let self else { return }
                     let mouse = NSEvent.mouseLocation
-                    if self.dragStart == nil { self.dragStart = (mouse, self.offset) }
+                    guard let screen = self.screen ?? Self.screenOfFocusedWindow() ?? NSScreen.main ?? NSScreen.screens.first else { return }
+                    let base = self.restingPoint(on: screen)
+                    let visible = screen.visibleFrame
+                    // Start from where the bar is drawn (a clamped offset), and save only offsets that keep it on screen.
+                    if self.dragStart == nil { self.dragStart = (mouse, Self.clamp(self.offset, base: base, visible: visible, canvas: self.canvasSize)) }
                     guard let start = self.dragStart else { return }
-                    self.offset = CGSize(width: start.offset.width + mouse.x - start.mouse.x, height: start.offset.height + mouse.y - start.mouse.y)
+                    let moved = CGSize(width: start.offset.width + mouse.x - start.mouse.x, height: start.offset.height + mouse.y - start.mouse.y)
+                    self.offset = Self.clamp(moved, base: base, visible: visible, canvas: self.canvasSize)
                     self.layout()
                 }
             }

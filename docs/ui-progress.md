@@ -536,3 +536,10 @@ Things that can't be run from here. About 30 minutes in all.
    - the board's ⌃⌥V/⌃⌥C vs the real ⌃⌘V/⌃⌘C;
    - review the dark Hub (there is no dark Hub board);
    - the onboarding size and the data-step crash-reports card.
+
+## After U8: Flow Bar off screen (owner report)
+
+- **Symptom:** holding fn showed no bar at all.
+- **Cause:** a saved drag offset (`murmur.flowBarOffset`, 320 pt down) was added to the resting point with no limit. On the 1512 × 982 screen with the Dock hidden, the panel sat at y = 1176, entirely below the display. It was visible and animating, just off screen. The bug dates from the original Flow Bar drag code, not the redesign, but nothing caught it before.
+- **Fix:** `FlowBarController.clamp` keeps the whole canvas (the widest card and the tooltip) inside the screen's visible frame. It is applied when the bar is placed and on every drag, so a drag past an edge or an offset saved on another display can't hide the bar. The bar now sits 8 pt above the bottom edge. Right-click › Reset position recenters it.
+- **Tests:** `FlowBarPlacementTests` (3) cover the owner's exact offset, every edge, and an ordinary drag that's kept.
