@@ -510,7 +510,6 @@ struct StylePage: View {
     @State private var level = AppSettings.shared.cleanupLevel
     @State private var category = "personal"
     @State private var styles = AppSettings.shared.styles
-    @State private var smartFormatting = AppSettings.shared.smartFormatting
     @State private var transforms = AppSettings.shared.transformsEnabled
 
     static let categories = [("personal", "Personal messages"), ("work", "Work messages"), ("email", "Email"), ("other", "Other")]
@@ -555,12 +554,6 @@ struct StylePage: View {
                 }
                 .disabled(!transforms)
                 .opacity(transforms ? 1 : 0.5)
-                Toggle(isOn: $smartFormatting) {
-                    Text("Smart Formatting")
-                    Text("Turns spoken lists into numbered lists and long dictations into paragraphs.")
-                }
-                .onChange(of: smartFormatting) { model.settings.smartFormatting = smartFormatting }
-                .disabled(!transforms)
             } header: {
                 Text("Auto Cleanup")
             } footer: {
@@ -647,6 +640,7 @@ struct GeneralPage: View {
 struct SystemPage: View {
     let model: HubModel
     @State private var showFlowBar = AppSettings.shared.showFlowBar
+    @State private var smartFormatting = AppSettings.shared.smartFormatting
     @State private var showInDock = AppSettings.shared.showInDock
     @State private var sounds = AppSettings.shared.soundsEnabled
     @State private var debug = AppSettings.shared.debugMenu
@@ -666,6 +660,13 @@ struct SystemPage: View {
                     Text("A soft sound when dictation starts, stops and finishes.")
                 }
                 .onChange(of: sounds) { model.settings.soundsEnabled = sounds }
+            }
+            Section("Formatting") {
+                Toggle(isOn: $smartFormatting) {
+                    Text("Smart Formatting")
+                    Text("Turns spoken lists of three or more items into numbered lists, and long dictations into paragraphs. Needs AI edits.")
+                }
+                .onChange(of: smartFormatting) { model.settings.smartFormatting = smartFormatting }
             }
             Section("App") {
                 Toggle("Launch Murmur at login", isOn: $launchAtLogin).onChange(of: launchAtLogin) { setLaunchAtLogin(launchAtLogin) }
