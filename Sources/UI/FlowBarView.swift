@@ -38,6 +38,7 @@ struct FlowBarView: View {
             .shadow(color: .black.opacity(t.shadowOpacity), radius: t.shadowRadius, y: -t.shadowY)
             .contentShape(shape)
             .onTapGesture {
+                model.noteTap()
                 switch model.displayed {
                 case .idle, .listening(handsFree: false): model.onClick?()
                 default: break

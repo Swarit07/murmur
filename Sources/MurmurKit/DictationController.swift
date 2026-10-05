@@ -9,6 +9,10 @@ import Insertion
 import Pipeline
 import SpeechEngines
 import Store
+import os
+
+/// Timings and reasons only, never transcript text (spec rule 2).
+let log = Logger(subsystem: "com.swaritsheel.Murmur", category: "dictation")
 
 public enum UISound: String, Sendable, CaseIterable {
     case start, stop, done, error
@@ -102,6 +106,8 @@ public final class DictationController {
 
     var session: Session?
     var processing: Task<Void, Never>?
+    /// Why the last start request did not start a recording (diagnostics for the focus test).
+    public private(set) var lastBeginRefusal: String?
     /// The last cancelled or failed dictation's audio, for Undo and Retry on the Flow Bar.
     var lastCancelled: (session: Session, samples: [Float], recordId: String?)?
     var lastFailed: (session: Session, samples: [Float], recordId: String)?
@@ -234,6 +240,8 @@ public final class DictationController {
         guard engine != nil else {
             status.message = "Models are still loading."
             recognizer.reset()
+            lastBeginRefusal = "models still loading"
+            log.notice("begin refused: models still loading")
             return
         }
         // One dictation at a time; a press while busy is ignored (D5). A notice from an earlier error
@@ -242,6 +250,8 @@ public final class DictationController {
         if state.state == .cancelled { state.send(.dismiss) }
         guard state.send(.start(mode)) != nil else {
             recognizer.reset()
+            lastBeginRefusal = "busy (\(state.state.name))"
+            log.notice("begin refused: busy in \(self.state.state.name, privacy: .public)")
             return
         }
         let focus = FocusContext.snapshot()
@@ -251,9 +261,13 @@ public final class DictationController {
             state.send(.cancel)
             state.send(.dismiss)
             recognizer.reset()
+            lastBeginRefusal = "microphone: \(error)"
+            log.error("microphone start failed: \(String(describing: error), privacy: .public)")
             fail("Microphone unavailable: \(error)")
             return
         }
+        lastBeginRefusal = nil
+        log.debug("recording started (\(mode.rawValue, privacy: .public)) in \(Format.ms(Clock.ms(since: keyDownAt)), privacy: .public)")
         session = Session(mode: mode, keyDownAt: keyDownAt, startedAt: Date(), focus: focus)
         status = DictationStatus(phase: .recording(handsFree: mode == .handsFree), message: nil, lastTranscript: status.lastTranscript, notice: nil)
         Signposts.transition(from: "key-down", to: "recording (\(Format.ms(Clock.ms(since: keyDownAt))))")

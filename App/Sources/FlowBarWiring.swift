@@ -258,11 +258,18 @@ final class FocusTest {
             let soundsWere = AppSettings.shared.soundsEnabled
             AppSettings.shared.soundsEnabled = false
             defer { AppSettings.shared.soundsEnabled = soundsWere }
+            // Clear the "starts in N seconds" message: a click on a notice card rightly starts nothing.
+            bar.model.forced = nil
+            try? await Task.sleep(for: .milliseconds(300))
             let target = FocusContext.snapshot()
+            let tapsBefore = bar.model.taps
             var failures: [String] = []
             var started = 0
+            var misses: [String] = []
             for trial in 1...trials {
                 let before = FocusContext.snapshot()
+                let shown = bar.model.displayed.name
+                let tapsAtStart = bar.model.taps
                 let point = bar.barCenter
                 move(to: point)
                 try? await Task.sleep(for: .milliseconds(60))
@@ -271,7 +278,11 @@ final class FocusTest {
                 try? await Task.sleep(for: .milliseconds(350))
                 let during = FocusContext.snapshot()
                 let murmurActive = NSApp.isActive
-                if controller.isRecording { started += 1 }
+                if controller.isRecording {
+                    started += 1
+                } else {
+                    misses.append("trial \(trial): bar showed \(shown), tap \(bar.model.taps > tapsAtStart ? "received" : "not received"), refused: \(controller.lastBeginRefusal ?? "no reason recorded")")
+                }
                 controller.discardCurrent()
                 try? await Task.sleep(for: .milliseconds(200))
                 let after = FocusContext.snapshot()
@@ -281,8 +292,9 @@ final class FocusTest {
             }
             move(to: original)
             running = false
-            let line = "Focus test: \(trials - failures.count)/\(trials) kept focus in \(target.appName ?? "?"); \(started)/\(trials) clicks started hands-free."
-            let log = ([line, "target: \(target.description)"] + failures).joined(separator: "\n")
+            let taps = bar.model.taps - tapsBefore
+            let line = "Focus test: \(trials - failures.count)/\(trials) kept focus in \(target.appName ?? "?"); \(taps)/\(trials) clicks reached the bar; \(started)/\(trials) started hands-free."
+            let log = ([line, "target: \(target.description)"] + failures + misses).joined(separator: "\n")
             let url = MurmurPaths.appSupport.appendingPathComponent("focus-test-\(Int(Date().timeIntervalSince1970)).txt")
             try? log.write(to: url, atomically: true, encoding: .utf8)
             report(failures.isEmpty ? "\(line) Pass." : "\(line) Details: \(url.path)")
@@ -298,7 +310,13 @@ final class FocusTest {
     func click(at point: NSPoint) {
         let flipped = CGPoint(x: point.x, y: (NSScreen.screens.first?.frame.height ?? 0) - point.y)
         let source = CGEventSource(stateID: .hidSystemState)
-        CGEvent(mouseEventSource: source, mouseType: .leftMouseDown, mouseCursorPosition: flipped, mouseButton: .left)?.post(tap: .cghidEventTap)
-        CGEvent(mouseEventSource: source, mouseType: .leftMouseUp, mouseCursorPosition: flipped, mouseButton: .left)?.post(tap: .cghidEventTap)
+        // A real single click carries click state 1; without it AppKit reports clickCount 0 and a tap
+        // gesture does not fire.
+        for type in [CGEventType.leftMouseDown, .leftMouseUp] {
+            let event = CGEvent(mouseEventSource: source, mouseType: type, mouseCursorPosition: flipped, mouseButton: .left)
+            event?.setIntegerValueField(.mouseEventClickState, value: 1)
+            event?.post(tap: .cghidEventTap)
+            if type == .leftMouseDown { usleep(40_000) }
+        }
     }
 }

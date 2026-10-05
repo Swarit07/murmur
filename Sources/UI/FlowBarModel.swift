@@ -96,6 +96,9 @@ public final class FlowBarModel {
     }
 
     public var onClick: (() -> Void)?
+    /// Taps the bar received, for the focus test's diagnostics.
+    public private(set) var taps = 0
+    func noteTap() { taps += 1 }
     public var onStop: (() -> Void)?
     public var onCancel: (() -> Void)?
     public var onAction: ((FlowBarNotice.Action, FlowBarNotice) -> Void)?
