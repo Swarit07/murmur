@@ -2,6 +2,12 @@
 
 A private, on-device dictation app for macOS. Hold a key, speak, let go, and the words appear, cleaned up and punctuated, wherever your cursor is.
 
+<p align="center">
+  <a href="docs/media/murmur-demo.mp4"><img src="docs/media/murmur-demo-preview.gif" width="820" alt="Murmur turning “um so can we push the sync to thursday — no wait, friday — and uh loop in priya” into “Can we push the sync to Friday and loop in Priya?”"></a>
+  <br>
+  <sub><a href="docs/media/murmur-demo.mp4"><b>▶ Watch the 20-second demo</b></a> · sound on</sub>
+</p>
+
 - **Local by default.** Speech recognition (NVIDIA Parakeet via FluidAudio, on the Neural Engine) and cleanup (Qwen3.5 4B via MLX, on the GPU) both run on the Mac. Groq and OpenRouter are optional, behind your own keys.
 - **Fast.** Across 38 real dictations, release to text was p50 0.62 s and p95 1.1 s.
 - **Safe with your words:**
