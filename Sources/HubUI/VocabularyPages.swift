@@ -36,7 +36,7 @@ struct DictionaryPage: View {
                 MButton("Add word", icon: .plus, kind: .ink) { startAdding() }
             }
             HStack(spacing: Spacing.s16) {
-                MSearchField("Search \(entries.count) \(entries.count == 1 ? "word" : "words")", text: $search)
+                MSearchField(entries.isEmpty ? "Search words" : "Search \(entries.count) \(entries.count == 1 ? "word" : "words")", text: $search)
                     .frame(minWidth: HubGeometry.searchFieldMin, idealWidth: HubGeometry.searchFieldWidth, maxWidth: HubGeometry.searchFieldWidth)
                 Spacer(minLength: 0)
                 MSegmented("Filter", selection: $filter, items: [("all", "All"), ("added", "Added by you"), ("learned", "Learned")])
