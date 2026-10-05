@@ -34,6 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var focusTest: FocusTest?
     var hub: HubModel!
     var selfTestRunning = false
+    var appMatrixRunning = false
     var onboarding: OnboardingModel?
     var permissionTimer: Timer?
     var lastPermissions = PermissionSnapshot.current()
@@ -112,6 +113,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             MainActor.assumeIsolated {
                 guard let app = Self.shared, app.settings.debugMenu else { return }
                 app.runSelfTest()
+            }
+        }
+        DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.swaritsheel.Murmur.debug.appMatrix"), object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated {
+                guard let app = Self.shared, app.settings.debugMenu else { return }
+                app.runAppMatrix()
             }
         }
         DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.swaritsheel.Murmur.debug.runFocusTest"), object: nil, queue: .main) { _ in
@@ -466,6 +473,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         sub.addItem(item("Run onboarding again", #selector(showOnboardingFromMenu)))
         sub.addItem(item("Save window snapshots", #selector(saveSnapshotsFromMenu)))
         sub.addItem(item(selfTestRunning ? "Self-test running…" : "Run self-test in TextEdit", #selector(runSelfTestFromMenu)))
+        sub.addItem(item(appMatrixRunning ? "App matrix running…" : "Run app matrix", #selector(runAppMatrixFromMenu)))
         parent.submenu = sub
         return parent
     }
@@ -494,9 +502,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc func runSelfTestFromMenu() { runSelfTest() }
 
+    @objc func runAppMatrixFromMenu() { runAppMatrix() }
+
+    /// Runs `AppMatrix` once (hands off the keyboard and mouse); the report is in the data folder.
+    func runAppMatrix() {
+        guard !appMatrixRunning, !selfTestRunning else { return }
+        appMatrixRunning = true
+        Task { @MainActor in
+            let summary = await AppMatrix(controller: controller, store: store).run()
+            appMatrixRunning = false
+            controller.notice(summary + ". Report: Murmur data folder › selftest › app-matrix.txt.")
+        }
+    }
+
     /// Runs `SelfTest` once and shows the result on the Flow Bar; the full report is in the data folder.
     func runSelfTest() {
-        guard !selfTestRunning else { return }
+        guard !selfTestRunning, !appMatrixRunning else { return }
         selfTestRunning = true
         Task { @MainActor in
             let summary = await SelfTest(controller: controller, store: store).run()

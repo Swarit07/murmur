@@ -2,6 +2,32 @@
 
 Last updated 2026-10-05. This file tracks where every milestone and requirement in [SPEC.md](../SPEC.md) stands. It also lists what was skipped or deferred and why, the overnight work log, and what still needs the owner. Decisions and their measurements are in [decisions.md](decisions.md).
 
+## Afternoon summary (2026-10-05): UI redesign v2
+
+**Done:**
+- **The UI redesign v2 ("Paper & Clay") is built on the local branch `ui-redesign`, U0 through U8**, one commit per milestone. Nothing was pushed or merged; the bundle's rules forbid that.
+  - Reports: [ui-progress.md](ui-progress.md).
+  - Values still to measure: [ui-calibration.md](ui-calibration.md).
+  - Before, after and board side by side: `Artifacts/ui/sheets/contact-sheet.png`.
+- **Fixed:** the Flow Bar could be drawn off screen when a saved drag offset pushed it past the screen edge. It now always stays on screen.
+- **Owner decisions:**
+  - The no-audio card is wired: a recording of 1 s or more with no speech shows "We couldn't hear you".
+  - The v2 timings stay.
+  - "Shortcuts" stays a submenu.
+  - ⌃⌘V and ⌃⌘C stay.
+- **Self-test:** it now confirms its TextEdit document has focus before every dictation, after a run while the owner was typing sent test text into the owner's focused app.
+- **New debug test, the app matrix:** Debug › Run app matrix dictates into blank targets in TextEdit, Safari, Chrome, Firefox, VS Code, Cursor, Terminal and Ghostty. In each it checks that the text is complete, one Undo removes it, the clipboard is restored and focus is unchanged.
+- **Checks:** unit tests 170 pass, focus test 50/50, self-test 21/21 (before the new cases), latency p50 652 ms and p95 1,340 ms.
+
+**In progress:**
+- A separate session is fixing the MLX reload leak, so idle unload can default to on. Its report will be in `docs/mlx-unload-leak.md`.
+
+**Needs the owner:**
+1. Five minutes off the keyboard and mouse, to run the self-test and the app matrix.
+2. In the logged-in apps (Slack, Discord, Messages, Notion, Gmail and Google Docs in Chrome, ChatGPT, Claude), dictate one sentence each without sending, and check the four matrix items.
+3. Flow Bar placement over full-screen, dark and light apps, with the Dock left, right and auto-hidden.
+4. Last: onboarding in a fresh macOS account and the permission revocation test ([m4-gate.md](m4-gate.md)).
+
 ## Morning summary (2026-10-05)
 
 **Done overnight:**
