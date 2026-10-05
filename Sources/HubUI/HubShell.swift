@@ -177,50 +177,9 @@ struct HubPageView: View {
             case .dictionary: DictionaryPage(store: model.store)
             case .snippets: SnippetsPage(store: model.store)
             case .style: StylePage(model: model)
-            case .general, .system, .experimental, .privacy: SettingsShell(model: model)
+            case .general, .system, .experimental, .privacy: SettingsPage(model: model)
             }
         }
-    }
-}
-
-/// A page not yet rebuilt (U5, U6): the old view inside the panel, under the drag strip.
-struct LegacyPage<Content: View>: View {
-    let content: Content
-
-    init(@ViewBuilder content: () -> Content) {
-        self.content = content()
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            WindowDragArea().frame(height: HubGeometry.pagePaddingTop / 2)
-            content
-        }
-    }
-}
-
-/// Settings until U6: the four tabs as a segmented control over the old pages.
-struct SettingsShell: View {
-    @Bindable var model: HubModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: HubGeometry.sectionGap) {
-            SerifTitle("Settings")
-            MSegmented("Settings section", selection: Binding(get: { model.page }, set: { model.go($0) }),
-                       items: [(.general, "General"), (.system, "System"), (.experimental, "Experimental"), (.privacy, "Data & privacy")])
-            Group {
-                switch model.page {
-                case .system: SystemPage(model: model)
-                case .experimental: ExperimentalPage(model: model)
-                case .privacy: PrivacyPage(model: model)
-                default: GeneralPage(model: model)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .padding(.top, HubGeometry.pagePaddingTop)
-        .padding(.horizontal, HubGeometry.pagePaddingSide)
-        .background(alignment: .top) { WindowDragArea().frame(height: HubGeometry.pagePaddingTop) }
     }
 }
 

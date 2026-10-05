@@ -14,7 +14,7 @@ public struct MSettingsGroup<Content: View>: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.s10) {
+        VStack(alignment: .leading, spacing: HubGeometry.settingsCaptionGap) {
             if let title { MCaption(title) }
             // Each row draws the divider under it; the last one falls on the container's own ring.
             MListContainer { content }
@@ -48,7 +48,7 @@ public struct MSettingsRow<Control: View>: View {
                 VStack(alignment: .leading, spacing: Spacing.s4 / 2) {
                     Text(title).textStyle(TypeTokens.label).foregroundStyle(c.textPrimary.color)
                     if let detail {
-                        Text(detail).textStyle(TypeTokens.hint).foregroundStyle(c.textSecondary.color)
+                        Text(detail).textStyle(TypeTokens.hint).foregroundStyle(c.textTertiary.color)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }

@@ -320,3 +320,72 @@ One report per milestone (UI_REDESIGN.md §10), newest last. If a session ends m
 - **"N uses" counts are computed from History** (the store keeps no counter), so a fresh install shows 0.
 - **The board's fixture rows (Priya, Saoirse…) appear only in snapshots.**
 - **In the app, the Dictionary search field takes focus when the page opens** (standard macOS first-responder behavior). Snapshots clear focus to show the resting state.
+
+## U6: Settings
+
+**Changed**
+- **`Sources/HubUI/SettingsPages.swift` (new):** `SettingsPage` with the title and General | System | Experimental | Data & privacy. Each tab is two columns of settings groups (caption 8 above a 12-radius list, rows 12 × 14, label and hint left, control right, groups 20 apart).
+  - **General:**
+    - **Dictation:** push-to-talk, hands-free and Command Mode shortcuts (key caps plus Change, with v1's recorder logic); microphone; microphone test (compact level meter); languages (opens a sheet of chips); Reset to defaults; the Globe-key and Secure Keyboard Entry notices.
+    - **Appearance (new):** Theme (System / Light / Dark) and Text size (Default / Large).
+    - **Output:** auto cleanup, speech engine (mono select), cleanup model, sounds, show Flow Bar, launch at login (errors shown in the hint).
+    - The "Nothing leaves this Mac" info card.
+  - **System:**
+    - Formatting (Smart Formatting), App (Show in Dock), Advanced (free memory when idle, debug menu).
+    - Typing instead of pasting: app rows, Add app…
+    - Permissions: state, Open System Settings, Restart Murmur when Input Monitoring needs it.
+  - **Experimental:** Command Mode, and Press Enter with its confirmation.
+  - **Data & privacy:**
+    - History: keep audio, never store, delete everything with a confirmation.
+    - Cloud keys: secure fields, Keychain, Save and Remove.
+    - The info card.
+  - **Confirmations** are an `MDialog` on the scrim, not system alerts; destructive actions use the ink button (no red).
+  - **`FlowLayout`, `LanguageChips`, `LanguageNames`** are shared with onboarding in U7.
+- **Components and tokens:**
+  - `MSettingsRow` hints use `text-tertiary`; the group's caption gap is 8.
+  - `MLevelMeter(compact:)`.
+  - `HubGeometry.keycapHeight` is 28 (board, settings rows).
+  - New tokens:
+    - board: `settingsGroupGap` 20, `settingsCaptionGap` 8, `settingsControlGap` 6;
+    - assumed, MEASURE: `meterCompact` 3 × 16, `meterCompactGap` 2.
+- **Removed:** the old `GeneralPage`, `SystemPage`, `ExperimentalPage`, `PrivacyPage`, `TypingApps` and `CloudKeys` (stock `Form`, `Toggle`, `Picker`, `SecureField`, `.alert`, `confirmationDialog`), and the interim `SettingsShell` and `LegacyPage`.
+  - The v1 shortcut, microphone and permission views stay in `Hub.swift` only because onboarding still uses them; U7 replaces them.
+
+**Done when**
+- **Every setting still persists: pass.** Each control writes the same `AppSettings` key (or controller call) as before:
+
+  | Setting | Written to |
+  | --- | --- |
+  | Speech engine | `engine` |
+  | Cleanup model | `cleanupProvider` |
+  | Auto cleanup (here and on Style) | `cleanupLevel` |
+  | Sounds | `soundsEnabled` |
+  | Show Flow Bar | `showFlowBar` |
+  | Show in Dock | `showInDock` |
+  | Smart Formatting | `smartFormatting` |
+  | Free memory when idle | `unloadWhenIdle` |
+  | Debug menu | `debugMenu` |
+  | Typing instead of pasting | `typingApps` |
+  | Languages | `languages` |
+  | Keep audio | `keepAudio` |
+  | Never store anything | `neverStore` |
+  | Command Mode | `commandMode` |
+  | Press Enter | `pressEnter` |
+  | Microphone | `controller.selectMicrophone` |
+  | Shortcuts | `controller.setShortcuts` |
+  | Launch at login | `SMAppService` |
+  | Cloud keys | Keychain |
+  | Theme (new) | `appearance` |
+  | Text size (new) | `textSize` |
+
+  `styles` and `transformsEnabled` live on Style (U5). No setting from v1 was dropped.
+- **All four tabs have snapshots in both schemes: pass.**
+  - `Artifacts/ui/after/{light,dark}/hub-{general,system,experimental,privacy}.png`.
+  - General next to the board: `Artifacts/ui/sheets/hub-settings-compare.png`.
+
+**Visible differences from the board, on purpose**
+- **General has more rows than the board:**
+  - Command Mode's shortcut, the microphone test, the cleanup model, and Reset to defaults.
+  - The Globe-key notice, when it applies.
+  - These are existing settings the board leaves out.
+- **The speech engine select shows the engine's full display name,** not a short id.

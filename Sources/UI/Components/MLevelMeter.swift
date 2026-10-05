@@ -6,10 +6,12 @@ import SwiftUI
 public struct MLevelMeter: View {
     @Environment(\.theme) private var theme
     let level: Double
+    let compact: Bool
 
-    /// `level` is 0…1, already smoothed by the caller.
-    public init(level: Double) {
+    /// `level` is 0…1, already smoothed by the caller. `compact` is the small inline meter in Settings.
+    public init(level: Double, compact: Bool = false) {
         self.level = level
+        self.compact = compact
     }
 
     public var body: some View {
@@ -17,18 +19,20 @@ public struct MLevelMeter: View {
         let count = OnboardingGeometry.meterBars
         let lit = level * Double(count)
         let unlit = theme.scheme == .dark ? ColorToken.ivory(MeterTokens.unlit) : ColorToken.ink(MeterTokens.unlit)
-        HStack(alignment: .bottom, spacing: OnboardingGeometry.meterBarGap) {
+        let barWidth = compact ? HubGeometry.meterCompact.width : OnboardingGeometry.meterBarWidth
+        let height = compact ? HubGeometry.meterCompact.height : OnboardingGeometry.meterHeight
+        HStack(alignment: .bottom, spacing: compact ? HubGeometry.meterCompactGap : OnboardingGeometry.meterBarGap) {
             ForEach(0..<count, id: \.self) { i in
                 let ramp = OnboardingGeometry.meterLowest + (1 - OnboardingGeometry.meterLowest)
                     * CGFloat(pow(Double(i) / Double(max(1, count - 1)), MeterTokens.rampExponent))
                 let on = Double(i) < lit
                 let target = Double(i) >= Double(count) * OnboardingGeometry.meterClayFrom
-                RoundedRectangle(cornerRadius: min(OnboardingGeometry.meterBarRadius, OnboardingGeometry.meterBarWidth / 2), style: .continuous)
+                RoundedRectangle(cornerRadius: min(OnboardingGeometry.meterBarRadius, barWidth / 2), style: .continuous)
                     .fill(on ? (target ? c.accentClay.color : c.textPrimary.color) : unlit.color)
-                    .frame(width: OnboardingGeometry.meterBarWidth, height: OnboardingGeometry.meterHeight * ramp)
+                    .frame(width: barWidth, height: height * ramp)
             }
         }
-        .frame(height: OnboardingGeometry.meterHeight, alignment: .bottom)
+        .frame(height: height, alignment: .bottom)
         .accessibilityElement()
         .accessibilityLabel("Microphone level")
         .accessibilityValue("\(Int(level * 100)) percent")

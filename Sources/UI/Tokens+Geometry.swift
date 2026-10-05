@@ -122,7 +122,7 @@ public enum HubGeometry {
     public static let selectHeight: CGFloat = 30 // source: board
     public static let selectChevron: CGFloat = 10 // source: board
     public static let keycapInlineHeight: CGFloat = 20 // source: board (18-22)
-    public static let keycapHeight: CGFloat = 30 // source: board (28-32)
+    public static let keycapHeight: CGFloat = 28 // source: board (28-32; 28 in settings rows)
     public static let keycapPaddingH: CGFloat = 10 // source: board
     public static let keycapPaddingHInline: CGFloat = 6 // source: assumed // MEASURE
     public static let radio: CGFloat = 14 // source: board
@@ -185,6 +185,12 @@ public enum HubGeometry {
     public static let cleanupCardPadding = CGSize(width: 16, height: 14) // source: board
     public static let cardGap: CGFloat = 12 // source: board
     public static let settingsColumnGap: CGFloat = 24 // source: board
+    public static let settingsGroupGap: CGFloat = 20 // source: board
+    public static let settingsCaptionGap: CGFloat = 8 // source: board
+    public static let settingsControlGap: CGFloat = 6 // source: board (key caps to Change)
+    /// The level bars in the Settings mic-test row.
+    public static let meterCompact = CGSize(width: 3, height: 16) // source: assumed // MEASURE
+    public static let meterCompactGap: CGFloat = 2 // source: assumed // MEASURE
     public static let settingsRowPadding = CGSize(width: 14, height: 12) // source: board
     public static let infoCardPadding: CGFloat = 14 // source: board
     public static let arrowIcon: CGFloat = 14 // source: board
