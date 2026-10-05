@@ -13,7 +13,7 @@ public final class AppSettings: @unchecked Sendable {
     }
 
     enum Key: String {
-        case engine, cleanupProvider, cleanupLevel, keyboardLayout, showInDock, soundsEnabled, microphoneUID, keepAudio, showFlowBar, debugMenu, transformsEnabled, smartFormatting, languages, shortcuts, neverStore, onboardingStep, onboardingDone, styles, commandMode, pressEnter, typingApps
+        case engine, cleanupProvider, cleanupLevel, keyboardLayout, showInDock, soundsEnabled, microphoneUID, keepAudio, showFlowBar, debugMenu, transformsEnabled, smartFormatting, languages, shortcuts, neverStore, onboardingStep, onboardingDone, styles, commandMode, pressEnter, typingApps, unloadWhenIdle
     }
 
     private func string(_ key: Key, _ fallback: String) -> String { defaults.string(forKey: key.rawValue) ?? fallback }
@@ -75,6 +75,12 @@ public final class AppSettings: @unchecked Sendable {
     public var commandMode: Bool {
         get { defaults.bool(forKey: Key.commandMode.rawValue) }
         set { set(newValue, .commandMode) }
+    }
+
+    /// Section 7: free the cleanup model's memory after 10 minutes without dictation (on by default).
+    public var unloadWhenIdle: Bool {
+        get { defaults.object(forKey: Key.unloadWhenIdle.rawValue) as? Bool ?? true }
+        set { set(newValue, .unloadWhenIdle) }
     }
 
     /// I9: bundle ids of apps that get the text typed instead of pasted.

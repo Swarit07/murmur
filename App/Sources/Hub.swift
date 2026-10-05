@@ -662,6 +662,7 @@ struct SystemPage: View {
     @State private var showInDock = AppSettings.shared.showInDock
     @State private var sounds = AppSettings.shared.soundsEnabled
     @State private var debug = AppSettings.shared.debugMenu
+    @State private var unloadWhenIdle = AppSettings.shared.unloadWhenIdle
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
 
@@ -703,6 +704,11 @@ struct SystemPage: View {
                 Footnote("For apps where pasting does not work, like some games and remote tools. Murmur types the text instead and never touches the clipboard. Typing is slower, and undoing it may take more than one ⌘Z.")
             }
             Section("Advanced") {
+                Toggle(isOn: $unloadWhenIdle) {
+                    Text("Free memory when idle")
+                    Text("After 10 minutes without dictation, Murmur unloads its models (about 2 GB) and reloads them as you start speaking. The first dictation after a break may get simpler cleanup.")
+                }
+                .onChange(of: unloadWhenIdle) { model.settings.unloadWhenIdle = unloadWhenIdle }
                 Toggle(isOn: $debug) {
                     Text("Debug menu")
                     Text("Adds tools for testing the Flow Bar, sounds and focus to the menu bar menu.")

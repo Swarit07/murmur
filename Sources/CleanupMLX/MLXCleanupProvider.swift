@@ -1,5 +1,6 @@
 import Cleanup
 import Foundation
+import os
 import HuggingFace
 import MLX
 import MLXHuggingFace
@@ -153,7 +154,12 @@ public actor MLXCleanupProvider: CleanupProvider {
         draft.context = nil
         prefix.clear()
         draftPrefix.clear()
+        // MLX keeps freed GPU buffers for reuse; give them back so unloading actually frees the memory.
+        Memory.clearCache()
+        Self.log.notice("unloaded: MLX active \(Memory.activeMemory / 1_048_576, privacy: .public) MB, cache \(Memory.cacheMemory / 1_048_576, privacy: .public) MB")
     }
+
+    static let log = Logger(subsystem: "com.swaritsheel.Murmur", category: "mlx")
 
     struct Request: Sendable {
         let rendered: [[String: any Sendable]]

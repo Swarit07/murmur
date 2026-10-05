@@ -119,6 +119,15 @@ public final class DictationController {
     public var recordingLimits = RecordingLimits(maxSeconds: ProcessInfo.processInfo.environment["MURMUR_MAX_RECORDING_S"].flatMap(Double.init) ?? 1200)
     /// Why the current recording was stopped automatically, shown once its text is inserted.
     var autoStopReason: String?
+    /// Section 7: the cleanup model is unloaded after this long without a dictation, and reloaded as
+    /// soon as the next one starts.
+    var idleUnloadAfter: Duration = .seconds(ProcessInfo.processInfo.environment["MURMUR_IDLE_UNLOAD_S"].flatMap(Double.init) ?? 600)
+    var idleUnload: Task<Void, Never>?
+    var cleanupReload: Task<Void, Never>?
+    public private(set) var cleanupUnloaded = false
+    var engineReload: Task<Void, Never>?
+    public private(set) var engineUnloaded = false
+
     /// S2: the field Murmur last pasted into, what it pasted, and the field's text right after.
     var lastInsertion: (element: AXUIElement, text: String, value: String)?
     var correctionCheck: Task<Void, Never>?
@@ -299,6 +308,7 @@ public final class DictationController {
                     try await p?.load()
                     self?.cleanupProvider = p
                     self?.cleanupId = wantCleanup
+                    self?.cleanupUnloaded = false
                 } catch {
                     // Rules-only cleanup still works, so dictation keeps going.
                     self?.cleanupProvider = nil
@@ -308,6 +318,7 @@ public final class DictationController {
             }
             guard let self else { return }
             self.prewarmCleanup()
+            self.scheduleIdleUnload()
             if self.status.phase == .loading { self.status.phase = self.engine == nil ? .error : .idle }
             if !problems.isEmpty { self.status.message = problems.joined(separator: "\n") }
         }
@@ -381,6 +392,8 @@ public final class DictationController {
             return
         }
         lastBeginRefusal = nil
+        idleUnload?.cancel()
+        reloadIfUnloaded()
         log.debug("recording started (\(mode.rawValue, privacy: .public)) in \(Format.ms(Clock.ms(since: keyDownAt)), privacy: .public)")
         let newSession = Session(mode: mode, keyDownAt: keyDownAt, startedAt: Date(), focus: focus)
         session = newSession
@@ -486,6 +499,8 @@ public final class DictationController {
         let raw: String
         do {
             let t0 = Clock.now()
+            // An engine unloaded while idle reloads during the recording; wait for it if it is not done.
+            await engineReload?.value
             raw = try await engine.transcribe(samples, options: TranscribeOptions(
                 language: settings.engineLanguage, vocabulary: vocabulary, aliases: aliases))
             timings.transcribeMs = Clock.ms(since: t0)
@@ -533,6 +548,8 @@ public final class DictationController {
                 fail("Command Mode needs a local or cloud model. Choose one in Settings › General › Models.")
                 return
             }
+            // A command needs the model: if it was unloaded while idle, wait for the reload.
+            await cleanupReload?.value
             let selection = await SelectionReader.selectedText(in: started.focus.element)
             guard isCurrent(token) else { return }
             let outcome = await CommandRunner(provider: provider).run(instruction: trimmed, selection: selection)
@@ -595,6 +612,7 @@ public final class DictationController {
             }
             status.phase = .inserted
             if started.mode != .command { rememberInsertion(text, in: current.element) }
+            scheduleIdleUnload()
             if settings.soundsEnabled { sounds?.play(.done) }
             if firstAudioMs != nil { Signposts.transition(from: "released", to: "inserted \(timings.summary)") }
         case .failed(let failure):
@@ -607,6 +625,62 @@ public final class DictationController {
             state.send(.insertionFailed(kind, text: finalText))
             endSession(.dismiss)
             fail(Self.message(for: failure, app: started.focus.appName), kind: kind == .noTextBox ? .noTextBox : .pasteError)
+        }
+    }
+
+    // MARK: Idle unload (section 7)
+
+    /// After 10 minutes without a dictation, frees both models (about 2.3 GB); the next key press
+    /// reloads them while the user speaks.
+    func scheduleIdleUnload() {
+        idleUnload?.cancel()
+        guard settings.unloadWhenIdle else { return }
+        let delay = idleUnloadAfter
+        idleUnload = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled, let self else { return }
+            await self.unloadModelsNow()
+        }
+    }
+
+    /// Unloads the speech engine and the cleanup model unless a dictation or mic test is running.
+    public func unloadModelsNow() async {
+        guard session == nil, !micTestRunning, engineReload == nil, cleanupReload == nil else { return }
+        if !engineUnloaded, let engine, engine.isLocal {
+            engineUnloaded = true
+            await engine.unload()
+        }
+        if !cleanupUnloaded, let provider = cleanupProvider {
+            cleanupUnloaded = true
+            await provider.unload()
+        }
+        log.notice("models unloaded while idle")
+    }
+
+    /// Starts reloading whatever was unloaded. The engine is awaited before transcribing; cleanup that
+    /// runs before its model is back falls back to the rules (the runner treats "not loaded" as a
+    /// provider error), and Command Mode waits for it.
+    func reloadIfUnloaded() {
+        if engineUnloaded, engineReload == nil, let engine {
+            engineReload = Task { @MainActor [weak self] in
+                let start = Clock.now()
+                try? await engine.load()
+                guard let self else { return }
+                self.engineUnloaded = false
+                self.engineReload = nil
+                log.notice("speech engine reloaded in \(Format.ms(Clock.ms(since: start)), privacy: .public)")
+            }
+        }
+        if cleanupUnloaded, cleanupReload == nil, let provider = cleanupProvider {
+            cleanupReload = Task { @MainActor [weak self] in
+                let start = Clock.now()
+                try? await provider.load()
+                guard let self else { return }
+                self.cleanupUnloaded = false
+                self.cleanupReload = nil
+                log.notice("cleanup model reloaded in \(Format.ms(Clock.ms(since: start)), privacy: .public)")
+                self.prewarmCleanup()
+            }
         }
     }
 
@@ -682,6 +756,7 @@ public final class DictationController {
         state.send(event)
         session = nil
         processing = nil
+        scheduleIdleUnload()
         if status.phase != .error { status.phase = .idle }
     }
 
@@ -756,6 +831,7 @@ public final class DictationController {
         guard state.state == .idle, state.send(.start(original.mode)) != nil else { return }
         let session = Session(mode: original.mode, keyDownAt: Clock.now(), startedAt: Date(), focus: original.focus)
         self.session = session
+        reloadIfUnloaded()
         status.notice = nil
         status.message = nil
         status.command = original.mode == .command
@@ -800,6 +876,8 @@ public final class DictationController {
         guard let engine, let record = try? store.record(id: recordId), let path = record.audioPath,
               let samples = try? WAV.read(URL(fileURLWithPath: path)), !samples.isEmpty else { return false }
         do {
+            reloadIfUnloaded()
+            await engineReload?.value
             let raw = try await engine.transcribe(samples, options: TranscribeOptions(
                 language: settings.engineLanguage, vocabulary: vocabulary, aliases: aliases)).trimmingCharacters(in: .whitespacesAndNewlines)
             _ = try? store.update(id: recordId) { $0.rawText = raw; $0.status = .transcribed; $0.errorCode = "retried" }

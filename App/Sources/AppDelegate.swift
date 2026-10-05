@@ -95,6 +95,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 app.saveSnapshots()
             }
         }
+        // Performance pass: unload the cleanup model now, as the idle timer would.
+        DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.swaritsheel.Murmur.debug.unload"), object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated {
+                guard let app = Self.shared, app.settings.debugMenu else { return }
+                Task { await app.controller.unloadModelsNow() }
+            }
+        }
         DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.swaritsheel.Murmur.debug.selfTest"), object: nil, queue: .main) { _ in
             MainActor.assumeIsolated {
                 guard let app = Self.shared, app.settings.debugMenu else { return }
