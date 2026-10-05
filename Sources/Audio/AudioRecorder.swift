@@ -37,6 +37,7 @@ public final class AudioRecorder: @unchecked Sendable {
     private var resampler: Resampler?
     private var startedAt: UInt64 = 0
     private var firstBufferAt: UInt64?
+    private var lastBufferAt: UInt64?
     private var running = false
     private let onLevel: (@Sendable (Float) -> Void)?
 
@@ -101,6 +102,10 @@ public final class AudioRecorder: @unchecked Sendable {
 
     public var isRunning: Bool { lock.withLock { running } }
 
+    /// When the newest audio buffer arrived (nil before the first). D7 stops a recording whose
+    /// microphone has stopped sending audio.
+    public var lastAudioAt: UInt64? { lock.withLock { lastBufferAt } }
+
     /// Touches the input so the first `start()` is faster. Failures surface at `start()` instead.
     public func prepare() {
         _ = engine.inputNode.outputFormat(forBus: 0)
@@ -118,6 +123,7 @@ public final class AudioRecorder: @unchecked Sendable {
             self.resampler = resampler
             startedAt = Clock.now()
             firstBufferAt = nil
+            lastBufferAt = nil
             running = true
         }
         do {
@@ -159,6 +165,7 @@ public final class AudioRecorder: @unchecked Sendable {
         let now = Clock.now()
         guard let resampler = lock.withLock({ () -> Resampler? in
             if firstBufferAt == nil { firstBufferAt = now }
+            lastBufferAt = now
             return running ? self.resampler : nil
         }) else { return }
         guard let converted = try? resampler.convert(buffer, endOfStream: false), !converted.isEmpty else { return }

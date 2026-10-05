@@ -200,6 +200,23 @@ final class SelfTest {
             let pasted = Self.value(field) ?? ""
             record("Paste last transcript", pasted.trimmingCharacters(in: .whitespacesAndNewlines) == last ? nil : "pasted text differs from the newest dictation", text: pasted)
 
+            // D7: a recording stops by itself at the time limit (6 s here instead of 20 minutes).
+            Self.setValue(field, "")
+            let limits = controller.recordingLimits
+            controller.recordingLimits = RecordingLimits(maxSeconds: 6, warnBeforeSeconds: 3, noAudioSeconds: 3)
+            let t0 = Date()
+            controller.toggleHandsFree()
+            var stoppedAfter: Double?
+            for _ in 0..<150 {
+                try? await Task.sleep(for: .milliseconds(100))
+                if !controller.isRecording { stoppedAfter = Date().timeIntervalSince(t0); break }
+            }
+            controller.recordingLimits = limits
+            _ = await waitIdle()
+            record("Recording stops at the time limit (D7)",
+                   stoppedAfter.map { $0 >= 5 && $0 <= 8.5 ? nil : String(format: "stopped after %.1f s", $0) } ?? "did not stop",
+                   text: stoppedAfter.map { String(format: "stopped after %.1f s", $0) } ?? "")
+
             Self.setValue(field, "")
             await closeScratchDocument(field)
         } else {

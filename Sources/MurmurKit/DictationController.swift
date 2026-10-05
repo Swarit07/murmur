@@ -111,6 +111,11 @@ public final class DictationController {
 
     var session: Session?
     var processing: Task<Void, Never>?
+    /// D7: watches the recording for the 20-minute limit and a microphone that stops sending audio.
+    var watchdog: Task<Void, Never>?
+    public var recordingLimits = RecordingLimits(maxSeconds: ProcessInfo.processInfo.environment["MURMUR_MAX_RECORDING_S"].flatMap(Double.init) ?? 1200)
+    /// Why the current recording was stopped automatically, shown once its text is inserted.
+    var autoStopReason: String?
     /// The dictionary and snippets (S1, S3), reloaded when they change.
     var rules = RulesCleaner()
     var vocabulary: [String] = []
@@ -365,10 +370,50 @@ public final class DictationController {
         }
         lastBeginRefusal = nil
         log.debug("recording started (\(mode.rawValue, privacy: .public)) in \(Format.ms(Clock.ms(since: keyDownAt)), privacy: .public)")
-        session = Session(mode: mode, keyDownAt: keyDownAt, startedAt: Date(), focus: focus)
+        let newSession = Session(mode: mode, keyDownAt: keyDownAt, startedAt: Date(), focus: focus)
+        session = newSession
+        autoStopReason = nil
+        watch(newSession.token)
         status = DictationStatus(phase: .recording(handsFree: mode == .handsFree), message: nil, lastTranscript: status.lastTranscript, notice: nil)
         Signposts.transition(from: "key-down", to: "recording (\(Format.ms(Clock.ms(since: keyDownAt))))")
         if settings.soundsEnabled { sounds?.play(.start) }
+    }
+
+    /// D7: once a second while recording, warn a minute before the limit, stop at the limit, and stop
+    /// when no audio has arrived for a few seconds. Stopping transcribes and inserts what was heard.
+    func watch(_ token: UUID) {
+        watchdog?.cancel()
+        watchdog = Task { [weak self] in
+            var warned = false
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard let self, let session = self.session, session.token == token, self.recorder.isRunning else { return }
+                let elapsed = Clock.ms(since: session.keyDownAt) / 1000
+                let sinceAudio = Clock.ms(since: max(self.recorder.lastAudioAt ?? 0, session.keyDownAt)) / 1000
+                switch self.recordingLimits.check(elapsed: elapsed, sinceAudio: sinceAudio, warned: warned) {
+                case .none:
+                    break
+                case .warn:
+                    warned = true
+                    self.status.message = "One minute left: this dictation stops at 20 minutes."
+                    if self.settings.soundsEnabled { self.sounds?.play(.error) }
+                    log.notice("recording: one minute left")
+                case .stopAtLimit:
+                    self.autoStopReason = "Stopped at the 20-minute limit. Everything you said was transcribed."
+                    log.notice("recording: stopped at the limit")
+                    self.recognizer.reset()
+                    self.finish()
+                    return
+                case .stopNoAudio:
+                    self.autoStopReason = "The microphone stopped sending audio, so Murmur stopped and transcribed what it heard."
+                    log.notice("recording: no audio for \(Format.ms(sinceAudio * 1000), privacy: .public), stopping")
+                    self.recognizer.reset()
+                    self.recorder.forceRebuild()
+                    self.finish()
+                    return
+                }
+            }
+        }
     }
 
     func discard() {
@@ -530,6 +575,11 @@ public final class DictationController {
             state.send(.inserted)
             session = nil
             processing = nil
+            if let reason = autoStopReason {
+                autoStopReason = nil
+                status.message = reason
+                status.notice = DictationStatus.Notice(kind: .info, message: reason)
+            }
             status.phase = .inserted
             if settings.soundsEnabled { sounds?.play(.done) }
             if firstAudioMs != nil { Signposts.transition(from: "released", to: "inserted \(timings.summary)") }
