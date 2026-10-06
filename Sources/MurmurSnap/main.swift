@@ -170,6 +170,21 @@ enum Snap {
                 pump(0.2)
                 capture(window.contentView?.superview ?? window.contentView!, to: dir.appendingPathComponent("hub-\(page.rawValue).png"))
             }
+            // Help & setup, then the Privacy and Acknowledgements dialogs (LEGAL_DOCS.md L5), the latter
+            // closed and with Murmur's own license open.
+            hub.go(.home)
+            hub.helpOpen = true
+            pump(0.5)
+            capture(window.contentView?.superview ?? window.contentView!, to: dir.appendingPathComponent("hub-help.png"))
+            for (name, document, open) in [("privacy", HubDocument.privacy, Set<String>()), ("acknowledgements", .acknowledgements, []),
+                                           ("acknowledgements-open", .acknowledgements, ["Murmur/Murmur"])] {
+                hub.expandedNotices = open
+                hub.open(document, fromHelp: true)
+                pump(0.6)
+                capture(window.contentView?.superview ?? window.contentView!, to: dir.appendingPathComponent("hub-document-\(name).png"))
+            }
+            hub.document = nil
+            hub.expandedNotices = []
             window.close()
 
             // Onboarding: every step, in preview (nothing saved, no microphone).
@@ -182,6 +197,12 @@ enum Snap {
                 pump(0.4)
                 capture(ob.contentView?.superview ?? ob.contentView!, to: dir.appendingPathComponent(String(format: "onboarding-%02d-%@.png", step.rawValue + 1, "\(step)")))
             }
+            // The data step's "Read the privacy notes".
+            onboarding.step = .data
+            onboarding.showingPrivacy = true
+            pump(0.5)
+            capture(ob.contentView?.superview ?? ob.contentView!, to: dir.appendingPathComponent("onboarding-privacy.png"))
+            onboarding.showingPrivacy = false
             ob.close()
 
             // Flow Bar: every state on a neutral backdrop (it floats over other apps).

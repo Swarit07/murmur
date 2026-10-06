@@ -259,3 +259,4 @@ No component found whose license forbids redistribution, and none `UNKNOWN`.
 | M13 | README:23 | "On first launch Murmur downloads its speech and cleanup models" | True but incomplete (same as M5). | README Privacy section (L4) |
 | M14 | `THIRD_PARTY_NOTICES.md` | Lists Silero VAD as downloaded at first launch | False for the app (§6 note B). | Fixed by L3 |
 | M15 | Onboarding step 9 card, `Onboarding.swift:498` | "No analytics, no crash reports." | True (§1). | OK |
+| M16 | Settings › General info card, `Sources/HubUI/SettingsPages.swift:166` (and its copy in `DesignGallery.swift:291`) | "Nothing leaves this Mac" / "Audio and transcripts stay on-device. Retention lives under Data & privacy." | **Found during L5, missed in the first pass.** The same false title as M4, and the detail is false when a cloud option is chosen. | Copy is false; fixed in L5 |

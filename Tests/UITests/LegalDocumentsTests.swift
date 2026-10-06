@@ -22,6 +22,60 @@ struct LegalDocumentsTests {
         #expect(LegalDocuments.text("NO-SUCH-FILE") == nil)
     }
 
+    @Test func reflowJoinsWrappedLinesAndKeepsParagraphs() {
+        let text = """
+        MIT License
+
+        Copyright (c) 2026 Someone
+
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files.
+        """
+        #expect(LegalDocuments.reflow(text) == """
+        MIT License
+
+        Copyright (c) 2026 Someone
+
+        Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files.
+        """)
+    }
+
+    @Test func reflowKeepsListItemsCopyrightsAndRules() {
+        let text = """
+           1. Definitions.
+           (a) You must give any other recipients of the Work or
+               Derivative Works a copy of this License; and
+           b) a second item
+           - a bullet
+             that wraps
+        Copyright 2009 One
+        Copyright 2011 Two
+        All rights reserved.
+        =====
+        swift-transformers
+        =====
+        """
+        #expect(LegalDocuments.reflow(text) == """
+        1. Definitions.
+        (a) You must give any other recipients of the Work or Derivative Works a copy of this License; and
+        b) a second item
+        - a bullet that wraps
+        Copyright 2009 One
+        Copyright 2011 Two All rights reserved.
+        =====
+        swift-transformers
+        =====
+        """)
+    }
+
+    @Test func reflowLeavesOrdinaryWordsAlone() {
+        #expect(!LegalDocuments.startsOwnLine("a copy of the Software"))
+        #expect(!LegalDocuments.startsOwnLine("e.g. this"))
+        #expect(!LegalDocuments.startsOwnLine("Apache."))
+        #expect(LegalDocuments.startsOwnLine("(iv) item"))
+        #expect(LegalDocuments.startsOwnLine("12) item"))
+    }
+
     /// L2/L5: the app's privacy notes are the repo's PRIVACY.md, so in-app and repo can't disagree.
     @Test func bundledPrivacyMatchesTheRepo() throws {
         let repo = try String(contentsOf: Self.root.appendingPathComponent("PRIVACY.md"), encoding: .utf8)

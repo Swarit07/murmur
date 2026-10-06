@@ -128,3 +128,47 @@ Running log for `LEGAL_DOCS.md`, newest milestone last.
 **For the owner:**
 - `[SECURITY_CONTACT]` in `SECURITY.md` needs an email address.
 - The repo is **private**, so GitHub's private vulnerability reporting isn't available, and the issue links in `PRIVACY.md` and `SECURITY.md` only work for collaborators. Once it's public, you can turn on Settings › Security › Private vulnerability reporting and point `SECURITY.md` at it.
+
+## L5: In-app disclosures (2026-10-05)
+
+**Files:**
+- `Sources/HubUI/LegalViews.swift` (new): the document dialog, a small Markdown renderer for `PRIVACY.md`, the Acknowledgements list, and onboarding's privacy panel.
+- `Hub.swift`: `document`, `open(_:fromHelp:)`.
+- `HubShell.swift`: the dialog overlay, Esc, and Help & setup › About with Privacy and Acknowledgements rows.
+- `SettingsPages.swift`: the Privacy row and the info-card copy.
+- `Onboarding.swift`: copy, the "Read the privacy notes" link, the overlay.
+- `DesignGallery.swift`: info-card copy.
+- `Windows.swift`: the cloud-detection fix.
+- `Sources/UI/LegalDocuments.swift`: `reflow` for license text.
+- `Sources/UI/Components/MDialog.swift`: optional width.
+- `Tokens+Geometry.swift`: `documentDialogWidth`.
+- `App/project.yml`: `NSMicrophoneUsageDescription`.
+- `Sources/MurmurSnap/main.swift`: captures the new views.
+- Tests: `Tests/HubUITests/LegalViewsTests.swift` (new), `Tests/UITests/LegalDocumentsTests.swift`.
+- `Artifacts/ui/sheets/legal-hub.png`, `legal-onboarding.png`.
+- `docs/legal-audit.md`: adds M16.
+
+**Done when:**
+- Token lint passes: **pass.** `Scripts/check-tokens.sh`: "token lint: pass".
+- Snapshots exist: **pass.** `murmur-snap` rendered 87 images with no blanks. The two contact sheets cover Help & setup, the Privacy dialog, Acknowledgements (closed, and with one row open), Settings › Data & privacy, Settings › General and four onboarding steps, in light and dark.
+- Every in-app privacy claim matches `PRIVACY.md`: **pass** for the claims fixed below. M5 and M7 are true but less complete than `PRIVACY.md`; proposed copy is below.
+- Unit tests: `Scripts/test.sh` passes, 204 tests in all. It includes the notices check, and 21 new or changed tests cover the parser, the reflow, both paths of the cloud check, and the dialog state.
+- The Release build has the new microphone string in its `Info.plist` and the legal files in its bundle.
+
+**Changes applied, because the old claim was false (audit §8):**
+
+| # | Where | Was | Now |
+|---|---|---|---|
+| M1 | Menu footer, sidebar status tag | "on-device engine" while cleanup ran on Groq or OpenRouter | Code fix: `AppInfo.cloud` matches `groq:<model>` and `openrouter:<model>`. The copy is unchanged. |
+| M2 | Onboarding › Microphone | "Only while you hold the shortcut. Audio is transcribed on this Mac and deleted right after, unless you choose to keep it." | "Murmur listens only while you dictate. Its built-in speech model runs on this Mac. You'll choose whether to keep recordings in a later step." |
+| M3 | Onboarding › Data | "Either way, audio and transcripts never leave this Mac." | "Either way, your audio and transcripts stay on this Mac unless you pick a cloud option in Settings." |
+| M4 | Settings › Data & privacy card | "Nothing leaves this Mac" | Title "On this Mac by default". The detail adds the Hugging Face downloads and launch check. |
+| M6 | Onboarding › Input Monitoring | "It watches that one key; …" | "macOS shows Murmur every key press; it uses them only to spot its shortcuts. Nothing you type is logged or stored." |
+| M8 | `NSMicrophoneUsageDescription` | "…while you hold the dictation shortcut and turns it into text on this Mac." | "Murmur listens only while you dictate. Its built-in speech model runs on this Mac." |
+| M16 | Settings › General card | "Nothing leaves this Mac" / "Audio and transcripts stay on-device." | "On this Mac by default" / "With the built-in models, your audio and transcripts stay on this Mac. Retention and cloud keys live under Data & privacy." |
+
+**Proposed, not applied (the old copy is true, just incomplete). Owner to approve:**
+- **M5**, Onboarding › Models: "Murmur's speech and cleanup models run on this Mac. The first time, they download from Hugging Face (about 3 GB). After that they load in a few seconds, and Murmur checks for cleanup model updates when it starts."
+- **M7**, Onboarding › Accessibility: "Accessibility lets Murmur place text at your cursor in any app. It reads only the app and text box you're dictating into, never captures your screen, and never types into password fields."
+
+**Not run here (need the app running with your permissions):** the 50-trial focus test and the latency budget. No dictation code changed, but please run both from the Debug menu and `murmur-bench e2e` before merging.

@@ -1,14 +1,17 @@
 import SwiftUI
 
-/// A sheet over the Hub (Help & setup, confirmations): paper, radius 14, a 1 pt hairline,
-/// `shadow-float`, on the scrim. Buttons sit right-aligned, the main one last.
+/// A sheet over the Hub (Help & setup, confirmations, the Privacy and Acknowledgements documents):
+/// paper, radius 14, a 1 pt hairline, `shadow-float`, on the scrim. Buttons sit right-aligned, the main
+/// one last.
 public struct MDialog<Content: View>: View {
     @Environment(\.theme) private var theme
     let title: String
+    let width: CGFloat
     let content: Content
 
-    public init(_ title: String, @ViewBuilder content: () -> Content) {
+    public init(_ title: String, width: CGFloat = HubGeometry.dialogWidth, @ViewBuilder content: () -> Content) {
         self.title = title
+        self.width = width
         self.content = content()
     }
 
@@ -20,7 +23,7 @@ public struct MDialog<Content: View>: View {
             content
         }
         .padding(Spacing.s28)
-        .frame(width: HubGeometry.dialogWidth, alignment: .leading)
+        .frame(width: width, alignment: .leading)
         .background(shape.fill(theme.colors.bgPanel.color).floatShadow(theme))
         .overlay(shape.strokeBorder(theme.colors.borderHairline.color, lineWidth: Stroke.hairline))
         .accessibilityElement(children: .contain)

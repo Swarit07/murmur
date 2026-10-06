@@ -163,7 +163,7 @@ struct GeneralSettings: View {
                 MToggleRow("Launch at login", detail: loginError ?? "Ready before you need it.", isOn: $launchAtLogin)
                     .disabled(loginSystem == nil)
             }
-            MInfoCard("Nothing leaves this Mac", detail: "Audio and transcripts stay on-device. Retention lives under Data & privacy.")
+            MInfoCard("On this Mac by default", detail: "With the built-in models, your audio and transcripts stay on this Mac. Retention and cloud keys live under Data & privacy.")
         }
         .onChange(of: engine) { s.engine = engine }
         .onChange(of: cleanup) { s.cleanupProvider = cleanup }
@@ -576,11 +576,16 @@ struct PrivacySettings: View {
                     }
                 }
             }
-            MInfoCard("Nothing leaves this Mac", detail: "Audio and text stay on this Mac unless you choose a Groq or OpenRouter option. Murmur has no analytics, and its logs hold timings, never your words.")
+            MInfoCard("On this Mac by default", detail: "Audio and text stay on this Mac unless you choose a Groq or OpenRouter option. Murmur downloads its models from Hugging Face and checks for cleanup model updates when it starts; no audio or text is sent. No analytics, and logs hold timings, never your words.")
         } right: {
             MSettingsGroup("Cloud (optional)", footer: "Keys are stored in your Keychain.") {
                 CloudKeyRow(label: "Groq API key", account: "groq")
                 CloudKeyRow(label: "OpenRouter API key", account: "openrouter")
+            }
+            MSettingsGroup {
+                MSettingsRow("Privacy", detail: "What Murmur keeps, what it sends, and how to delete it.") {
+                    MButton("Read the privacy notes", kind: .link, size: .small) { model.open(.privacy) }
+                }
             }
         }
         .onChange(of: keepAudio) { model.settings.keepAudio = keepAudio }

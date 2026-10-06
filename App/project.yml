@@ -29,7 +29,7 @@ targets:
         CFBundleVersion: "1"
         LSUIElement: true
         LSMinimumSystemVersion: "14.0"
-        NSMicrophoneUsageDescription: Murmur records your voice while you hold the dictation shortcut and turns it into text on this Mac.
+        NSMicrophoneUsageDescription: Murmur listens only while you dictate. Its built-in speech model runs on this Mac.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.swaritsheel.Murmur
