@@ -557,6 +557,18 @@ public final class DictationController {
             // Clean up: rules, model with the time limit, guard; rule-cleaned text as the fallback.
             // C1: the Transforms switch turns every AI edit off; the rules stage still runs.
             let provider = settings.transformsEnabled ? cleanupProvider : nil
+            // After an idle unload the model reloads from key-down (~1.3 s), usually before key-up. A
+            // dictation shorter than that would otherwise get only the rules: wait for the reload, up to
+            // a limit, so it still gets the model's cleanup.
+            if provider != nil, let reload = cleanupReload {
+                await withTaskGroup(of: Void.self) { group in
+                    group.addTask { await reload.value }
+                    group.addTask { try? await Task.sleep(for: Self.cleanupReloadWait) }
+                    await group.next()
+                    group.cancelAll()
+                }
+                guard isCurrent(token) else { return }
+            }
             let request = currentCleanupRequest
             let outcome = await CleanupRunner(rules: rules, provider: provider).run(spoken, request: request)
             timings.rulesMs = outcome.rulesMs
@@ -660,14 +672,20 @@ public final class DictationController {
             }
         }
         if cleanupUnloaded, cleanupReload == nil, let provider = cleanupProvider {
+            // The reload counts as done once the prompt this dictation will use is warm, so the dictation
+            // (which waits for it, up to `cleanupReloadWait`) is not queued behind any warm-up. Command
+            // Mode's prompt is left to warm on its first use: a command waits for the model anyway.
+            let request = currentCleanupRequest
+            let transforms = settings.transformsEnabled
+            let rules = self.rules
             cleanupReload = Task { @MainActor [weak self] in
                 let start = Clock.now()
                 try? await provider.load()
+                if transforms { await CleanupRunner(rules: rules, provider: provider).prewarm(request) }
                 guard let self else { return }
                 self.cleanupUnloaded = false
                 self.cleanupReload = nil
-                log.notice("cleanup model reloaded in \(Format.ms(Clock.ms(since: start)), privacy: .public)")
-                self.prewarmCleanup()
+                log.notice("cleanup model reloaded and warm in \(Format.ms(Clock.ms(since: start)), privacy: .public)")
             }
         }
     }
@@ -935,6 +953,9 @@ public final class DictationController {
     }
 
     /// An informational notice on the Flow Bar and in the menu (permissions lost, and so on).
+    /// The longest a dictation waits for the cleanup model to finish reloading after an idle unload.
+    static let cleanupReloadWait: Duration = .seconds(3)
+
     /// Recordings at least this long that hold no speech show the no-audio card.
     static let noAudioMinimumMs: Double = 1000
 

@@ -44,7 +44,8 @@ public struct MSettingsRow<Control: View>: View {
     public var body: some View {
         let c = theme.colors
         VStack(spacing: 0) {
-            HStack(alignment: .center, spacing: Spacing.s16) {
+            // Label beside the control; the control moves under the label when the row is too narrow.
+            AdaptivePair(spacing: Spacing.s16, stackedSpacing: Spacing.s10, minLeading: HubGeometry.settingsLabelMin) {
                 VStack(alignment: .leading, spacing: Spacing.s4 / 2) {
                     Text(title).textStyle(TypeTokens.label).foregroundStyle(c.textPrimary.color)
                     if let detail {
@@ -53,7 +54,8 @@ public struct MSettingsRow<Control: View>: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                control
+                // One subview for the layout, however many views the caller passes.
+                HStack(spacing: Spacing.s16) { control }
             }
             .padding(.horizontal, HubGeometry.settingsRowPadding.width)
             .padding(.vertical, HubGeometry.settingsRowPadding.height)

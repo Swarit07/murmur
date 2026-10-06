@@ -95,7 +95,8 @@ public struct MFeatureCard<Text: View, Visual: View>: View {
     }
 
     public var body: some View {
-        HStack(alignment: .center, spacing: HubGeometry.featureGap) {
+        // The visual moves under the copy, at full width, when the card is too narrow for both.
+        AdaptivePair(spacing: HubGeometry.featureGap, stackedSpacing: HubGeometry.featureGap, minLeading: HubGeometry.featureCopyMin, stacked: .fill) {
             text.frame(maxWidth: .infinity, alignment: .leading)
             visual
         }

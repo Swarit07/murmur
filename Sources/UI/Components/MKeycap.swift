@@ -33,6 +33,8 @@ public struct MKeycap: View {
             .fixedSize()
             .padding(.horizontal, inline ? HubGeometry.keycapPaddingHInline : HubGeometry.keycapPaddingH)
             .frame(minWidth: height, minHeight: height, maxHeight: height)
+            // A key cap never shrinks below its label.
+            .fixedSize(horizontal: true, vertical: false)
             .background(shape.fill(pressed ? c.inkFill.color : (onWindow ? c.bgWindow.color : c.bgPanel.color)))
             .overlay {
                 if !pressed {

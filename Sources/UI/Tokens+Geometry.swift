@@ -156,6 +156,8 @@ public enum HubGeometry {
     // History rows (Home)
     public static let historyTimeColumn: CGFloat = 52 // source: board
     public static let historyMetaColumn: CGFloat = 112 // source: board
+    /// The meta column grows with a long app name up to this, then the name truncates.
+    public static let historyMetaMax: CGFloat = 200 // source: derived ("Microsoft Outlook · 120 w" fits)
     public static let historyColumnGap: CGFloat = 14 // source: board
     public static let historyRowPadding = CGSize(width: 16, height: 13) // source: board
 
@@ -169,6 +171,10 @@ public enum HubGeometry {
     public static let dictionarySoundsField: CGFloat = 220 // source: board
     public static let editRowPadding = CGSize(width: 12, height: 10) // source: board
     public static let searchFieldWidth: CGFloat = 320 // source: board
+    /// A snippet card previews this many lines of its expansion.
+    public static let snippetPreviewLines = 6 // source: derived (the board's longest sample, a sign-off, is 3 lines)
+    /// The search field gives way down to this beside the filter in a narrow window.
+    public static let searchFieldMin: CGFloat = 160 // source: derived ("Search 120 words" stays readable)
 
     // Snippets, Style, Settings
     public static let snippetPadding: CGFloat = 16 // source: board
@@ -184,6 +190,13 @@ public enum HubGeometry {
     public static let settingsGroupGap: CGFloat = 20 // source: board
     public static let settingsCaptionGap: CGFloat = 8 // source: board
     public static let settingsControlGap: CGFloat = 6 // source: board (key caps to Change)
+    /// Below this a settings row puts its control under the label instead of crushing the label.
+    public static let settingsLabelMin: CGFloat = 150 // source: derived (a title like "Command Mode" plus a two-line hint)
+    /// Below this per column, the settings groups stack in one column (narrow windows, Large text).
+    public static let settingsColumnMin: CGFloat = 340 // source: derived (settingsLabelMin, a select, row padding)
+    /// Below these, the feature card's samples go under its copy, and the stats go under the title.
+    public static let featureCopyMin: CGFloat = 240 // source: derived (the two buttons side by side)
+    public static let homeTitleMin: CGFloat = 260 // source: derived (the greeting on two lines)
     /// The level bars in the Settings mic-test row.
     public static let meterCompact = CGSize(width: 3, height: 16) // source: assumed // MEASURE
     public static let meterCompactGap: CGFloat = 2 // source: assumed // MEASURE

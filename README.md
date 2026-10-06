@@ -45,7 +45,7 @@ The full product spec is in [SPEC.md](SPEC.md). Progress against it is tracked i
   - Launch at login.
   - Never-store mode.
   - Auto-stop at 20 minutes.
-  - Optional model unloading after 10 idle minutes (off by default; see docs/decisions.md).
+  - Model unloading after 10 idle minutes (on by default; can be turned off in Settings › System).
 
 ## Requirements
 

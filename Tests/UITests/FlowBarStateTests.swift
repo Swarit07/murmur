@@ -188,6 +188,54 @@ struct FlowBarStateTests {
 }
 
 /// §6.3: the bundled WAVs match the sound tokens (rerun Tools/make_sounds.py after changing one).
+/// Regression: ISSUE-005, found by /qa on 2026-10-05. After a dictation the controller's phase stays
+/// "inserted"; a redraw after the check's moment (a forced notice clearing) showed a stale check that
+/// ignored clicks, so click-to-start hands-free did nothing until the next dictation.
+@Suite("Flow Bar inserted state")
+@MainActor
+struct FlowBarInsertedTests {
+    @Test func staleInsertedRedrawsAsIdle() {
+        let model = FlowBarModel()
+        model.showAtAllTimes = true
+        model.state = .inserted
+        #expect(model.displayed == .inserted)
+        model.insertedSettled = true  // the check's moment has passed
+        model.forced = .notice(FlowBarNotice(kind: .info, message: "Focus test starts in 2 seconds"))
+        model.forced = nil
+        #expect(model.displayed == .idle)
+    }
+
+    @Test func freshInsertedStillShowsTheCheck() {
+        let model = FlowBarModel()
+        model.showAtAllTimes = true
+        model.state = .inserted
+        model.forced = .notice(FlowBarNotice(kind: .info, message: "x"))
+        model.forced = nil
+        #expect(model.displayed == .inserted)
+    }
+
+    @Test func backFromANoticeShowsIdleNotTheCheckAgain() {
+        let model = FlowBarModel()
+        model.showAtAllTimes = true
+        model.state = .processing
+        model.state = .inserted
+        model.state = .notice(FlowBarNotice(kind: .info, message: "App matrix: 1 of 1 apps passed"))
+        model.state = .inserted  // the notice is dismissed; the controller's phase is still "inserted"
+        #expect(model.displayed == .idle)
+    }
+
+    @Test func nextDictationShowsTheCheckAgain() {
+        let model = FlowBarModel()
+        model.showAtAllTimes = true
+        model.state = .inserted
+        model.insertedSettled = true
+        model.state = .processing
+        model.state = .inserted
+        #expect(model.displayed == .inserted)
+        #expect(!model.insertedSettled)
+    }
+}
+
 /// A saved drag offset (from another display, or a drag past the edge) can never put the bar off screen.
 @Suite("Flow Bar placement")
 @MainActor

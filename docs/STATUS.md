@@ -56,7 +56,7 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 - Engine dictionary boosting is off; a safer matcher replaces it.
 - The cleanup time limit grows a little for long dictations.
 - Style names follow the spec ("Formal.", "very casual").
-- Idle model unloading is built but off by default: each reload leaks ~400 MB inside the MLX library. A follow-up task is flagged.
+- Idle model unloading is on by default again: the ~400 MB reload leak is fixed ([mlx-unload-leak](mlx-unload-leak.md)).
 
 **Needs you:**
 1. The M4 gate: a fresh-account onboarding and the permission revocation test ([m4-gate.md](m4-gate.md), ~15 min). The latest build is in /Applications.
@@ -160,11 +160,11 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 | C4 real-voice clips | Optional | Owner | Synthetic-voice results recorded; comma is the weak spot |
 | Gemma 3 1B | Excluded | Claude | Never stops generating |
 | Speculative decoding | Not default | Claude | Only ~12% faster on long inputs |
-| Idle unload by default (section 7) | Off by default | Claude, overnight | Each model reload leaks ~400 MB in mlx-swift-lm; on by default would grow memory all day. Switch kept in System › Advanced |
+| Idle unload by default (section 7) | On by default | Claude | Was off while each model reload leaked ~400 MB; fixed, and the footprint stays flat over 10 reloads. Switch in System › Advanced |
 
 ## Performance (section 7)
 
-Release to text p50 **623 ms**, p95 **1,111 ms** (targets 800 ms and 1.5 s), from 38 real dictations. Idle CPU 0%. Idle unload is built and works (2.6 GB → ~0.25 GB), but it is **off by default**: each reload leaks ~400 MB inside mlx-swift-lm. The 120 MB shell target is not met; see [m6-report](m6-report.md).
+Release to text p50 **623 ms**, p95 **1,111 ms** (targets 800 ms and 1.5 s), from 38 real dictations. Idle CPU 0%. Idle unload works (2.6 GB → ~0.25 GB) and is **on by default**: reloads no longer leak (bench footprint after unload 129–136 MB over 10 reloads). The 120 MB shell target is not met; see [m6-report](m6-report.md).
 
 ## Needs the owner
 
@@ -201,5 +201,6 @@ Release to text p50 **623 ms**, p95 **1,111 ms** (targets 800 ms and 1.5 s), fro
 - **Command Mode quality bench** (`murmur-bench command-test`, 16 instructions): Qwen3.5 4B **32/32**, p50 299 ms. It caught and fixed an injection that was partly obeyed.
 - **End to end on your recordings:** 27/30 corrections, 0 fact changes, C7 4/4. No accuracy regression.
 - **Idle unload:** built, then turned **off by default** after `reload-test` found ~400 MB leaked per model reload inside mlx-swift-lm. A follow-up task was flagged.
+- **Reload leak fixed; idle unload on by default** ([mlx-unload-leak](mlx-unload-leak.md)). Compiled decode traces kept Qwen3.5's fused projections, and each model build stranded ~4 MB of graph nodes. MLX compile is now off and unload empties the model instead of dropping it. Footprint after unload: 129–136 MB over 10 reloads (was +440 MB each). Cleanup outputs 110/110 identical.
 - **Flow Bar state tests** against the token values (spec section 8).
 - **Milestone tags** pushed (`m0-passed` … `m5-passed`). The latest build is in /Applications for the fresh-account test.

@@ -67,7 +67,8 @@ struct SettingsColumns<Left: View, Right: View>: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: HubGeometry.settingsColumnGap) {
+        // Two columns while each is wide enough; one column in a narrow window or at Large text.
+        AdaptiveColumns(spacing: HubGeometry.settingsColumnGap, stackedSpacing: HubGeometry.settingsGroupGap, minColumn: HubGeometry.settingsColumnMin) {
             VStack(alignment: .leading, spacing: HubGeometry.settingsGroupGap) { left }.frame(maxWidth: .infinity, alignment: .topLeading)
             VStack(alignment: .leading, spacing: HubGeometry.settingsGroupGap) { right }.frame(maxWidth: .infinity, alignment: .topLeading)
         }
@@ -87,7 +88,10 @@ struct GeneralSettings: View {
     @State private var textSize = AppSettings.shared.textSize
     @State private var sounds = AppSettings.shared.soundsEnabled
     @State private var showFlowBar = AppSettings.shared.showFlowBar
-    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+    // Read from the system once, off the main thread (it's a synchronous call to a system service, ~50 ms):
+    // a @State initial value would run on every rebuild of this view.
+    @State private var launchAtLogin = false
+    @State private var loginSystem: Bool?
     @State private var loginError: String?
     @State private var languagesOpen = false
 
@@ -123,7 +127,7 @@ struct GeneralSettings: View {
                     }
                 }
                 if config.pushToTalk == .modifiers([.fn]) || config.handsFree == .key(keyCode: 49, modifiers: [.fn]), Permissions.fnUsageType != 0 {
-                    MSettingsRow("The Globe key may open emoji or dictation", detail: "Set System Settings › Keyboard › “Press 🌐 key to” to Do Nothing.") {
+                    MSettingsRow("The Globe key may open emoji or dictation", detail: "In System Settings › Keyboard, set “Press Globe key to” to Do Nothing.") {
                         MButton("Open", kind: .outline, size: .small) {
                             if let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension") { NSWorkspace.shared.open(url) }
                         }
@@ -157,6 +161,7 @@ struct GeneralSettings: View {
                 MToggleRow("Sounds", detail: "Start, stop and error cues.", isOn: $sounds)
                 MToggleRow("Show Flow Bar", detail: "Rests above the Dock when idle.", isOn: $showFlowBar)
                 MToggleRow("Launch at login", detail: loginError ?? "Ready before you need it.", isOn: $launchAtLogin)
+                    .disabled(loginSystem == nil)
             }
             MInfoCard("Nothing leaves this Mac", detail: "Audio and transcripts stay on-device. Retention lives under Data & privacy.")
         }
@@ -167,7 +172,16 @@ struct GeneralSettings: View {
         .onChange(of: textSize) { s.textSize = textSize }
         .onChange(of: sounds) { s.soundsEnabled = sounds }
         .onChange(of: showFlowBar) { s.showFlowBar = showFlowBar }
-        .onChange(of: launchAtLogin) { setLaunchAtLogin(launchAtLogin) }
+        .onChange(of: launchAtLogin) {
+            // Only a change the user made; the value read from the system already matches it.
+            guard let system = loginSystem, launchAtLogin != system else { return }
+            setLaunchAtLogin(launchAtLogin)
+        }
+        .task {
+            let enabled = await Task.detached { SMAppService.mainApp.status == .enabled }.value
+            loginSystem = enabled
+            launchAtLogin = enabled
+        }
         .overlay {
             if languagesOpen {
                 ZStack {
@@ -182,10 +196,13 @@ struct GeneralSettings: View {
     func setLaunchAtLogin(_ on: Bool) {
         do {
             if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+            loginSystem = on
             loginError = SMAppService.mainApp.status == .requiresApproval ? "Approve Murmur in System Settings › General › Login Items." : nil
         } catch {
             loginError = "Could not change the login item: \(error.localizedDescription)"
-            launchAtLogin = SMAppService.mainApp.status == .enabled
+            let enabled = SMAppService.mainApp.status == .enabled
+            loginSystem = enabled
+            launchAtLogin = enabled
         }
     }
 }
@@ -283,7 +300,8 @@ struct ShortcutRecorderRow: View {
 /// The microphone (D9): the input device, and a test with a level meter.
 struct MicrophoneRows: View {
     let model: HubModel
-    @State private var devices = AudioDevices.inputs()
+    // Listed off the main thread when the rows appear (CoreAudio queries), not on every rebuild.
+    @State private var devices: [AudioDevices.Device] = []
     @State private var selected = AppSettings.shared.microphoneUID ?? ""
     @State private var testing = false
 
@@ -293,6 +311,7 @@ struct MicrophoneRows: View {
                     options: [("", "System default")] + devices.map { ($0.uid, $0.name + ($0.isDefault ? " (default)" : "")) })
         }
         .onChange(of: selected) { model.controller.selectMicrophone(uid: selected.isEmpty ? nil : selected) }
+        .task { devices = await Task.detached { AudioDevices.inputs() }.value }
         MSettingsRow("Microphone test", detail: testing ? "Speak at your normal volume." : "Check that Murmur hears you.") {
             HStack(spacing: Spacing.s10) {
                 if testing {
@@ -426,7 +445,7 @@ struct SystemSettings: View {
                 MToggleRow("Show in Dock", detail: "Murmur always stays in the menu bar.", isOn: $showInDock)
             }
             MSettingsGroup("Advanced") {
-                MToggleRow("Free memory when idle", detail: "After 10 minutes without dictation, Murmur unloads its models (about 2 GB) and reloads them as you start speaking. Off by default for now: each reload currently leaves about 400 MB behind.",
+                MToggleRow("Free memory when idle", detail: "After 10 minutes without dictation, Murmur unloads its models (about 2 GB) and reloads them as you start speaking.",
                            isOn: $unloadWhenIdle)
                 MToggleRow("Debug menu", detail: "Adds tools for testing the Flow Bar, sounds and focus to the menu bar menu.", isOn: $debug)
             }

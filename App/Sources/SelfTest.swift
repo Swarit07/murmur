@@ -114,6 +114,11 @@ final class SelfTest {
         let startedAt = Date()
         let saved = (transforms: settings.transformsEnabled, smart: settings.smartFormatting, sounds: settings.soundsEnabled, pressEnter: settings.pressEnter, typing: settings.typingApps)
         savedStyles = settings.styles
+        // The plain cases expect Formal (a closing period). TextEdit is "Other", so pin that style for the
+        // run (the style cases set their own); the owner's styles come back at the end.
+        var pinned = savedStyles
+        pinned["other"] = "formal"
+        settings.styles = pinned
         let clipboard = Self.saveClipboard()
         let sentinel = "murmur-self-test-\(UUID().uuidString.prefix(8))"
         NSPasteboard.general.clearContents()
