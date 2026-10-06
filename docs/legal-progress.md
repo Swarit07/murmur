@@ -36,7 +36,7 @@ Running log for `LEGAL_DOCS.md`, newest milestone last.
 | M3 | Onboarding › Data | "Either way, your audio and transcripts stay on this Mac unless you pick a cloud option in Settings." |
 | M4 | Settings › Data & privacy card title | "Your words stay on this Mac" (detail adds: "Murmur downloads its models from Hugging Face and checks the cleanup model for updates when it starts. No audio or text is sent.") |
 | M5 | Onboarding › Models | "Murmur's speech and cleanup models run on this Mac. The first time, they download from Hugging Face (about 3 GB). After that they load in a few seconds, and Murmur checks for cleanup model updates when it starts." |
-| M6 | Onboarding › Input Monitoring | "Input Monitoring is how Murmur knows [hotkey] is being held down — and released. macOS shows Murmur every key press; it reacts only to its shortcuts and Esc. Nothing you type is logged or stored." |
+| M6 | Onboarding › Input Monitoring | "Input Monitoring is how Murmur knows [hotkey] is being held down — and released. macOS shows Murmur every key press; it uses them only to spot its shortcuts. Nothing you type is logged or stored." |
 | M7 | Onboarding › Accessibility | "Accessibility lets Murmur place text at your cursor in any app. It reads only the app and text box you're dictating into, never captures your screen, and never types into password fields." |
 | M8 | `NSMicrophoneUsageDescription` | "Murmur listens only while you dictate. Its built-in speech model runs on this Mac." |
 
@@ -60,3 +60,21 @@ Running log for `LEGAL_DOCS.md`, newest milestone last.
 - `Scripts/test.sh --filter LegalDocuments`: 3 tests pass. One of them fails if the bundled copy drifts from the root `LICENSE`.
 
 **For the owner:** confirm the copyright line, "Copyright (c) 2026 Swarit Sheel".
+
+## L2: PRIVACY.md (2026-10-05)
+
+**Files:**
+- `PRIVACY.md` (new).
+- `docs/legal-audit.md`: §1 adds two tests, the per-launch check and the offline run.
+
+**Done when:**
+- Every section maps to an audit finding (`<!-- audit: §n -->`): **pass.** A script checked that all 10 sections cite real audit sections.
+- No section claims more than the audit shows: **pass.** The headline isn't "runs entirely on your Mac" (connections exist). It's "with those built-in models, your audio and transcripts stay on this Mac". The Hugging Face check, the token pickup, the Apple asset download and the Groq/OpenRouter payloads are each named, with what's sent and how to stop it.
+
+**Tests run (audit §1):**
+- The cleanup model contacts Hugging Face on every load even when fully cached: two runs against a local stand-in server, two requests.
+- With outbound IP blocked, `murmur-cli` loads Parakeet ultra and Qwen3.5 4B from disk and transcribes and cleans a synthetic clip.
+
+**For the owner:**
+- Run one dictation in the app with Murmur's network blocked (Little Snitch, LuLu, or a firewall rule), after the models are downloaded. It should work like the CLI test did. I didn't run the app itself, because it needs your permissions and would disturb your running copy.
+- `PRIVACY.md` links to `SECURITY.md`, which L4 adds.
