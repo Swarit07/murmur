@@ -2,6 +2,19 @@
 
 Last updated 2026-10-05. This file tracks where every milestone and requirement in [SPEC.md](../SPEC.md) stands. It also lists what was skipped or deferred and why, the overnight work log, and what still needs the owner. Decisions and their measurements are in [decisions.md](decisions.md).
 
+## Evening summary (2026-10-05)
+
+- **Merged to `main`** (#1, #3; plus the README demo, #2):
+  - the UI redesign;
+  - the idle-unload memory fix: about 0.15 GB idle instead of 2.7 GB, and idle unload is on by default;
+  - a QA pass with 7 fixes: narrow-window layouts, Flow Bar clicks after a dictation, a 120–380 ms freeze opening Settings, the first dictation after an unload, History meta, snippet previews, the empty Dictionary search.
+- **Prompt-lookup decoding is on by default** (owner decision). Long-dictation cleanup p50 went from 774 to 327 ms ([cleanup-speed.md](cleanup-speed.md)).
+- **Clean as you speak** was measured and not shipped (see decisions.md).
+- **Milestone 7 (Windows) is dropped.**
+- **Open:**
+  - dictionary names (T4) and the spoken "comma" (C4) are improving in a separate session;
+  - the owner's manual checks (app matrix in logged-in apps, Flow Bar placement, fresh-account onboarding).
+
 ## Afternoon summary (2026-10-05): UI redesign v2
 
 **Done:**

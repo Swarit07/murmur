@@ -173,4 +173,9 @@ Newest last. Each entry: date, decision, reason.
   - The cost: about 4 in 100 outputs are worded slightly differently from plain decoding, because MLX rounds multi-token passes differently. Examples: "6:30" vs "six thirty", "double check" vs "double-check".
   - The guard checks every output as before, and far fewer long dictations now fall back to the rules on the time limit.
   - `MURMUR_PROMPT_LOOKUP=0` turns it off.
-  - Known: with lookup on, footprint after an idle unload grows about 2 MB per reload (0.7 MB with it off). Small; to look into.
+  - Memory with lookup on (`reload-test --cycles 8`): footprint after each unload steps once from 146 to 152 MB after the first reload, then stays at 153 MB. That's a one-time cost, not growth.
+- **2026-10-05 · Clean as you speak is not shipped.**
+  - Sentence by sentence, it would change outputs: corrections that span sentences go unresolved, and Smart Formatting needs the whole text.
+  - With a background hint for prompt lookup, it saves only 10–20% (about 0.1 s) on long dictations, at the price of GPU work during every recording.
+  - Measurements are in [cleanup-speed.md](cleanup-speed.md).
+- **2026-10-05 · The 76 `// MEASURE` design values stay as they are.** They are values no board shows: spacing, hover timings, the dark-theme edges. The redesign's rule is never to invent final values for them. They stay listed in [ui-calibration.md](ui-calibration.md) until there is something to measure against.
