@@ -18,6 +18,22 @@ A private, on-device dictation app for macOS. Hold a key, speak, let go, and the
 
 The full product spec is in [SPEC.md](SPEC.md). Progress against it is tracked in [docs/STATUS.md](docs/STATUS.md).
 
+## Install
+
+You need an Apple silicon Mac with macOS 14 or later. On first launch Murmur downloads its speech and cleanup models (about 3 GB), so the first start takes a few minutes.
+
+1. Download `Murmur.zip` from the [latest release](../../releases/latest), unzip it, and drag `Murmur.app` into Applications.
+2. Open it. Murmur isn't notarized by Apple (that needs a paid developer account), so macOS blocks the first launch once:
+   - **macOS 15 or later:** after the warning, open System Settings › Privacy & Security, scroll down to "Murmur was blocked", and click **Open Anyway**.
+   - **macOS 14:** right-click Murmur in Applications, choose **Open**, then **Open** again.
+   - Or, in Terminal: `xattr -dr com.apple.quarantine /Applications/Murmur.app`
+3. Follow the short setup. Murmur asks for three permissions:
+   - **Microphone**, to hear you;
+   - **Accessibility**, to type into the app you're using;
+   - **Input Monitoring**, to notice the dictation key.
+
+Prefer to check the code and build it yourself? See [Build from source](#build-from-source).
+
 ## What works today
 
 - **Dictation:**
@@ -53,22 +69,27 @@ The full product spec is in [SPEC.md](SPEC.md). Progress against it is tracked i
   - Auto-stop at 20 minutes.
   - Model unloading after 10 idle minutes (on by default; can be turned off in Settings › System).
 
-## Requirements
+## Build from source
 
+**Requirements:**
 - An Apple silicon Mac on macOS 14 or later (developed on macOS 27).
 - Xcode 27 (Swift 6.4), set with `xcode-select -s`, plus the Metal Toolchain component.
 - `xcodegen` (`brew install xcodegen`).
-- An Apple Development signing identity. A stable signature lets macOS keep permissions across rebuilds. See `App/project.yml`.
 
 The models download on first launch: Parakeet is about 0.5 GB and Qwen3.5 4B 4-bit about 2.5 GB.
 
-## Build and run
+**Build and install:**
 
 ```bash
-Scripts/install-app.sh
+MURMUR_TEAM=ABCDE12345 Scripts/install-app.sh
 ```
 
 This builds the Release app, installs it to `~/Applications/Murmur.app` and starts it. Add `--system` to also copy it to `/Applications`.
+
+**Signing:**
+- `MURMUR_TEAM` is your Apple Development team ID (Xcode › Settings › Accounts; a free Apple account works). A stable signature lets macOS keep Murmur's permissions across rebuilds.
+- With no Apple account, use `MURMUR_TEAM=adhoc Scripts/install-app.sh`. This signs the app ad hoc, so macOS asks for Accessibility and Input Monitoring again after each rebuild.
+- Without `MURMUR_TEAM`, the build uses the maintainer's team from `App/project.yml`.
 
 ```bash
 Scripts/test.sh

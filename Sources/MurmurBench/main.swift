@@ -16,7 +16,7 @@ struct MurmurBench: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "murmur-bench",
         abstract: "Milestone 0 bake-off: record the corpus, run engines and cleanup models, write the report.",
-        subcommands: [RecordCorpus.self, Run.self, EnginePass.self, CleanupPass.self, StallTest.self, E2E.self, Report.self, Status.self, VocabTest.self, VocabFalseTest.self, StyleTest.self, CommandTest.self, ReloadTest.self, LongTest.self, GuardTest.self, PunctuationTest.self],
+        subcommands: [RecordCorpus.self, Run.self, EnginePass.self, CleanupPass.self, StallTest.self, E2E.self, Report.self, Status.self, VocabTest.self, VocabFalseTest.self, StyleTest.self, CommandTest.self, ReloadTest.self, LongTest.self, SpeedTest.self, PassCost.self, NumericsTest.self, SentenceTest.self, GuardTest.self, PunctuationTest.self],
         defaultSubcommand: Status.self
     )
 }
@@ -255,6 +255,9 @@ struct CleanupPass: AsyncParsableCommand {
     @Option(help: "Unload and reload the model this many times before the pass, as idle unloading does.")
     var reloads = 0
 
+    @Option(help: "An earlier cleanup-pass result file: report every model output that differs from it.")
+    var expect: String?
+
     static let sets = ["correction", "levels", "numbers", "names", "plain", "quiet"]
 
     func run() async throws {
@@ -329,6 +332,21 @@ struct CleanupPass: AsyncParsableCommand {
         try ResultFiles.write(result, to: out)
         let llm = result.runs.compactMap(\.llmMs)
         print("\(providerId) on \(source): p50 \(Stats.percentile(llm, 50).map(Format.ms) ?? "-") · p95 \(Stats.percentile(llm, 95).map(Format.ms) ?? "-") → \(out.path)")
+        if let expect {
+            guard let expected = ResultFiles.read(CleanupPassResult.self, from: URL(fileURLWithPath: expect)) else {
+                throw ValidationError("Cannot read \(expect).")
+            }
+            let before = Dictionary(expected.clips.map { ("\($0.id) \($0.level)", $0) }, uniquingKeysWith: { a, _ in a })
+            var same = 0, compared = 0
+            for clip in result.clips {
+                guard let old = before["\(clip.id) \(clip.level)"], old.input == clip.input else { continue }
+                compared += 1
+                if old.modelText == clip.modelText { same += 1 } else {
+                    print("  DIFFERS \(clip.id) [\(clip.level)]\n    expected: \(old.modelText ?? "-")\n    got:      \(clip.modelText ?? "-")")
+                }
+            }
+            print("Outputs identical to \(expect): \(same)/\(compared)")
+        }
     }
 }
 
@@ -845,6 +863,10 @@ struct LongTest: AsyncParsableCommand {
     @Option var source: String = "parakeet-ultra"
     @Option(help: "Comma-separated cleanup providers.")
     var providers: String = "mlx:qwen3.5-4b,mlx:qwen3-4b-2507,mlx:qwen3-4b-2507+draft,mlx:smollm3-3b"
+    @Option(help: "Save each provider's outputs (without a time limit) to long-test-<provider><suffix>.json in the results folder.")
+    var save: String?
+    @Option(help: "Suffix of earlier saved outputs to compare against: report every output that differs.")
+    var expect: String?
 
     func run() async throws {
         guard let engine = ResultFiles.read(EnginePassResult.self, from: paths.resultsURL.appendingPathComponent("engine-\(ResultFiles.safeName(source)).json")) else {
@@ -870,11 +892,275 @@ struct LongTest: AsyncParsableCommand {
             // Also time without the limit, to see how long the model really needs.
             let unlimited = CleanupRunner(provider: provider, timeLimit: .seconds(10))
             var full: [Double] = []
-            for input in inputs.prefix(10) { full.append(await unlimited.run(input, request: CleanupRequest(level: .light)).llmMs ?? 0) }
-            print(String(format: "%-26@ p50 %@  p95 %@  over 800 ms %d/%d  guard %d  | unlimited p50 %@ max %@", id as NSString,
+            var outputs: [String] = []
+            var unlimitedGuards = 0
+            for (n, input) in inputs.enumerated() where n < 10 || save != nil || expect != nil {
+                let o = await unlimited.run(input, request: CleanupRequest(level: .light))
+                if n < 10 { full.append(o.llmMs ?? 0) }
+                if o.fallback == .guardFlagged { unlimitedGuards += 1 }
+                outputs.append(o.modelText ?? "")
+            }
+            let file = { (suffix: String) in paths.resultsURL.appendingPathComponent("long-test-\(ResultFiles.safeName(id))\(suffix).json") }
+            if let save { try ResultFiles.write(outputs, to: file(save)) }
+            if let expect, let expected = ResultFiles.read([String].self, from: file(expect)) {
+                let same = zip(expected, outputs).filter { $0 == $1 }.count
+                for (n, (a, b)) in zip(expected, outputs).enumerated() where a != b {
+                    print("  DIFFERS long input \(n + 1)\n    expected: \(a)\n    got:      \(b)")
+                }
+                print("\(id): outputs identical to \(expect): \(same)/\(outputs.count)")
+            }
+            print(String(format: "%-26@ p50 %@  p95 %@  over 800 ms %d/%d  guard %d  | unlimited p50 %@ max %@ guard %d", id as NSString,
                          Format.ms(Stats.percentile(ms, 50) ?? 0), Format.ms(Stats.percentile(ms, 95) ?? 0), timeouts, inputs.count, guards,
-                         Format.ms(Stats.percentile(full, 50) ?? 0), Format.ms(full.max() ?? 0)))
+                         Format.ms(Stats.percentile(full, 50) ?? 0), Format.ms(full.max() ?? 0), unlimitedGuards))
             await provider.unload()
+        }
+    }
+}
+
+// MARK: - speed-test
+
+/// Cleanup latency by dictation length, with and without prompt-lookup decoding, on the same inputs in the
+/// same process, alternating which goes first. Every output pair is compared.
+struct SpeedTest: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "speed-test",
+        abstract: "Cleanup p50/p95 by dictation length (1–15, 16–35, 36–60, 61+ words), plain greedy vs prompt-lookup decoding side by side, whether every output matches, and the guess acceptance rate. Inputs are the corpus transcripts plus runs of 2–8 consecutive ones joined into longer dictations."
+    )
+    @OptionGroup var paths: CommonPaths
+    @Option var provider: String = "mlx:qwen3.5-4b"
+    @Option var source: String = "parakeet-ultra"
+    @Option(help: "Times each input runs in each mode.")
+    var rounds = 1
+    @Option(help: "Joined lengths: how many consecutive transcripts make one long input.")
+    var joins: String = "2,3,4,5,6,8"
+    @Flag(help: "Turn Smart Formatting off (the app has it on by default).")
+    var noSmartFormatting = false
+    @Option(help: "Result file name in the results folder.")
+    var out: String = "speed-test.json"
+    @Option(help: "Skip inputs shorter than this many words.")
+    var minWords = 0
+
+    struct Sample: Codable {
+        var input: Int
+        var words: Int
+        var level: String
+        var plainMs: [Double] = []
+        var lookupMs: [Double] = []
+        var identical = true
+        var plainText: String?
+        var lookupText: String?
+        var stats: PromptLookupStats?
+    }
+
+    static let buckets: [(String, ClosedRange<Int>)] = [("1–15", 1...15), ("16–35", 16...35), ("36–60", 36...60), ("61+", 61...10_000)]
+
+    func run() async throws {
+        #if canImport(CleanupMLX)
+        guard let engine = ResultFiles.read(EnginePassResult.self, from: paths.resultsURL.appendingPathComponent("engine-\(ResultFiles.safeName(source)).json")) else {
+            throw ValidationError("Run the engine pass for \(source) first.")
+        }
+        let texts = engine.clips.filter { CleanupPass.sets.contains($0.set) }.compactMap { c in c.text.map { (c.set, $0) } }
+        var inputs: [(text: String, level: CleanupLevel)] = texts.map { ($0.1, .light) }
+        // The corpus's "levels" sentences also run at Medium, as in cleanup-pass.
+        inputs += texts.filter { $0.0 == "levels" }.map { ($0.1, .medium) }
+        for n in joins.split(separator: ",").compactMap({ Int($0) }) where n > 1 {
+            var i = 0
+            while i + n <= texts.count { inputs.append((texts[i..<(i + n)].map(\.1).joined(separator: " "), .light)); i += n }
+        }
+        inputs = inputs.filter { $0.text.split(whereSeparator: \.isWhitespace).count >= minWords }
+        guard let mlx = try CleanupCatalog.make(provider) as? MLXCleanupProvider else { throw ValidationError("speed-test needs an MLX provider.") }
+        try await mlx.load()
+        let request = { (level: CleanupLevel) in CleanupRequest(level: level, smartFormatting: !noSmartFormatting) }
+        let runner = CleanupRunner(provider: mlx, timeLimit: .seconds(30))
+        await runner.prewarm(request(.light))
+        await runner.prewarm(request(.medium))
+        print("\(inputs.count) inputs, \(rounds) round(s) each way")
+
+        var samples: [Sample] = []
+        for (n, input) in inputs.enumerated() {
+            var sample = Sample(input: n, words: input.text.split(whereSeparator: \.isWhitespace).count, level: input.level.rawValue)
+            for r in 0..<rounds {
+                for lookup in ((n + r) % 2 == 0 ? [false, true] : [true, false]) {
+                    await mlx.setPromptLookup(lookup)
+                    let o = await runner.run(input.text, request: request(input.level))
+                    if lookup {
+                        sample.lookupMs.append(o.llmMs ?? 0)
+                        sample.lookupText = o.modelText
+                        sample.stats = await mlx.lastLookupStats
+                    } else {
+                        sample.plainMs.append(o.llmMs ?? 0)
+                        sample.plainText = o.modelText
+                    }
+                }
+                if sample.plainText != sample.lookupText { sample.identical = false }
+            }
+            let s = sample.stats
+            print(String(format: "%3d %3d words  plain %5.0f ms  lookup %5.0f ms  %@  kept %d/%d in %d passes%@", n + 1, sample.words,
+                         sample.plainMs.last ?? 0, sample.lookupMs.last ?? 0, sample.identical ? "same" : "DIFFERS",
+                         s?.accepted ?? 0, s?.drafted ?? 0, s?.passes ?? 0, sample.identical ? "" : "\n    plain:  \(sample.plainText ?? "-")\n    lookup: \(sample.lookupText ?? "-")"))
+            samples.append(sample)
+        }
+        await mlx.setPromptLookup(true)
+        await mlx.unload()
+
+        print("\nwords   inputs  plain p50   p95   lookup p50   p95   p50 speed-up  identical  kept  tokens/pass")
+        for (name, range) in Self.buckets + [("all", 1...10_000)] {
+            let group = samples.filter { range.contains($0.words) }
+            guard !group.isEmpty else { continue }
+            let plain = group.flatMap(\.plainMs), lookup = group.flatMap(\.lookupMs)
+            let stats = group.compactMap(\.stats).reduce(PromptLookupStats(), +)
+            let p = { (v: [Double], q: Double) in Stats.percentile(v, q) ?? 0 }
+            print(String(format: "%-6@ %7d  %9.0f %5.0f  %10.0f %5.0f  %12.2fx  %4d/%-4d  %3.0f%%  %11.1f", name as NSString, group.count,
+                         p(plain, 50), p(plain, 95), p(lookup, 50), p(lookup, 95), p(plain, 50) / max(p(lookup, 50), 1),
+                         group.filter(\.identical).count, group.count, stats.acceptance * 100, stats.tokensPerPass))
+        }
+        try ResultFiles.write(samples, to: paths.resultsURL.appendingPathComponent(out))
+        #else
+        throw ValidationError("This build has no MLX.")
+        #endif
+    }
+}
+
+// MARK: - pass-cost
+
+/// How long one forward pass takes for a number of new tokens, after a cached cleanup prompt. Shows how many
+/// tokens a prompt-lookup pass can check for about the price of one.
+struct PassCost: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "pass-cost", abstract: "Time one forward pass over 1, 2, … new tokens after a cached cleanup prompt.")
+    @OptionGroup var paths: CommonPaths
+    @Option var provider: String = "mlx:qwen3.5-4b"
+    @Option var lengths: String = "1,2,3,4,5,6,7,8,9,10,11,12,13,14,16,20,24,32"
+    @Option var repeats = 15
+
+    func run() async throws {
+        #if canImport(CleanupMLX)
+        guard let mlx = try CleanupCatalog.make(provider) as? MLXCleanupProvider else { throw ValidationError("pass-cost needs an MLX provider.") }
+        try await mlx.load()
+        let transcript = Array(repeating: "so the plan for this week is to finish the onboarding flow and then send the build to the team for testing", count: 3).joined(separator: " ")
+        let times = try await mlx.passCost(transcript: transcript, lengths: lengths.split(separator: ",").compactMap { Int($0) }, repeats: repeats)
+        let one = times.first { $0.tokens == 1 }?.ms ?? times[0].ms
+        print("tokens   ms   × one token")
+        for t in times { print(String(format: "%6d  %5.1f  %5.2f", t.tokens, t.ms, t.ms / one)) }
+        await mlx.unload()
+        #else
+        throw ValidationError("This build has no MLX.")
+        #endif
+    }
+}
+
+// MARK: - numerics-test
+
+/// Whether a forward pass over several tokens computes the same bits as one-token passes. Prompt-lookup
+/// decoding is only lossless if it does.
+struct NumericsTest: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "numerics-test", abstract: "Compare a multi-token forward pass with one-token passes, bit for bit: one quantized layer, then the model's logits.")
+    @OptionGroup var paths: CommonPaths
+    @Option var provider: String = "mlx:qwen3.5-4b"
+    @Option var lengths: String = "1,2,3,4,5,8,12,13,16,32"
+
+    func run() async throws {
+        #if canImport(CleanupMLX)
+        guard let mlx = try CleanupCatalog.make(provider) as? MLXCleanupProvider else { throw ValidationError("numerics-test needs an MLX provider.") }
+        try await mlx.load()
+        let transcript = "so um the plan for this week is to finish the onboarding flow and then uh send the build to the team for testing on Thursday, and if that goes well we can ship it to everyone on Monday morning"
+        for line in try await mlx.numerics(transcript: transcript, lengths: lengths.split(separator: ",").compactMap { Int($0) }) { print(line) }
+        await mlx.unload()
+        #else
+        throw ValidationError("This build has no MLX.")
+        #endif
+    }
+}
+
+// MARK: - sentence-test
+
+/// Simulates cleaning each finished sentence while the speaker is still talking: every sentence of a long
+/// input is cleaned on its own, and only the last one would be left to do after the key is released.
+struct SentenceTest: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "sentence-test",
+        abstract: "Clean long inputs whole, and sentence by sentence as if each were cleaned when it was spoken: time left after release, and how often the joined result matches the whole-text cleanup."
+    )
+    @OptionGroup var paths: CommonPaths
+    @Option var provider: String = "mlx:qwen3.5-4b"
+    @Option var source: String = "parakeet-ultra"
+    @Option(help: "Joined lengths: how many consecutive transcripts make one long input.")
+    var joins: String = "2,3,4,5,6,8"
+    @Flag(help: "Keep a sentence open while the next one starts with a correction cue (actually, no, sorry, I mean, make that, scratch that, wait).")
+    var holdCorrections = false
+
+    static let cues = ["actually", "no", "sorry", "i mean", "make that", "scratch that", "wait", "or rather"]
+
+    /// Joins each sentence that starts with a correction cue to the one before it.
+    static func holdingCorrections(_ sentences: [String]) -> [String] {
+        var out: [String] = []
+        for sentence in sentences {
+            let lower = sentence.lowercased()
+            let opensWithCue = cues.contains { cue in
+                lower.hasPrefix(cue) && (lower.count == cue.count || !lower[lower.index(lower.startIndex, offsetBy: cue.count)].isLetter)
+            }
+            if opensWithCue, let previous = out.popLast() { out.append(previous + " " + sentence) } else { out.append(sentence) }
+        }
+        return out
+    }
+
+    /// Splits after ". ", "? " and "! " (the speech engine's sentence ends).
+    static func sentences(_ text: String) -> [String] {
+        var out: [String] = [], current = ""
+        let chars = Array(text)
+        for (i, c) in chars.enumerated() {
+            current.append(c)
+            if ".?!".contains(c), i + 1 < chars.count, chars[i + 1] == " " {
+                out.append(current.trimmingCharacters(in: .whitespaces)); current = ""
+            }
+        }
+        let rest = current.trimmingCharacters(in: .whitespaces)
+        if !rest.isEmpty { out.append(rest) }
+        return out
+    }
+
+    func run() async throws {
+        guard let engine = ResultFiles.read(EnginePassResult.self, from: paths.resultsURL.appendingPathComponent("engine-\(ResultFiles.safeName(source)).json")) else {
+            throw ValidationError("Run the engine pass for \(source) first.")
+        }
+        let texts = engine.clips.filter { CleanupPass.sets.contains($0.set) }.compactMap(\.text)
+        var inputs: [String] = []
+        for n in joins.split(separator: ",").compactMap({ Int($0) }) where n > 1 {
+            var i = 0
+            while i + n <= texts.count { inputs.append(texts[i..<(i + n)].joined(separator: " ")); i += n }
+        }
+        guard let provider = try CleanupCatalog.make(provider) else { throw ValidationError("sentence-test needs a model.") }
+        try await provider.load()
+        let request = CleanupRequest(level: .light, smartFormatting: true)
+        let runner = CleanupRunner(provider: provider, timeLimit: .seconds(30))
+        await runner.prewarm(request)
+        struct Row { var words: Int; var wholeMs: Double; var lastMs: Double; var same: Bool; var fallbacks: Int; var wholeFallback: Bool }
+        var rows: [Row] = []
+        for (n, input) in inputs.enumerated() {
+            let whole = await runner.run(input, request: request)
+            var parts: [String] = [], lastMs = 0.0, fallbacks = 0
+            let pieces = holdCorrections ? Self.holdingCorrections(Self.sentences(input)) : Self.sentences(input)
+            for sentence in pieces {
+                let o = await runner.run(sentence, request: request)
+                parts.append(o.text)
+                lastMs = o.llmMs ?? 0
+                if o.fallback != nil { fallbacks += 1 }
+            }
+            let joined = parts.joined(separator: " ")
+            let row = Row(words: input.split(whereSeparator: \.isWhitespace).count, wholeMs: whole.llmMs ?? 0, lastMs: lastMs,
+                          same: joined == whole.text, fallbacks: fallbacks, wholeFallback: whole.fallback != nil)
+            rows.append(row)
+            print(String(format: "%3d %3d words  whole %5.0f ms  last sentence %4.0f ms  %@", n + 1, row.words, row.wholeMs, row.lastMs, row.same ? "same" : "differs") +
+                  (row.same ? "" : "\n    whole:     \(whole.text)\n    sentences: \(joined)"))
+        }
+        await provider.unload()
+        print("\nwords   inputs  whole p50   p95   last sentence p50   p95   same text  sentence fallbacks")
+        for (name, range) in SpeedTest.buckets {
+            let group = rows.filter { range.contains($0.words) }
+            guard !group.isEmpty else { continue }
+            let p = { (v: [Double], q: Double) in Stats.percentile(v, q) ?? 0 }
+            print(String(format: "%-6@ %7d  %9.0f %5.0f  %17.0f %5.0f  %5d/%-4d  %d", name as NSString, group.count,
+                         p(group.map(\.wholeMs), 50), p(group.map(\.wholeMs), 95), p(group.map(\.lastMs), 50), p(group.map(\.lastMs), 95),
+                         group.filter(\.same).count, group.count, group.map(\.fallbacks).reduce(0, +)))
         }
     }
 }

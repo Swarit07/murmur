@@ -2,6 +2,19 @@
 
 Last updated 2026-10-05. This file tracks where every milestone and requirement in [SPEC.md](../SPEC.md) stands. It also lists what was skipped or deferred and why, the overnight work log, and what still needs the owner. Decisions and their measurements are in [decisions.md](decisions.md).
 
+## Evening summary (2026-10-05)
+
+- **Merged to `main`** (#1, #3; plus the README demo, #2):
+  - the UI redesign;
+  - the idle-unload memory fix: about 0.15 GB idle instead of 2.7 GB, and idle unload is on by default;
+  - a QA pass with 7 fixes: narrow-window layouts, Flow Bar clicks after a dictation, a 120–380 ms freeze opening Settings, the first dictation after an unload, History meta, snippet previews, the empty Dictionary search.
+- **Prompt-lookup decoding is on by default** (owner decision). Long-dictation cleanup p50 went from 774 to 327 ms ([cleanup-speed.md](cleanup-speed.md)).
+- **Clean as you speak** was measured and not shipped (see decisions.md).
+- **Milestone 7 (Windows) is dropped.**
+- **Open:**
+  - dictionary names (T4) and the spoken "comma" (C4) are improving in a separate session;
+  - the owner's manual checks (app matrix in logged-in apps, Flow Bar placement, fresh-account onboarding).
+
 ## Afternoon summary (2026-10-05): UI redesign v2
 
 **Done:**
@@ -99,7 +112,7 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 | T1 Engine protocol | P0 | ✅ | Parakeet (3 versions), Whisper, Apple Speech, Groq Whisper; switch without restart |
 | T2 Raw text first | P0 | ✅ | History row before transcription, raw text before cleanup |
 | T3 Languages | P1 | ✅ | Automatic or chosen list |
-| T4 Dictionary bias | P1 | 🟡 | **7/10** missed names recognized from the dictionary alone, **8/10** with a "Heard as" entry, 0 broken, **0 false insertions** in 98 clips. Engine CTC boosting turned off: it wrote dictionary words over normal speech (decisions.md, 2026-10-05) |
+| T4 Dictionary bias | P1 | 🟡 | **9/10** missed names fixed (was 7/10), 0 broken, **0 false insertions** in 98 clips. New: cut-short names ("Pri" → Priya), how hard names are said ("Chivan" → Siobhan), and sound-alike words in a list of names ("and mailing" → Mei-Ling); common first names never rewritten. The last miss (Figma, "fig mailing") is an engine mishearing ([accuracy-names-comma.md](accuracy-names-comma.md)) |
 
 ### Cleanup
 | ID | Pri | Status | Evidence / notes |
@@ -107,7 +120,7 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 | C1 Levels + Transforms | P0 | ✅ | Style › Auto Cleanup; the AI edits switch is in the Hub |
 | C2 Backtracking | P0 | ✅ | 27–28/30 |
 | C3 Smart Formatting | P1 | ✅ | Lists of 3+ keep their lead-in; lists of 1–2 items are a guard flag |
-| C4 Spoken punctuation | P0 | 🟡 | Synthetic voices (latest run): ? 10/10, new paragraph 10/10, new line 9/10, comma 8/10 (earlier 6/10). Real-voice clips optional (owner) |
+| C4 Spoken punctuation | P0 | 🟡 | Synthetic voices: ? 10/10, new paragraph 10/10, new line 9/10, comma 8/10. The misses are synthetic-voice mishearings ("Kama", "come and") that can't be fixed without false punctuation; real-voice clips would settle it ([accuracy-names-comma.md](accuracy-names-comma.md)) |
 | C5 Guardrails | P0 | ✅ | guard-test 291/291 |
 | C6 Time limit | P0 | ✅ | Amended: 800 ms + 10 ms per word over 30, cap 1,250 ms; stall test max 1.34 s |
 | C7 Transcript is data | P0 | ✅ | 4/4 |
@@ -160,6 +173,7 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 | C4 real-voice clips | Optional | Owner | Synthetic-voice results recorded; comma is the weak spot |
 | Gemma 3 1B | Excluded | Claude | Never stops generating |
 | Speculative decoding | Not default | Claude | Only ~12% faster on long inputs |
+| Prompt-lookup decoding (`MURMUR_PROMPT_LOOKUP=1`) | Off by default | Claude | 1.6× faster on long dictations, but MLX's multi-token passes round differently, so ~4% of outputs change; see [cleanup-speed](cleanup-speed.md) |
 | Idle unload by default (section 7) | On by default | Claude | Was off while each model reload leaked ~400 MB; fixed, and the footprint stays flat over 10 reloads. Switch in System › Advanced |
 
 ## Performance (section 7)
