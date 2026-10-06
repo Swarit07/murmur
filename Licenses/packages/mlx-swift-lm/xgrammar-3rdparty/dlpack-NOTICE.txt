@@ -1,0 +1,7 @@
+DLPack (https://github.com/dmlc/dlpack), as included by XGrammar in
+3rdparty/dlpack/include/dlpack/dlpack.h.
+
+Copyright (c) 2017 by Contributors
+
+DLPack is licensed under the Apache License, Version 2.0 (the full text is
+included with XGrammar's notice above).

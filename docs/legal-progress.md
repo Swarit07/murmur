@@ -78,3 +78,34 @@ Running log for `LEGAL_DOCS.md`, newest milestone last.
 **For the owner:**
 - Run one dictation in the app with Murmur's network blocked (Little Snitch, LuLu, or a firewall rule), after the models are downloaded. It should work like the CLI test did. I didn't run the app itself, because it needs your permissions and would disturb your running copy.
 - `PRIVACY.md` links to `SECURITY.md`, which L4 adds.
+
+## L3: Third-party notices (2026-10-05)
+
+**Files:**
+- `Scripts/gen-notices.py` (generator, standard-library Python) and `Scripts/test_gen_notices.py` (15 tests).
+- `Licenses/packages.json` (per package: name, use, SPDX id, shipped or not, license files).
+- `Licenses/manual.json` (fonts, models, shared license texts).
+- `Licenses/packages/<identity>/…`: verbatim license and NOTICE files from each checkout, plus FluidAudio's ThirdPartyLicenses and text-processing-rs's LICENSE, NOTICE and THIRD-PARTY-LICENSES (v0.3.1). Also the picojson and DLPack notices, extracted from their headers.
+- `Licenses/{OFL-Geist,OFL-Newsreader,Apache-2.0,CC-BY-4.0,MIT-OpenAI-Whisper}.txt`.
+- `THIRD_PARTY_NOTICES.md` (regenerated).
+- `Sources/UI/Resources/Legal/{THIRD_PARTY_NOTICES.md,notices.json,PRIVACY.md}`.
+- `Sources/UI/LegalDocuments.swift` (privacy, notices) and two more tests in `Tests/UITests/LegalDocumentsTests.swift`.
+- `.github/workflows/notices.yml` (new CI).
+- `Scripts/test.sh` (runs the check before the unit tests).
+- `docs/legal-audit.md` §6: adds the NemoTextProcessing.xcframework that FluidAudio links (note D).
+
+**Done when:**
+- The generator runs clean: **pass.**
+- The CI check passes: **pass**, locally. `gen-notices.py --check` exits 0 and the generator tests pass. The workflow runs both on GitHub; it hasn't run there yet because the branch isn't pushed.
+- The notices are in the built `.app`: **pass.** An incremental Release build has `murmur_UI.bundle/Contents/Resources/Legal/` with `LICENSE`, `PRIVACY.md`, `THIRD_PARTY_NOTICES.md` and `notices.json`, the first three byte-identical to the repo.
+- CC BY model credit for the in-app Acknowledgements (L3.5): `notices.json` carries the attribution for Parakeet ultra, v3, v2 and phonon2 (NVIDIA, moondream, Fermion Research, FluidInference). L5 shows it.
+
+**What changed from the old notices:**
+- Removed the Silero VAD model; the app never downloads it.
+- Moved swift-argument-parser, swift-asn1 and swift-syntax to "used only to build".
+- Added XGrammar, picojson, DLPack, {fmt}, nlohmann/json, metal-cpp, swift-jinja, yyjson, EventSource and NemoTextProcessing.
+- Every component now carries its full license text, not just a name.
+
+**Couldn't determine:** per-crate notices for the Rust crates inside NemoTextProcessing.xcframework. Upstream only summarizes them (audit §6 note D).
+
+**When dependencies change:** after `Package.resolved` changes, run `Scripts/gen-notices.py --refresh-from App/build/SourcePackages/checkouts`. For a new package, add its entry to `Licenses/packages.json` first. CI fails until this is done.
