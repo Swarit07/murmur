@@ -152,7 +152,7 @@ Running log for `LEGAL_DOCS.md`, newest milestone last.
 - Token lint passes: **pass.** `Scripts/check-tokens.sh`: "token lint: pass".
 - Snapshots exist: **pass.** `murmur-snap` rendered 87 images with no blanks. The two contact sheets cover Help & setup, the Privacy dialog, Acknowledgements (closed, and with one row open), Settings › Data & privacy, Settings › General and four onboarding steps, in light and dark.
 - Every in-app privacy claim matches `PRIVACY.md`: **pass** for the claims fixed below. M5 and M7 are true but less complete than `PRIVACY.md`; proposed copy is below.
-- Unit tests: `Scripts/test.sh` passes, 204 tests in all. It includes the notices check, and 21 new or changed tests cover the parser, the reflow, both paths of the cloud check, and the dialog state.
+- Unit tests: `Scripts/test.sh` passes, 204 tests in all. It includes the notices check, and 14 new tests cover the parser, the reflow, both paths of the cloud check, and the dialog state.
 - The Release build has the new microphone string in its `Info.plist` and the legal files in its bundle.
 
 **Changes applied, because the old claim was false (audit §8):**
@@ -172,3 +172,18 @@ Running log for `LEGAL_DOCS.md`, newest milestone last.
 - **M7**, Onboarding › Accessibility: "Accessibility lets Murmur place text at your cursor in any app. It reads only the app and text box you're dictating into, never captures your screen, and never types into password fields."
 
 **Not run here (need the app running with your permissions):** the 50-trial focus test and the latency budget. No dictation code changed, but please run both from the Debug menu and `murmur-bench e2e` before merging.
+
+## L6: Distribution notes (2026-10-05)
+
+**Files:** `docs/distribution.md` (new).
+
+**Done when:**
+- The file exists: **pass.**
+
+**What it covers:**
+- **GitHub releases and Homebrew:** a Developer ID certificate, the hardened runtime with the audio-input entitlement, notarization, the license already in the bundle, a public download URL, and a cask `zap` list taken from `PRIVACY.md`.
+- **Mac App Store:**
+  - Candidate App Privacy answers. Not "Data Not Collected", because audit §1 found connections; the developer collects nothing, and the opt-in Groq/OpenRouter traffic is an owner decision.
+  - A privacy manifest is needed.
+  - The App Sandbox conflicts with the synthetic paste, Accessibility reads and the model cache paths. Flagged, not solved.
+- **Landing page:** today's `murmur-website` loads Google Fonts and calls the GitHub API from the visitor's browser. It needs its own short notice, or self-hosted fonts and GitHub numbers fetched at build time. That repo wasn't changed.
