@@ -106,7 +106,7 @@ Murmur writes to macOS's system log on your Mac under `com.swaritsheel.Murmur`. 
 | Never store anything | Off | Settings › Data & privacy (also asked during setup) |
 | Cloud speech or cleanup (Groq, OpenRouter) | Off | Settings › General, plus keys in Settings › Data & privacy |
 | Dictionary suggestions after you correct a word | Always on | A prompt on the Flow Bar. Nothing is saved unless you click Add. |
-| Debug menu (focus test, self-test, snapshots) | Shown | Settings › System. Its items write files only when you run them. |
+| Debug menu (focus test, self-test, snapshots) | Off | Settings › System. Its items write files only when you run them. |
 
 Murmur has no crash reporting and no update checks to switch off.
 
