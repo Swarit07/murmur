@@ -136,7 +136,7 @@ Murmur collects nothing, so there's nothing to sell, share or advertise with, fo
 
 ## Changes and contact
 
-Changes to this file are tracked in its git history. Questions go to [GitHub issues](https://github.com/Swarit07/murmur/issues). For anything sensitive, such as a security problem, follow [SECURITY.md](SECURITY.md).
+Changes to this file are tracked in its git history. Questions go to [GitHub issues](https://github.com/Swarit07/murmur/issues) or [swarit.sheel@gmail.com](mailto:swarit.sheel@gmail.com). For a security problem, follow [SECURITY.md](SECURITY.md).
 
 <!-- audit: §1 -->
 

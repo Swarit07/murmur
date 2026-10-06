@@ -73,12 +73,12 @@ enum DocumentParser {
         return blocks
     }
 
-    /// Inline Markdown (bold, italics, code). Links to web pages stay links; links to files in the
-    /// repo (`SECURITY.md`) become plain text, since the app can't open them.
+    /// Inline Markdown (bold, italics, code). Web and email links stay links; links to files in the repo
+    /// (`SECURITY.md`) become plain text, since the app can't open them.
     static func inline(_ text: String) -> AttributedString {
         var out = (try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
             ?? AttributedString(text)
-        for run in out.runs where run.link.map({ $0.scheme != "https" }) ?? false {
+        for run in out.runs where run.link.map({ !["https", "mailto"].contains($0.scheme ?? "") }) ?? false {
             out[run.range].link = nil
         }
         return out

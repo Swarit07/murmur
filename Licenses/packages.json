@@ -4,14 +4,19 @@
     "use": "Whisper speech engine (optional in Settings)",
     "spdx": "MIT",
     "shipped": true,
-    "files": ["LICENSE", "NOTICES"]
+    "files": [
+      "LICENSE",
+      "NOTICES"
+    ]
   },
   "eventsource": {
     "name": "EventSource",
     "use": "Server-sent events for swift-huggingface (linked, unused by Murmur)",
     "spdx": "MIT",
     "shipped": true,
-    "files": ["LICENSE.md"]
+    "files": [
+      "LICENSE.md"
+    ]
   },
   "fluidaudio": {
     "name": "FluidAudio",
@@ -29,16 +34,19 @@
     "manual_files": [
       "text-processing-rs/LICENSE",
       "text-processing-rs/NOTICE",
-      "text-processing-rs/THIRD-PARTY-LICENSES.md"
+      "text-processing-rs/THIRD-PARTY-LICENSES.md",
+      "text-processing-rs/RUST-CRATES.md"
     ],
-    "note": "Links the prebuilt NemoTextProcessing.xcframework (text-processing-rs v0.3.1, Apache-2.0), whose notices are included. Its transitive Rust crates (MIT and/or Apache-2.0) are summarized upstream rather than listed one by one. FluidAudio's resource bundle also carries a LuxTTS pronunciation lexicon that Murmur doesn't use; FluidAudio's documentation says it was harvested from espeak-ng output. FluidAudio publishes it under Apache-2.0 and states it has no GPL dependencies."
+    "note": "Links the prebuilt NemoTextProcessing.xcframework (text-processing-rs v0.3.1, Apache-2.0). Its notices and the license of every Rust crate compiled into it (RUST-CRATES.md, from Scripts/rust-crate-notices.py) are included. FluidAudio's resource bundle also carries a LuxTTS pronunciation lexicon that Murmur doesn't use; FluidAudio's documentation says it was harvested from espeak-ng output. FluidAudio publishes it under Apache-2.0 and states it has no GPL dependencies."
   },
   "grdb.swift": {
     "name": "GRDB.swift",
     "use": "SQLite database for History, the dictionary and snippets",
     "spdx": "MIT",
     "shipped": true,
-    "files": ["LICENSE"]
+    "files": [
+      "LICENSE"
+    ]
   },
   "mlx-swift": {
     "name": "MLX Swift",
@@ -76,28 +84,38 @@
     "use": "Command-line options for murmur-cli and murmur-bench",
     "spdx": "Apache-2.0",
     "shipped": false,
-    "files": ["LICENSE.txt"]
+    "files": [
+      "LICENSE.txt"
+    ]
   },
   "swift-asn1": {
     "name": "Swift ASN.1",
     "use": "Dependency of swift-crypto",
     "spdx": "Apache-2.0",
     "shipped": false,
-    "files": ["LICENSE.txt", "NOTICE.txt"]
+    "files": [
+      "LICENSE.txt",
+      "NOTICE.txt"
+    ]
   },
   "swift-collections": {
     "name": "Swift Collections",
     "use": "Data structures used by the packages above",
     "spdx": "Apache-2.0",
     "shipped": true,
-    "files": ["LICENSE.txt"]
+    "files": [
+      "LICENSE.txt"
+    ]
   },
   "swift-crypto": {
     "name": "Swift Crypto",
     "use": "Dependency of swift-huggingface (a thin layer over Apple's CryptoKit on macOS)",
     "spdx": "Apache-2.0",
     "shipped": true,
-    "files": ["LICENSE.txt", "NOTICE.txt"],
+    "files": [
+      "LICENSE.txt",
+      "NOTICE.txt"
+    ],
     "note": "BoringSSL, which swift-crypto carries for other platforms, isn't compiled into Murmur."
   },
   "swift-huggingface": {
@@ -105,41 +123,53 @@
     "use": "Downloads the cleanup model from Hugging Face",
     "spdx": "Apache-2.0",
     "shipped": true,
-    "files": ["LICENSE"]
+    "files": [
+      "LICENSE"
+    ]
   },
   "swift-jinja": {
     "name": "Swift Jinja",
     "use": "Chat templates for the cleanup model",
     "spdx": "Apache-2.0",
     "shipped": true,
-    "files": ["LICENSE"]
+    "files": [
+      "LICENSE"
+    ]
   },
   "swift-numerics": {
     "name": "Swift Numerics",
     "use": "Math used by the packages above",
     "spdx": "Apache-2.0",
     "shipped": true,
-    "files": ["LICENSE.txt"]
+    "files": [
+      "LICENSE.txt"
+    ]
   },
   "swift-syntax": {
     "name": "Swift Syntax",
     "use": "Builds the Swift macros used by MLX Swift LM (build time only)",
     "spdx": "Apache-2.0",
     "shipped": false,
-    "files": ["LICENSE.txt"]
+    "files": [
+      "LICENSE.txt"
+    ]
   },
   "swift-transformers": {
     "name": "Swift Transformers",
     "use": "Tokenizers for the cleanup and Whisper models",
     "spdx": "Apache-2.0",
     "shipped": true,
-    "files": ["LICENSE"]
+    "files": [
+      "LICENSE"
+    ]
   },
   "yyjson": {
     "name": "yyjson",
     "use": "Fast JSON parsing for swift-transformers",
     "spdx": "MIT",
     "shipped": true,
-    "files": ["LICENSE"]
+    "files": [
+      "LICENSE"
+    ]
   }
 }

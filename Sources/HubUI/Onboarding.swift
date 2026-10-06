@@ -179,7 +179,7 @@ struct OnboardingSteps: View {
             }
         case .accessibility:
             StepScaffold(model: model, section: "Permissions", title: "Let Murmur type for you",
-                         message: "Accessibility lets Murmur place text at your cursor in any app. It doesn’t read your screen, and never types into password fields.",
+                         message: "Accessibility lets Murmur place text at your cursor in any app. It reads only the app and text box you’re dictating into, never captures your screen, and never types into password fields.",
                          primary: granted ? "Continue" : "Open System Settings") {
                 if granted { model.next() } else { openPane("Privacy_Accessibility"); Permissions.promptAccessibility() }
             } illustration: {
@@ -202,7 +202,7 @@ struct OnboardingSteps: View {
             }
         case .models:
             StepScaffold(model: model, section: "Setup", title: "Getting the models ready",
-                         message: "Murmur’s speech and cleanup models run on this Mac. The first time, they download (about 3 GB); after that they load in a few seconds.",
+                         message: "Murmur’s speech and cleanup models run on this Mac. The first time, they download from Hugging Face (about 3 GB). After that they load in a few seconds, and Murmur checks for cleanup model updates when it starts.",
                          primary: "Continue", primaryEnabled: granted) {
                 model.next()
             } illustration: {

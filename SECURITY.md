@@ -4,7 +4,7 @@ Murmur listens to your keyboard, types into other apps and keeps what you say, s
 
 ## How to report
 
-Please don't open a public issue. Email **[SECURITY_CONTACT]** with:
+Please don't open a public issue. Email **[swarit.sheel@gmail.com](mailto:swarit.sheel@gmail.com)** with:
 - what you found;
 - the steps to reproduce it;
 - the Murmur version (Help & setup shows it) and your macOS version.

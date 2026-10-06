@@ -137,6 +137,65 @@ class FakeRepoTests(unittest.TestCase):
         self.assertEqual(len(gen.refresh(self.root / "checkouts", self.root)), 1)
 
 
+rust_spec = importlib.util.spec_from_file_location("rust_crate_notices", HERE / "rust-crate-notices.py")
+rust = importlib.util.module_from_spec(rust_spec)
+rust_spec.loader.exec_module(rust)
+
+
+class RustCrateTests(unittest.TestCase):
+    """Scripts/rust-crate-notices.py, without the network."""
+
+    lock = {"package": [
+        {"name": "app", "version": "1.0.0", "dependencies": ["lib", "fst", "wasm-only"]},
+        {"name": "lib", "version": "1.0.0", "dependencies": ["macro"]},
+        {"name": "fst", "version": "1.0.0", "dependencies": ["lib", "getrandom"]},
+        {"name": "macro", "version": "1.0.0", "dependencies": ["syn"]},
+        {"name": "syn", "version": "2.0.0"},
+        {"name": "getrandom", "version": "0.3.0", "dependencies": ["wasip2"]},
+        {"name": "wasip2", "version": "1.0.0", "dependencies": ["wit-bindgen"]},
+        {"name": "wit-bindgen", "version": "0.1.0"},
+        {"name": "wasm-only", "version": "1.0.0"},
+    ]}
+
+    def test_roots_are_required_deps_plus_the_feature_deps(self):
+        manifest = {"dependencies": {"lazy_static": "1", "rustfst": {"version": "1", "optional": True},
+                                     "wasm-bindgen": {"version": "0.2", "optional": True}},
+                    "features": {"fst-engine": ["dep:rustfst"], "wasm": ["dep:wasm-bindgen"]}}
+        self.assertEqual(rust.roots(manifest, ["fst-engine"]), ["lazy_static", "rustfst"])
+
+    def test_closure_follows_dependencies_and_stops_where_asked(self):
+        everything = rust.closure(self.lock, ["lib", "fst"])
+        self.assertIn(("syn", "2.0.0"), everything)
+        self.assertNotIn(("wasm-only", "1.0.0"), everything)
+        stopped = rust.closure(self.lock, ["lib"], stop=lambda p: p["name"] == "macro")
+        self.assertEqual(set(stopped), {("lib", "1.0.0"), ("macro", "1.0.0")})
+
+    def test_macros_and_other_platforms_are_not_linked(self):
+        old = rust.OTHER_PLATFORMS
+        rust.OTHER_PLATFORMS = {"wasip2"}
+        try:
+            kinds = rust.categories(self.lock, ["lib", "fst"], proc_macros={"macro"})
+        finally:
+            rust.OTHER_PLATFORMS = old
+        self.assertEqual(kinds[("lib", "1.0.0")], "linked")
+        self.assertEqual(kinds[("getrandom", "0.3.0")], "linked")
+        self.assertEqual(kinds[("macro", "1.0.0")], "build")
+        self.assertEqual(kinds[("syn", "2.0.0")], "build")
+        self.assertEqual(kinds[("wasip2", "1.0.0")], "other")
+        self.assertEqual(kinds[("wit-bindgen", "0.1.0")], "other")
+
+    def test_mit_choice_keeps_only_the_mit_text(self):
+        files = {"LICENSE-APACHE": "a", "LICENSE-MIT": "m"}
+        self.assertEqual(rust.notice_files("MIT OR Apache-2.0", files), {"LICENSE-MIT": "m"})
+        self.assertEqual(rust.notice_files("Apache-2.0/MIT", {"LICENSE_APACHE": "a", "LICENSE_MIT": "m"}), {"LICENSE_MIT": "m"})
+
+    def test_other_licenses_keep_every_file(self):
+        self.assertEqual(rust.notice_files("Apache-2.0", {"LICENCE": "a"}), {"LICENCE": "a"})
+        both = {"LICENSE-MIT": "m", "LICENSE-UNICODE": "u"}
+        self.assertEqual(rust.notice_files("(MIT OR Apache-2.0) AND Unicode-3.0", both), both)
+        self.assertEqual(rust.notice_files("MIT OR Apache-2.0", {"LICENSE-APACHE": "a"}), {"LICENSE-APACHE": "a"})
+
+
 class FenceTests(unittest.TestCase):
     def test_fence_is_longer_than_backtick_runs(self):
         self.assertEqual(gen.fence("plain"), "```")

@@ -87,6 +87,8 @@ struct LegalViewsTests {
     @Test func keepsWebLinksAndDropsFileLinks() {
         let web = DocumentParser.inline("See [issues](https://github.com/Swarit07/murmur/issues).")
         #expect(web.runs.contains { $0.link?.absoluteString == "https://github.com/Swarit07/murmur/issues" })
+        let mail = DocumentParser.inline("Or [me](mailto:someone@example.com).")
+        #expect(mail.runs.contains { $0.link?.scheme == "mailto" })
         let file = DocumentParser.inline("Follow [SECURITY.md](SECURITY.md).")
         #expect(!file.runs.contains { $0.link != nil })
         #expect(String(file.characters) == "Follow SECURITY.md.")

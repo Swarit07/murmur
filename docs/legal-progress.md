@@ -187,3 +187,30 @@ Running log for `LEGAL_DOCS.md`, newest milestone last.
   - A privacy manifest is needed.
   - The App Sandbox conflicts with the synthetic paste, Accessibility reads and the model cache paths. Flagged, not solved.
 - **Landing page:** today's `murmur-website` loads Google Fonts and calls the GitHub API from the visitor's browser. It needs its own short notice, or self-hosted fonts and GitHub numbers fetched at build time. That repo wasn't changed.
+
+## Owner follow-ups (2026-10-05)
+
+The owner gave swarit.sheel@gmail.com as the contact address and asked for whatever else is needed.
+
+**Files:**
+- `SECURITY.md`, `PRIVACY.md` (contact).
+- `Sources/HubUI/Onboarding.swift` (M5, M7).
+- `Sources/HubUI/LegalViews.swift`: email links stay clickable.
+- `Scripts/rust-crate-notices.py` (new) and `Licenses/packages/fluidaudio/text-processing-rs/RUST-CRATES.md`.
+- `Licenses/packages.json`, the regenerated notices and bundled copies.
+- `Scripts/test_gen_notices.py` (5 new tests).
+- `Tests/HubUITests/LegalViewsTests.swift`.
+- `Artifacts/ui/sheets/legal-onboarding.png`.
+- `docs/legal-audit.md`.
+
+**Done:**
+- **Security contact:** `[SECURITY_CONTACT]` is now swarit.sheel@gmail.com. `PRIVACY.md` also gives it as the place for questions, since the repo's issues are private.
+- **Copyright line:** "Copyright (c) 2026 Swarit Sheel" stands.
+- **M5 and M7 applied.** Onboarding's models step now mentions Hugging Face and the launch check. The Accessibility step now says Murmur reads only the app and text box you're dictating into. Every in-app privacy claim now matches `PRIVACY.md` with no proposals left open. Snapshots in `legal-onboarding.png`.
+- **Rust crates in NemoTextProcessing:** notices for all 30 compiled-in crates, generated from the lockfile and the crates' own license files (audit §6 note D). Where a crate offers MIT, Murmur takes it under MIT and reproduces only the MIT text. That keeps the notices at 48 KB, not 440 KB.
+- **Apple on-device speech:** no Speech Recognition permission needed. Tested; see audit §5.
+
+**Still the owner's:**
+- Make the repo public if you want the release, issue and advisory links to work for everyone.
+- Run one dictation with Murmur's network blocked.
+- Run the 50-trial focus test and `murmur-bench e2e` on a build of this branch. No dictation, Flow Bar or insertion code changed.
