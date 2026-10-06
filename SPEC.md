@@ -1,4 +1,4 @@
-# Prompt for Claude Code: build Murmur, a macOS dictation app (Wispr Flow-style)
+# Prompt for Claude Code: build Murmur, a macOS dictation app
 
 Paste this whole file as your first message to Claude Code, or save it as `SPEC.md` in an empty repo and tell Claude Code to read it first.
 
@@ -6,19 +6,19 @@ Paste this whole file as your first message to Claude Code, or save it as `SPEC.
 
 ## 0. Role and working style
 
-You are building a personal-use macOS dictation app, working name **Murmur**, that reproduces the behavior and look of Wispr Flow's dictation (speech-to-text only). Work like a careful senior engineer.
+You are building a personal-use macOS dictation app, working name **Murmur**, that reproduces the behavior and look of a commercial dictation app, called "the reference app" below (speech-to-text only). Work like a careful senior engineer.
 
 - **Plan first.** Before writing code for a milestone, reply with a short plan and any open questions you cannot resolve alone.
 - **One milestone at a time** (section 9). At each gate, run the tests, report measured results, and wait for my go-ahead before starting the next milestone.
 - **Never claim a gate passed** without running its test and showing the output.
 - **Verify libraries before using them.** Check the current release and API of FluidAudio, WhisperKit, MLX Swift and GRDB from their repos. Do not rely on memory.
-- **Tell me when you need my hands:** granting macOS permissions, recording audio clips, recording the real Wispr Flow app.
+- **Tell me when you need my hands:** granting macOS permissions, recording audio clips, recording the reference app.
 - **Keep records.** Maintain `docs/decisions.md` (date, decision, reason) and write `docs/mN-report.md` at each gate. Commit at the end of each milestone.
 - **Start with Milestone 0 only.** Do not begin Milestone 1 until I approve the bake-off results.
 
 ## 1. Hard rules
 
-1. **Original assets only.** Do not use Wispr's name, logo, icon, sound files or UI copy. Match behavior, layout, proportions and motion. Draw the icons and write the words yourself.
+1. **Original assets only.** Do not use the reference app's name, logo, icon, sound files or UI copy. Match behavior, layout, proportions and motion. Draw the icons and write the words yourself.
 2. **Privacy.** Audio and text stay on the Mac unless I enable a cloud engine with my own API key, stored in the Keychain. No analytics. Logs contain timings, never transcript text, unless debug logging is switched on.
 3. **Scope is dictation only.** No notes, meetings, accounts, sign-in, sync, billing, teams, iOS, Android, IDE context reading, file tagging, voice web search or telemetry. Windows only in Milestone 7.
 4. **Fail closed.** Never write into password or secure fields. Never lose a dictation. Never paste into a different app from the one focused when the key went down.
@@ -97,7 +97,7 @@ States: Idle, Recording (hold or hands-free), Transcribing, Cleaning, Inserting,
 
 ## 5. Requirements
 
-Priority: P0 = needed for daily use (Milestones 1 to 3), P1 = full parity (Milestones 3 to 5), P2 = later. Behaviors marked "Wispr" are documented by Wispr's help center.
+Priority: P0 = needed for daily use (Milestones 1 to 3), P1 = full parity (Milestones 3 to 5), P2 = later. Behaviors noted as documented come from the reference app's help center.
 
 ### Capture
 
@@ -134,7 +134,7 @@ Priority: P0 = needed for daily use (Milestones 1 to 3), P1 = full parity (Miles
 
 ### Insertion
 
-- **I1 (P0) Clipboard transaction** as in section 4. Plain text, rich text, images and files must survive a dictation. (Wispr drops files, PDF, RTFD and audio on Mac. Do better.)
+- **I1 (P0) Clipboard transaction** as in section 4. Plain text, rich text, images and files must survive a dictation. (The reference app drops files, PDF, RTFD and audio on Mac. Do better.)
 - **I2 (P0) Restore only if untouched.** A copy made during the 0.5 s window must be kept.
 - **I3 (P0) Focus guard.** If the frontmost app or focused element changed since key down, do not paste. Keep the text and show the Paste error.
 - **I4 (P1) No text box.** If no editable field has focus, show a notice telling me to click a text box and use the paste shortcut. Keep the transcript.
@@ -175,7 +175,7 @@ Priority: P0 = needed for daily use (Milestones 1 to 3), P1 = full parity (Miles
 
 Everything numeric below is a token with a placeholder until I measure the real app.
 
-### Flow Bar (Wispr documents these facts)
+### Flow Bar (the reference app documents these facts)
 
 On Mac the bar sits just above the Dock and keeps that position across Spaces, whichever side the Dock is on and whether or not it auto-hides. In a full-screen app's Space it may sit slightly higher. It stays above other windows, including full-screen Spaces. It is shown by default, can be hidden for an hour, and can be dragged to dock elsewhere. A click on it starts hands-free. It carries a stop icon, an X to cancel, notifications with a Dismiss button and a countdown ring that pauses on hover, and a right-click menu.
 
@@ -208,7 +208,7 @@ Resumes where it stopped if quit. Skip steps already granted. Steps: Welcome, Mi
 
 ### Sounds
 
-Three original sounds (start, stop, error), generated by a script into WAV files, so no recording of Wispr's is reused. One Settings switch turns them off. Lengths and pitches are tokens.
+Three original sounds (start, stop, error), generated by a script into WAV files, so no recording of the reference app's is reused. One Settings switch turns them off. Lengths and pitches are tokens.
 
 ### Tokens file
 

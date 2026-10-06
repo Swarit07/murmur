@@ -109,3 +109,22 @@ Running log for `LEGAL_DOCS.md`, newest milestone last.
 **Couldn't determine:** per-crate notices for the Rust crates inside NemoTextProcessing.xcframework. Upstream only summarizes them (audit §6 note D).
 
 **When dependencies change:** after `Package.resolved` changes, run `Scripts/gen-notices.py --refresh-from App/build/SourcePackages/checkouts`. For a new package, add its entry to `Licenses/packages.json` first. CI fails until this is done.
+
+## L4: SECURITY.md and README (2026-10-05)
+
+**Files:**
+- `SECURITY.md` (new).
+- `README.md`: Privacy, Permissions, Not affiliated and License sections. Install step 3 now links to Permissions instead of repeating them.
+- "Wispr" replaced with "the reference app" in `SPEC.md` (8 places), `UI_REDESIGN.md` (3), `docs/decisions.md` (1) and `docs/archive/UI_REDESIGN.v1.md` (2). Each sentence keeps its meaning.
+
+**Done when:**
+- Both files exist: **pass.**
+- `grep -ri wispr` in user-facing copy returns only the not-affiliated line: **pass.** Checked README, PRIVACY, SECURITY, THIRD_PARTY_NOTICES, `Sources/`, `App/Sources/`, `App/project.yml` and `Design/`; the only hit is README:183. The name still appears in three process documents that have to name it: `LEGAL_DOCS.md` (the brief), and the audit and this log (they record where it was).
+
+**Kept on purpose (owner decision):**
+- "Flow Bar" in about 20 app strings, the README and docs.
+- The internal identifiers `FlowBarModel`, `FlowBarPanel`, `FlowBarView`, `FlowBarWiring` and `FlowBarStateTests`, which renaming wouldn't make clearer.
+
+**For the owner:**
+- `[SECURITY_CONTACT]` in `SECURITY.md` needs an email address.
+- The repo is **private**, so GitHub's private vulnerability reporting isn't available, and the issue links in `PRIVACY.md` and `SECURITY.md` only work for collaborators. Once it's public, you can turn on Settings › Security › Private vulnerability reporting and point `SECURITY.md` at it.

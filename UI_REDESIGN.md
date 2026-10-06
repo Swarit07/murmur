@@ -39,7 +39,7 @@ The boards are 1 CSS px = 1 pt. Never present an assumed value as measured.
 
 ## 2. Hard rules
 
-1. **Original assets only.** No Wispr name, logo, icon art, sound files or copy. Fonts are Geist and Geist Mono (SIL OFL, by Vercel) and Newsreader (SIL OFL). Bundle them with their license files.
+1. **Original assets only.** No name, logo, icon art, sound files or copy from the reference app. Fonts are Geist and Geist Mono (SIL OFL, by Vercel) and Newsreader (SIL OFL). Bundle them with their license files.
 2. **No hidden magic numbers.** Every size, color, radius, border width, duration, spring and sound parameter is a named token in `Sources/UI/Tokens*.swift`. Views reference tokens only. The lint script (§8) fails on raw literals in view files.
 3. **The Flow Bar never takes focus.** Non-activating `NSPanel`, all Spaces, full-screen auxiliary, above the Dock. SPEC's "never takes focus in 50 trials" test must still pass.
 4. **Reduce Motion, Reduce Transparency and Increase Contrast** are honored (§6.3).
@@ -521,10 +521,10 @@ Per §5.4.
 
 **Stop and ask** only if: fonts can't be fetched from any source in `START_HERE.md`; a milestone would change dictation behavior; a SPEC test regresses and the cause isn't obvious after a real attempt; a board and this file disagree in a way §0's precedence doesn't settle. For any other judgment call, take the default this file gives, note it in `docs/ui-progress.md`, and keep going.
 
-**Don't:** use gradients, shadows in the Hub (beyond `shadow-float` on floating surfaces), system accent colors, red, any accent besides clay, clay outside §2.8, stone as text, emoji, stock `List` / `Form` / `Toggle` / `Picker` / `TextField` in the Hub, SF Symbols where an original icon exists, Wispr's name, logo, copy or sounds; invent final numbers for [ASSUMED] tokens; animate the `NSWindow` frame; leave an animation running while the bar is idle or the Hub is hidden.
+**Don't:** use gradients, shadows in the Hub (beyond `shadow-float` on floating surfaces), system accent colors, red, any accent besides clay, clay outside §2.8, stone as text, emoji, stock `List` / `Form` / `Toggle` / `Picker` / `TextField` in the Hub, SF Symbols where an original icon exists, the reference app's name, logo, copy or sounds; invent final numbers for [ASSUMED] tokens; animate the `NSWindow` frame; leave an animation running while the bar is idle or the Hub is hidden.
 
 ---
 
 ## 11. Not in this task: the landing page
 
-A marketing page comes later in this same system: the ivory, ink and clay tokens; Newsreader display with one italic word; the ink Flow Bar and live waveform as the product moment; the reversal headline ("You type faster than you speak", struck through, then "You speak faster than you type"); the mark's waveform drawing itself on load. Keep `Tokens+Color` and `Tokens+Type` free of app-only geometry so a web token file can be generated from them. The earlier landing-page prompt used Anthropic's clay `#D97757` and Wispr-style dark chambers; update it to these tokens before using it.
+A marketing page comes later in this same system: the ivory, ink and clay tokens; Newsreader display with one italic word; the ink Flow Bar and live waveform as the product moment; the reversal headline ("You type faster than you speak", struck through, then "You speak faster than you type"); the mark's waveform drawing itself on load. Keep `Tokens+Color` and `Tokens+Type` free of app-only geometry so a web token file can be generated from them. The earlier landing-page prompt used Anthropic's clay `#D97757` and the reference app's dark chambers; update it to these tokens before using it.

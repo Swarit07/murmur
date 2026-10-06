@@ -20,6 +20,10 @@ A private, on-device dictation app for macOS. Hold a key, speak, let go, and the
 
 The full product spec is in [SPEC.md](SPEC.md). Progress against it is tracked in [docs/STATUS.md](docs/STATUS.md).
 
+## Privacy
+
+With its built-in models, Murmur turns your voice into text on your Mac and your audio and transcripts stay there, with no account, analytics or crash reporting. It does download its models from Hugging Face and checks for cleanup model updates each time it starts; [PRIVACY.md](PRIVACY.md) lists every connection, what's stored where, and how to delete it.
+
 ## Install
 
 You need an Apple silicon Mac with macOS 14 or later. On first launch Murmur downloads its speech and cleanup models (about 3 GB), so the first start takes a few minutes.
@@ -29,12 +33,15 @@ You need an Apple silicon Mac with macOS 14 or later. On first launch Murmur dow
    - **macOS 15 or later:** after the warning, open System Settings › Privacy & Security, scroll down to "Murmur was blocked", and click **Open Anyway**.
    - **macOS 14:** right-click Murmur in Applications, choose **Open**, then **Open** again.
    - Or, in Terminal: `xattr -dr com.apple.quarantine /Applications/Murmur.app`
-3. Follow the short setup. Murmur asks for three permissions:
-   - **Microphone**, to hear you;
-   - **Accessibility**, to type into the app you're using;
-   - **Input Monitoring**, to notice the dictation key.
+3. Follow the short setup. Murmur asks for three [permissions](#permissions).
 
 Prefer to check the code and build it yourself? See [Build from source](#build-from-source).
+
+## Permissions
+
+- **Microphone:** to hear you, only while you dictate.
+- **Accessibility:** to paste into the app you're using and read the text box you're dictating into. It never types into password fields.
+- **Input Monitoring:** to notice your dictation shortcut. Nothing you type is logged or stored.
 
 ## What works today
 
@@ -171,6 +178,10 @@ In the app, turn on **Settings › System › Debug menu** to get:
 
 Murmur's name, icon, sounds and copy are original. It does not use any other product's assets.
 
+## Not affiliated
+
+Murmur is an independent open-source project. It isn't affiliated with or endorsed by Wispr or any other dictation product.
+
 ## License
 
-Murmur is released under the [MIT License](LICENSE). It's built on open-source packages and bundles the Geist and Newsreader fonts (SIL Open Font License); see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The speech and cleanup models it downloads on first launch come under their own licenses, linked there.
+MIT. See [LICENSE](LICENSE). Third-party components are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), along with the licenses of the models Murmur downloads. To report a security problem, see [SECURITY.md](SECURITY.md).
