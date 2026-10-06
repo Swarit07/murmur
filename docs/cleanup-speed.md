@@ -197,3 +197,29 @@ Settings, all read once at launch:
 - `MURMUR_LOOKUP_REPLAY=own` replays rejected passes in a pass of their own.
 
 `speed-test` writes every output pair to `results/raw/speed-test.json`.
+
+## Follow-up (2026-10-05): clean as you speak with a hint, tried and not shipped
+
+With prompt lookup on by default, the next idea was to use the idle GPU while the speaker talks without changing the design of the cleanup:
+- every few seconds, clean what has been said so far in the background;
+- at release, run the usual whole-text cleanup, but copy the prompt-lookup guesses from that background result first.
+
+The output stays the model's own whole-text cleanup, so corrections across sentences and Smart Formatting are unaffected.
+
+**Measured** with a `hint-test` bench: 59 joined dictations, the first 75% standing in for what was said before release, Smart Formatting on, Qwen3.5 4B. Another session's benchmark was running at the same time, so absolute times are noisy; both columns share the noise.
+
+| Words | Final cleanup p50, no hint | With hint | Identical |
+|---|---|---|---|
+| 16–35 | 365 ms | 340 ms | 20/20 |
+| 36–60 | 542 ms | 433 ms | 21/22 |
+| 61+ | 792 ms | 664 ms | 17/17 |
+
+With fixed 24-token guesses the hinted 36–60 p50 was 469 ms, and 61+ was 741 ms.
+
+**Not shipped:**
+- It saves 10–20% (about 0.1 s) on long dictations.
+- To get that, it runs transcription and the cleanup model on the GPU during every long recording. GPU work while recording is what caused the Flow Bar's dropped frames in U3, and it costs battery.
+- One of 59 outputs came out worse ("Vite" became "V").
+- Prompt lookup alone already took long-dictation cleanup from 774 to 327 ms p50 (`long-test`).
+
+The code was reverted. The idea is recorded here so it isn't tried again without a new reason, for example a faster GPU kernel that makes the final pass cheaper.
