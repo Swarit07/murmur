@@ -28,6 +28,16 @@ With its built-in models, Murmur turns your voice into text on your Mac and your
 
 You need an Apple silicon Mac with macOS 14 or later. On first launch Murmur downloads its speech and cleanup models (about 3 GB), so the first start takes a few minutes.
 
+**With Homebrew:**
+
+```sh
+brew install --cask swarit07/murmur/murmur
+```
+
+Then open Murmur and follow steps 2 and 3 below. Update it later with `brew upgrade --cask murmur`.
+
+**Or download it yourself:**
+
 1. Download `Murmur.zip` from the [latest release](../../releases/latest), unzip it, and drag `Murmur.app` into Applications.
 2. Open it. Murmur isn't notarized by Apple (that needs a paid developer account), so macOS blocks the first launch once:
    - **macOS 15 or later:** after the warning, open System Settings › Privacy & Security, scroll down to "Murmur was blocked", and click **Open Anyway**.

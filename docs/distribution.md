@@ -1,6 +1,6 @@
 # Distribution notes
 
-*Written by the maintainer, not a lawyer.* What each way of shipping Murmur would need, based on [legal-audit.md](legal-audit.md) (2026-10-05). Nothing has been published yet: a v0.1.0 zip and a Homebrew tap recipe are prepared (below), and the repo is still private. Check Apple's and Homebrew's current rules before acting, because they change.
+*Written by the maintainer, not a lawyer.* What each way of shipping Murmur would need, based on [legal-audit.md](legal-audit.md) (2026-10-05). v0.1.0 was published on 2026-10-05: the repo is public, the [GitHub release](https://github.com/Swarit07/murmur/releases/tag/v0.1.0) carries `Murmur.zip`, and the tap [`Swarit07/homebrew-murmur`](https://github.com/Swarit07/homebrew-murmur) holds the cask. Check Apple's and Homebrew's current rules before acting, because they change.
 
 ## Where things stand
 
@@ -10,7 +10,7 @@
   - It was rebuilt after the legal pass landed, so the license, privacy notes and third-party notices ship inside the app (`murmur_UI.bundle/Legal`, byte-identical to the repo). Rebuild the zip the same way for every release.
   - The Debug menu, and the debug hooks other processes can post to, are off by default from 880a4fb on.
 - `LICENSE`, `PRIVACY.md` and `THIRD_PARTY_NOTICES.md` already ship inside the app (`Murmur.app/Contents/Resources/murmur_UI.bundle/Contents/Resources/Legal/`). The app shows them under Help & setup and Settings › Data & privacy.
-- The GitHub repo is **private**. README's download link (`../../releases/latest`) and the issue links in `PRIVACY.md` and `SECURITY.md` only work for people with access.
+- The GitHub repo is **public**, so README's download link (`../../releases/latest`) and the issue links in `PRIVACY.md` and `SECURITY.md` work for everyone.
 
 ## GitHub releases and Homebrew
 
@@ -20,8 +20,8 @@
   - Test that MLX (Metal) and Core ML still load the models under the hardened runtime before shipping.
 - **Notarization:** `xcrun notarytool submit Murmur.zip --wait`, then `xcrun stapler staple Murmur.app`. Once notarized, the Gatekeeper steps can come out of README.
 - **The license in the bundle:** done (see above). Zip releases also carry the repo's `LICENSE` if you attach it.
-- **A public download URL:** make the repo public, or host release zips somewhere public.
-- **Homebrew cask:** prepared as a personal tap in [`Packaging/homebrew/`](../Packaging/homebrew/), see its README. Once a public tap repo `Swarit07/homebrew-murmur` holds `Casks/murmur.rb`, the install command is `brew install --cask swarit07/murmur/murmur`. A plain `brew install --cask murmur` would need the main Homebrew repository, which requires notarization and a notability bar.
+- **A public download URL:** done; release zips are assets on the public repo's GitHub releases.
+- **Homebrew cask:** published as a personal tap, `Swarit07/homebrew-murmur`; the recipe's source is [`Packaging/homebrew/`](../Packaging/homebrew/), see its README. The install command is `brew install --cask swarit07/murmur/murmur`. A plain `brew install --cask murmur` would need the main Homebrew repository, which requires notarization and a notability bar.
   - Needs a versioned download URL and its `sha256`.
   - Its `zap` stanza can list the paths in `PRIVACY.md` › Deleting everything: `~/Library/Application Support/Murmur`, `~/Library/Preferences/com.swaritsheel.Murmur.plist`, `~/Library/Caches/com.swaritsheel.Murmur`, `~/Library/HTTPStorages/com.swaritsheel.Murmur`. Leave `~/.cache/huggingface` and `~/Library/Application Support/FluidAudio` out, because other tools share them.
   - The main Homebrew cask repository expects apps that pass Gatekeeper (signed and notarized). A personal tap has no such rule.
