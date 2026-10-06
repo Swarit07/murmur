@@ -1,4 +1,5 @@
 // swift-tools-version: 6.2
+// License: MIT (see LICENSE). Third-party components and their licenses: THIRD_PARTY_NOTICES.md.
 import PackageDescription
 
 let strict: [SwiftSetting] = [
@@ -58,8 +59,9 @@ let package = Package(
             dependencies: ["Core", "Audio", "SpeechEngines", "Cleanup", "Context", "Insertion"] + mlxTargets,
             swiftSettings: strict
         ),
-        // Design tokens, theme, components and the Flow Bar. Bundles Source Sans 3 and Newsreader (SIL OFL).
-        .target(name: "UI", dependencies: ["Core"], resources: [.copy("Resources/Fonts"), .copy("Resources/Sounds"), .copy("Resources/MenuBar"), .copy("Resources/Brand")], swiftSettings: strict),
+        // Design tokens, theme, components and the Flow Bar. Bundles Geist, Geist Mono and Newsreader (SIL OFL),
+        // and in Legal/ the license, privacy notes and third-party notices the app shows (Scripts/gen-notices.py).
+        .target(name: "UI", dependencies: ["Core"], resources: [.copy("Resources/Fonts"), .copy("Resources/Sounds"), .copy("Resources/MenuBar"), .copy("Resources/Brand"), .copy("Resources/Legal")], swiftSettings: strict),
 
         // App-level orchestration the menu-bar app links: the dictation controller and its wiring.
         .target(

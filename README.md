@@ -1,5 +1,7 @@
 # Murmur
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A private, on-device dictation app for macOS. Hold a key, speak, let go, and the words appear, cleaned up and punctuated, wherever your cursor is.
 
 <p align="center">

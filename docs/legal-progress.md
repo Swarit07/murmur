@@ -39,3 +39,24 @@ Running log for `LEGAL_DOCS.md`, newest milestone last.
 | M6 | Onboarding › Input Monitoring | "Input Monitoring is how Murmur knows [hotkey] is being held down — and released. macOS shows Murmur every key press; it reacts only to its shortcuts and Esc. Nothing you type is logged or stored." |
 | M7 | Onboarding › Accessibility | "Accessibility lets Murmur place text at your cursor in any app. It reads only the app and text box you're dictating into, never captures your screen, and never types into password fields." |
 | M8 | `NSMicrophoneUsageDescription` | "Murmur listens only while you dictate. Its built-in speech model runs on this Mac." |
+
+**Owner decisions (2026-10-05):**
+- Hugging Face: document it as it is, with no code changes.
+- FluidAudio's LuxTTS lexicon: keep it and note it in the notices.
+- "Flow Bar": keep the name. Add the not-affiliated line, and replace only the literal "Wispr" mentions.
+
+## L1: LICENSE (2026-10-05)
+
+**Files:**
+- `Package.swift`: license comment; the UI target bundles `Resources/Legal`; fixed the stale font comment.
+- `README.md`: MIT badge.
+- `Sources/UI/Resources/Legal/LICENSE`: a copy of the root `LICENSE`.
+- `Sources/UI/LegalDocuments.swift`: reads the bundled files.
+- `Tests/UITests/LegalDocumentsTests.swift`.
+
+**Done when:**
+- `LICENSE` is the standard MIT text with `Copyright (c) 2026 Swarit Sheel`: **pass.** Compared with SPDX's MIT text, whitespace-normalized. It was already correct from commit 46d5436, so it wasn't changed.
+- `LICENSE` is in the built `.app`: **pass.** A Release build (ad-hoc signed, `App/build`) has `Murmur.app/Contents/Resources/murmur_UI.bundle/Contents/Resources/Legal/LICENSE`, byte-identical to the repo's.
+- `Scripts/test.sh --filter LegalDocuments`: 3 tests pass. One of them fails if the bundled copy drifts from the root `LICENSE`.
+
+**For the owner:** confirm the copyright line, "Copyright (c) 2026 Swarit Sheel".
