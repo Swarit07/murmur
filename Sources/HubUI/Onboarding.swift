@@ -48,6 +48,8 @@ public final class OnboardingModel {
     var practiceDone: Set<OnboardingStep> = []
     public var onFinish: (() -> Void)?
     public var onShowFlowBar: ((Bool) -> Void)?
+    /// The data step's "Read the privacy notes" shows them over the step (LEGAL_DOCS.md L5).
+    public var showingPrivacy = false
     /// The practice steps show a live copy of the Flow Bar inside the practice field.
     let practiceBar = FlowBarModel()
     /// A preview (design snapshots) shows steps without saving progress or starting the microphone.
@@ -139,6 +141,12 @@ struct OnboardingSteps: View {
                     removal: .opacity.animation(motion.easeOut(MotionTokens.onboardingStep / 2))))
         }
         .frame(width: OnboardingGeometry.step.width, height: OnboardingGeometry.step.height)
+        .overlay {
+            if model.showingPrivacy {
+                OnboardingPrivacyPanel { model.showingPrivacy = false }
+                    .transition(.opacity.animation(motion.easeOut(MotionTokens.hover)))
+            }
+        }
         .overlay(alignment: .top) { WindowDragArea().frame(height: OnboardingGeometry.padding) }
         .ignoresSafeArea()
         .animation(motion.easeOut(MotionTokens.onboardingStep), value: model.step)
@@ -163,7 +171,7 @@ struct OnboardingSteps: View {
             WelcomeStep(model: model)
         case .microphone:
             StepScaffold(model: model, section: "Permissions", title: "Let Murmur hear you",
-                         message: "Only while you hold the shortcut. Audio is transcribed on this Mac and deleted right after, unless you choose to keep it.",
+                         message: "Murmur listens only while you dictate. Its built-in speech model runs on this Mac. You’ll choose whether to keep recordings in a later step.",
                          primary: granted ? "Continue" : "Allow microphone") {
                 if granted { model.next() } else { AVCaptureDevice.requestAccess(for: .audio) { _ in } }
             } illustration: {
@@ -171,7 +179,7 @@ struct OnboardingSteps: View {
             }
         case .accessibility:
             StepScaffold(model: model, section: "Permissions", title: "Let Murmur type for you",
-                         message: "Accessibility lets Murmur place text at your cursor in any app. It doesn’t read your screen, and never types into password fields.",
+                         message: "Accessibility lets Murmur place text at your cursor in any app. It reads only the app and text box you’re dictating into, never captures your screen, and never types into password fields.",
                          primary: granted ? "Continue" : "Open System Settings") {
                 if granted { model.next() } else { openPane("Privacy_Accessibility"); Permissions.promptAccessibility() }
             } illustration: {
@@ -181,7 +189,7 @@ struct OnboardingSteps: View {
             }
         case .inputMonitoring:
             StepScaffold(model: model, section: "Permissions", title: "Notice when you hold the key",
-                         message: "Input Monitoring is how Murmur knows \(hotkey) is being held down — and released. It watches that one key; nothing you type is logged or stored.",
+                         message: "Input Monitoring is how Murmur knows \(hotkey) is being held down — and released. macOS shows Murmur every key press; it uses them only to spot its shortcuts. Nothing you type is logged or stored.",
                          primary: granted ? "Continue" : "Open System Settings") {
                 if granted { model.next() } else { Permissions.requestInputMonitoring(); openPane("Privacy_ListenEvent") }
             } illustration: {
@@ -194,7 +202,7 @@ struct OnboardingSteps: View {
             }
         case .models:
             StepScaffold(model: model, section: "Setup", title: "Getting the models ready",
-                         message: "Murmur’s speech and cleanup models run on this Mac. The first time, they download (about 3 GB); after that they load in a few seconds.",
+                         message: "Murmur’s speech and cleanup models run on this Mac. The first time, they download from Hugging Face (about 3 GB). After that they load in a few seconds, and Murmur checks for cleanup model updates when it starts.",
                          primary: "Continue", primaryEnabled: granted) {
                 model.next()
             } illustration: {
@@ -488,7 +496,7 @@ struct DataStepView: View {
     var body: some View {
         let c = theme.colors
         StepScaffold(model: model, section: "Privacy", title: "Your data, your call",
-                     message: "Either way, audio and transcripts never leave this Mac.", primary: "Continue", illustrationFirst: false) {
+                     message: "Either way, your audio and transcripts stay on this Mac unless you pick a cloud option in Settings.", primary: "Continue", illustrationFirst: false) {
             model.next()
         } illustration: {
             VStack(alignment: .leading, spacing: Spacing.s10) {
@@ -513,6 +521,8 @@ struct DataStepView: View {
                 }
                 .padding(.horizontal, Spacing.s4)
             }
+        } extra: {
+            MButton("Read the privacy notes", kind: .link, size: .small) { model.showingPrivacy = true }
         }
         .onChange(of: never) {
             model.settings.neverStore = never

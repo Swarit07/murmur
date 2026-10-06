@@ -1,0 +1,175 @@
+{
+  "argmax-oss-swift": {
+    "name": "WhisperKit (argmax-oss-swift)",
+    "use": "Whisper speech engine (optional in Settings)",
+    "spdx": "MIT",
+    "shipped": true,
+    "files": [
+      "LICENSE",
+      "NOTICES"
+    ]
+  },
+  "eventsource": {
+    "name": "EventSource",
+    "use": "Server-sent events for swift-huggingface (linked, unused by Murmur)",
+    "spdx": "MIT",
+    "shipped": true,
+    "files": [
+      "LICENSE.md"
+    ]
+  },
+  "fluidaudio": {
+    "name": "FluidAudio",
+    "use": "Parakeet speech engine",
+    "spdx": "Apache-2.0",
+    "shipped": true,
+    "files": [
+      "LICENSE",
+      "ThirdPartyLicenses/NemoTextProcessing-LICENSE.md",
+      "ThirdPartyLicenses/fastcluster-LICENSE.md",
+      "ThirdPartyLicenses/vbx-LICENSE.md",
+      "ThirdPartyLicenses/KokoroAneSpanishFrenchG2P-LICENSE.md",
+      "ThirdPartyLicenses/JapaneseG2P-LICENSE.md"
+    ],
+    "manual_files": [
+      "text-processing-rs/LICENSE",
+      "text-processing-rs/NOTICE",
+      "text-processing-rs/THIRD-PARTY-LICENSES.md",
+      "text-processing-rs/RUST-CRATES.md"
+    ],
+    "note": "Links the prebuilt NemoTextProcessing.xcframework (text-processing-rs v0.3.1, Apache-2.0). Its notices and the license of every Rust crate compiled into it (RUST-CRATES.md, from Scripts/rust-crate-notices.py) are included. FluidAudio's resource bundle also carries a LuxTTS pronunciation lexicon that Murmur doesn't use; FluidAudio's documentation says it was harvested from espeak-ng output. FluidAudio publishes it under Apache-2.0 and states it has no GPL dependencies."
+  },
+  "grdb.swift": {
+    "name": "GRDB.swift",
+    "use": "SQLite database for History, the dictionary and snippets",
+    "spdx": "MIT",
+    "shipped": true,
+    "files": [
+      "LICENSE"
+    ]
+  },
+  "mlx-swift": {
+    "name": "MLX Swift",
+    "use": "Runs the cleanup model on the GPU",
+    "spdx": "MIT",
+    "shipped": true,
+    "files": [
+      "LICENSE",
+      "Source/Cmlx/mlx/LICENSE",
+      "Source/Cmlx/mlx-c/LICENSE",
+      "Source/Cmlx/fmt/LICENSE",
+      "Source/Cmlx/json/LICENSE.MIT",
+      "Source/Cmlx/metal-cpp/LICENSE.txt"
+    ],
+    "note": "Includes MLX and mlx-c (MIT, Apple), {fmt} (MIT), nlohmann/json (MIT) and metal-cpp (Apache-2.0, Apple)."
+  },
+  "mlx-swift-lm": {
+    "name": "MLX Swift LM",
+    "use": "Loads and runs the cleanup language model",
+    "spdx": "MIT",
+    "shipped": true,
+    "files": [
+      "LICENSE",
+      "Libraries/MLXCXGrammar/xgrammar/LICENSE",
+      "Libraries/MLXCXGrammar/xgrammar/NOTICE"
+    ],
+    "manual_files": [
+      "xgrammar-3rdparty/picojson-LICENSE.txt",
+      "xgrammar-3rdparty/dlpack-NOTICE.txt"
+    ],
+    "note": "Includes XGrammar (Apache-2.0), which includes picojson (BSD-2-Clause) and DLPack (Apache-2.0)."
+  },
+  "swift-argument-parser": {
+    "name": "Swift Argument Parser",
+    "use": "Command-line options for murmur-cli and murmur-bench",
+    "spdx": "Apache-2.0",
+    "shipped": false,
+    "files": [
+      "LICENSE.txt"
+    ]
+  },
+  "swift-asn1": {
+    "name": "Swift ASN.1",
+    "use": "Dependency of swift-crypto",
+    "spdx": "Apache-2.0",
+    "shipped": false,
+    "files": [
+      "LICENSE.txt",
+      "NOTICE.txt"
+    ]
+  },
+  "swift-collections": {
+    "name": "Swift Collections",
+    "use": "Data structures used by the packages above",
+    "spdx": "Apache-2.0",
+    "shipped": true,
+    "files": [
+      "LICENSE.txt"
+    ]
+  },
+  "swift-crypto": {
+    "name": "Swift Crypto",
+    "use": "Dependency of swift-huggingface (a thin layer over Apple's CryptoKit on macOS)",
+    "spdx": "Apache-2.0",
+    "shipped": true,
+    "files": [
+      "LICENSE.txt",
+      "NOTICE.txt"
+    ],
+    "note": "BoringSSL, which swift-crypto carries for other platforms, isn't compiled into Murmur."
+  },
+  "swift-huggingface": {
+    "name": "Swift Hugging Face",
+    "use": "Downloads the cleanup model from Hugging Face",
+    "spdx": "Apache-2.0",
+    "shipped": true,
+    "files": [
+      "LICENSE"
+    ]
+  },
+  "swift-jinja": {
+    "name": "Swift Jinja",
+    "use": "Chat templates for the cleanup model",
+    "spdx": "Apache-2.0",
+    "shipped": true,
+    "files": [
+      "LICENSE"
+    ]
+  },
+  "swift-numerics": {
+    "name": "Swift Numerics",
+    "use": "Math used by the packages above",
+    "spdx": "Apache-2.0",
+    "shipped": true,
+    "files": [
+      "LICENSE.txt"
+    ]
+  },
+  "swift-syntax": {
+    "name": "Swift Syntax",
+    "use": "Builds the Swift macros used by MLX Swift LM (build time only)",
+    "spdx": "Apache-2.0",
+    "shipped": false,
+    "files": [
+      "LICENSE.txt"
+    ]
+  },
+  "swift-transformers": {
+    "name": "Swift Transformers",
+    "use": "Tokenizers for the cleanup and Whisper models",
+    "spdx": "Apache-2.0",
+    "shipped": true,
+    "files": [
+      "LICENSE"
+    ]
+  },
+  "yyjson": {
+    "name": "yyjson",
+    "use": "Fast JSON parsing for swift-transformers",
+    "spdx": "MIT",
+    "shipped": true,
+    "files": [
+      "LICENSE"
+    ]
+  }
+}

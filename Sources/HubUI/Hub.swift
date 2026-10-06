@@ -47,7 +47,12 @@ public final class HubModel {
     var searchOpen = false
     /// The bell popover and the Help & setup sheet.
     var bellOpen = false
-    var helpOpen = false
+    public var helpOpen = false
+    /// The Privacy or Acknowledgements dialog (LEGAL_DOCS.md L5), and whether it came from Help & setup.
+    public var document: HubDocument?
+    var documentFromHelp = false
+    /// Acknowledgements rows the user opened ("Section/Name"); they start closed.
+    public var expandedNotices: Set<String> = []
     /// System alerts for the bell: missing permissions and the last error.
     var alerts: [HubAlert] = []
     /// Re-runs onboarding (set by the app).
@@ -66,6 +71,14 @@ public final class HubModel {
             }
         }
         refreshAlerts()
+    }
+
+    /// Opens the Privacy or Acknowledgements dialog over the Hub, closing Help & setup if it came from there.
+    public func open(_ document: HubDocument, fromHelp: Bool = false) {
+        helpOpen = false
+        bellOpen = false
+        documentFromHelp = fromHelp
+        self.document = document
     }
 
     /// Rebuilds the bell's alerts (on appear and whenever the Hub becomes key; no polling).

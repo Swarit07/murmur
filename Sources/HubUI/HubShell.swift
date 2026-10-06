@@ -68,6 +68,12 @@ struct HubShell: View {
                     HelpSheet(model: model)
                 }
                 .transition(.opacity.animation(motion.easeOut(MotionTokens.hover)))
+            } else if let document = model.document {
+                ZStack {
+                    c.scrim.color.ignoresSafeArea().onTapGesture { model.document = nil }
+                    DocumentDialog(model: model, document: document)
+                }
+                .transition(.opacity.animation(motion.easeOut(MotionTokens.hover)))
             }
         }
         .ignoresSafeArea(.container, edges: .top)
@@ -79,7 +85,7 @@ struct HubShell: View {
                 Button("") { model.step(1) }.keyboardShortcut(.downArrow, modifiers: .option)
                 Button("") { model.back() }.keyboardShortcut("[", modifiers: .command)
                 Button("") { model.forward() }.keyboardShortcut("]", modifiers: .command)
-                Button("") { model.bellOpen = false; model.helpOpen = false }.keyboardShortcut(.cancelAction)
+                Button("") { model.bellOpen = false; model.helpOpen = false; model.document = nil }.keyboardShortcut(.cancelAction)
             }
             .opacity(0)
             .frame(width: 0, height: 0)
@@ -222,7 +228,8 @@ struct BellPopover: View {
     }
 }
 
-/// Help & setup (§5.3): shortcuts, permissions, run setup again, the version.
+/// Help & setup (§5.3): shortcuts, permissions, the privacy notes and acknowledgements (LEGAL_DOCS.md
+/// L5), run setup again, the version.
 struct HelpSheet: View {
     @Bindable var model: HubModel
     @Environment(\.theme) private var theme
@@ -245,6 +252,19 @@ struct HelpSheet: View {
                 }
                 MCaption("Permissions")
                 PermissionRows()
+                MCaption("About")
+                VStack(alignment: .leading, spacing: Spacing.s8) {
+                    HStack(spacing: Spacing.s8) {
+                        Text("Privacy").textStyle(TypeTokens.label).foregroundStyle(c.textPrimary.color)
+                        Spacer()
+                        MNavigateSelect("Privacy", value: "What stays on this Mac") { model.open(.privacy, fromHelp: true) }
+                    }
+                    HStack(spacing: Spacing.s8) {
+                        Text("Acknowledgements").textStyle(TypeTokens.label).foregroundStyle(c.textPrimary.color)
+                        Spacer()
+                        MNavigateSelect("Acknowledgements", value: "Open-source licenses") { model.open(.acknowledgements, fromHelp: true) }
+                    }
+                }
                 HStack(spacing: Spacing.s12) {
                     MButton("Run setup again", kind: .outline, size: .small) {
                         model.helpOpen = false

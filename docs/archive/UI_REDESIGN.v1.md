@@ -25,7 +25,7 @@ Never present an assumed value as measured. The earlier plan used the reference 
 
 ## 2. Hard rules (carried over from SPEC.md, plus new ones)
 
-1. **Original assets only.** No Wispr name, logo, icon art, sound files or copy; no Anthropic marks, logos or the Styrene typeface. Screenshots and the theme page are for measuring only; never ship them. Open-source fonts (SIL OFL) are fine.
+1. **Original assets only.** No name, logo, icon art, sound files or copy from the reference app; no Anthropic marks, logos or the Styrene typeface. Screenshots and the theme page are for measuring only; never ship them. Open-source fonts (SIL OFL) are fine.
 2. **No hidden magic numbers.** Every size, color, radius, border width, duration, spring and sound parameter is a named token in `Sources/UI/Tokens*.swift`. Views reference tokens only. A lint script (§8) fails on raw literals in view files.
 3. **The Flow Bar never takes focus.** Non-activating `NSPanel`, all Spaces, full-screen auxiliary, above the Dock. The SPEC "never takes focus in 50 trials" test must still pass.
 4. **Reduce Motion, Reduce Transparency and Increase Contrast** are honored (§6.2).
@@ -455,7 +455,7 @@ Each [ASSUMED] token stays tunable. The owner will replace values after sending 
 
 **Stop and ask** if: fonts cannot be fetched; a milestone would change dictation behavior; a SPEC test regresses and the cause is not obvious; a measured value in this file contradicts the screenshots the owner attached later.
 
-**Do not:** use gradients, shadows on the Hub, system accent colors, any accent other than clay, stock `List`/`Form`/`Toggle`/`Picker`, SF Symbols where an original icon exists, Wispr's name, logo, copy or sounds, Anthropic's marks or the Styrene typeface; invent final numbers for [ASSUMED] tokens; animate the `NSWindow` frame; leave an animation running while the bar is idle or the Hub is hidden.
+**Do not:** use gradients, shadows on the Hub, system accent colors, any accent other than clay, stock `List`/`Form`/`Toggle`/`Picker`, SF Symbols where an original icon exists, the reference app's name, logo, copy or sounds, Anthropic's marks or the Styrene typeface; invent final numbers for [ASSUMED] tokens; animate the `NSWindow` frame; leave an animation running while the bar is idle or the Hub is hidden.
 
 ---
 

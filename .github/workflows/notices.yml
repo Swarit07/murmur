@@ -1,0 +1,15 @@
+# Fails when Package.resolved lists a package that THIRD_PARTY_NOTICES.md doesn't cover, or when the
+# notices and the legal files bundled in the app are out of date (LEGAL_DOCS.md L3).
+name: Third-party notices
+on:
+  push:
+  pull_request:
+jobs:
+  notices:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check notices
+        run: python3 Scripts/gen-notices.py --check
+      - name: Test the generator
+        run: python3 Scripts/test_gen_notices.py

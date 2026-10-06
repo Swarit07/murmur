@@ -151,6 +151,8 @@ public enum HubGeometry {
     public static let paperToastBottom: CGFloat = 22 // source: board
     public static let emptyStateMaxWidth: CGFloat = 380 // source: assumed // MEASURE
     public static let dialogWidth: CGFloat = 440 // source: assumed (Help & setup sheet) // MEASURE
+    /// The Privacy and Acknowledgements dialogs: wide enough for license text at `body` size.
+    public static let documentDialogWidth: CGFloat = 600 // source: assumed (LEGAL_DOCS.md L5) // MEASURE
     public static let popoverWidth: CGFloat = 300 // source: assumed (bell popover) // MEASURE
 
     // History rows (Home)

@@ -288,7 +288,7 @@ struct GalleryColumn: View {
                         HStack(spacing: 6) { MKeycap("fn", onWindow: true); MButton("Change", kind: .outline, size: .small) {} }
                     }
                 }
-                MInfoCard("Nothing leaves this Mac", detail: "Audio and transcripts stay on-device. Retention lives under Data & privacy.")
+                MInfoCard("On this Mac by default", detail: "With the built-in models, your audio and transcripts stay on this Mac. Retention and cloud keys live under Data & privacy.")
             }
 
             GallerySection("Toast, tooltip, dialog") {

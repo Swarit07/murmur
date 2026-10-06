@@ -91,7 +91,13 @@ public enum AppInfo {
     /// Which parts use a cloud service: speech (Groq Whisper) and cleanup (Groq, OpenRouter).
     @MainActor
     public static func cloud(_ controller: DictationController) -> (speech: Bool, cleanup: Bool) {
-        (controller.engineDescription.hasPrefix("groq"), ["groq", "openrouter"].contains(controller.cleanupDescription))
+        cloud(engine: controller.engineDescription, cleanup: controller.cleanupDescription)
+    }
+
+    /// `engine` is an engine id ("groq-whisper"); `cleanup` is the loaded provider's id, which for the
+    /// cloud carries the model ("groq:openai/gpt-oss-20b", "openrouter:meta-llama/…").
+    static func cloud(engine: String, cleanup: String) -> (speech: Bool, cleanup: Bool) {
+        (engine.hasPrefix("groq"), ["groq", "openrouter"].contains { cleanup == $0 || cleanup.hasPrefix($0 + ":") })
     }
 }
 

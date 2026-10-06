@@ -1,0 +1,83 @@
+{
+  "fonts": [
+    {
+      "name": "Geist and Geist Mono",
+      "version": "1.7.2",
+      "url": "https://github.com/vercel/geist-font",
+      "spdx": "OFL-1.1",
+      "use": "Interface and mono type",
+      "files": ["OFL-Geist.txt"],
+      "bundled_copy": "Sources/UI/Resources/Fonts/Geist-OFL.txt"
+    },
+    {
+      "name": "Newsreader",
+      "version": "static cuts \"Newsreader\" and \"Newsreader Display\" from the Google Fonts variable font",
+      "url": "https://github.com/productiontype/Newsreader",
+      "spdx": "OFL-1.1",
+      "use": "Titles and quotes",
+      "files": ["OFL-Newsreader.txt"],
+      "bundled_copy": "Sources/UI/Resources/Fonts/Newsreader-OFL.txt"
+    }
+  ],
+  "models": [
+    {
+      "name": "Parakeet ultra (default speech model)",
+      "repo": "FluidInference/parakeet-ultra-coreml",
+      "spdx": "CC-BY-4.0",
+      "attribution": "Parakeet ultra by moondream (huggingface.co/moondream/parakeet-ultra), a post-training of NVIDIA's Parakeet TDT 0.6B v3 (huggingface.co/nvidia/parakeet-tdt-0.6b-v3), converted to Core ML by FluidInference. Licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0). Murmur downloads it unchanged from Hugging Face."
+    },
+    {
+      "name": "Parakeet v3 (optional)",
+      "repo": "FluidInference/parakeet-tdt-0.6b-v3-coreml",
+      "spdx": "CC-BY-4.0",
+      "attribution": "Parakeet TDT 0.6B v3 by NVIDIA (huggingface.co/nvidia/parakeet-tdt-0.6b-v3), converted to Core ML by FluidInference. Licensed under CC BY 4.0. Downloaded unchanged from Hugging Face."
+    },
+    {
+      "name": "Parakeet v2, English (optional)",
+      "repo": "FluidInference/parakeet-tdt-0.6b-v2-coreml",
+      "spdx": "CC-BY-4.0",
+      "attribution": "Parakeet TDT 0.6B v2 by NVIDIA (huggingface.co/nvidia/parakeet-tdt-0.6b-v2), converted to Core ML by FluidInference. Licensed under CC BY 4.0. Downloaded unchanged from Hugging Face."
+    },
+    {
+      "name": "Parakeet phonon2 (optional)",
+      "repo": "FluidInference/phonon-2-coreml",
+      "spdx": "CC-BY-4.0",
+      "attribution": "Phonon-2 by Fermion Research (huggingface.co/FermionResearch/Phonon-2), a re-training of NVIDIA's Parakeet TDT 0.6B v3, converted to Core ML by FluidInference. Licensed under CC BY 4.0. Downloaded unchanged from Hugging Face."
+    },
+    {
+      "name": "Qwen3.5 4B, 4-bit (default cleanup model)",
+      "repo": "mlx-community/Qwen3.5-4B-4bit",
+      "spdx": "Apache-2.0",
+      "attribution": "Qwen3.5 4B by the Qwen team, Alibaba Cloud (huggingface.co/Qwen/Qwen3.5-4B), quantized for MLX by mlx-community. Apache-2.0. The mlx-community copy has no license file of its own; this is the original model's license."
+    },
+    {
+      "name": "Qwen3.5 2B, 4-bit (optional)",
+      "repo": "mlx-community/Qwen3.5-2B-4bit",
+      "spdx": "Apache-2.0",
+      "attribution": "Qwen3.5 2B by the Qwen team, Alibaba Cloud (huggingface.co/Qwen/Qwen3.5-2B), quantized for MLX by mlx-community. Apache-2.0."
+    },
+    {
+      "name": "Qwen3 4B Instruct 2507, 4-bit (optional)",
+      "repo": "mlx-community/Qwen3-4B-Instruct-2507-4bit",
+      "spdx": "Apache-2.0",
+      "attribution": "Qwen3 4B Instruct 2507 by the Qwen team, Alibaba Cloud (huggingface.co/Qwen/Qwen3-4B-Instruct-2507), quantized for MLX by mlx-community. Apache-2.0."
+    },
+    {
+      "name": "SmolLM3 3B, 4-bit (optional)",
+      "repo": "mlx-community/SmolLM3-3B-4bit",
+      "spdx": "Apache-2.0",
+      "attribution": "SmolLM3 3B by Hugging Face (huggingface.co/HuggingFaceTB/SmolLM3-3B), quantized for MLX by mlx-community. Apache-2.0."
+    },
+    {
+      "name": "Whisper Large v3 Turbo (optional)",
+      "repo": "argmaxinc/whisperkit-coreml",
+      "spdx": "MIT",
+      "attribution": "Whisper Large v3 Turbo by OpenAI (huggingface.co/openai/whisper-large-v3-turbo, MIT, Copyright (c) 2022 OpenAI), converted to Core ML by Argmax (MIT). Its tokenizer files come from huggingface.co/openai/whisper-large-v3 (Apache-2.0)."
+    }
+  ],
+  "texts": [
+    {"name": "Creative Commons Attribution 4.0 International", "spdx": "CC-BY-4.0", "file": "CC-BY-4.0.txt"},
+    {"name": "Apache License 2.0", "spdx": "Apache-2.0", "file": "Apache-2.0.txt"},
+    {"name": "MIT License (OpenAI Whisper)", "spdx": "MIT", "file": "MIT-OpenAI-Whisper.txt"}
+  ]
+}
