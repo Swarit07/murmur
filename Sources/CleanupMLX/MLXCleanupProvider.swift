@@ -15,10 +15,11 @@ import Tokenizers
 /// The system prompt and worked examples are the same for every dictation, so their KV cache is built
 /// once and copied for each call. A dictation then only pays for its own few dozen tokens.
 ///
-/// `MURMUR_PROMPT_LOOKUP=1` checks guesses copied from the dictation in one forward pass each (prompt-lookup
-/// decoding, `PromptLookupTokenIterator`). It is off by default: MLX rounds a pass over several tokens
-/// differently from one-token passes, so a few dictations in a hundred come out worded differently
-/// (docs/cleanup-speed.md).
+/// Prompt-lookup decoding (`PromptLookupTokenIterator`) checks guesses copied from the dictation in one forward
+/// pass each. It is on by default (owner decision): about 1.6× faster on long dictations, so far more of them
+/// finish inside the cleanup time limit. MLX rounds a pass over several tokens differently from one-token passes,
+/// so a few dictations in a hundred come out worded slightly differently (near-ties like "6:30" vs "six thirty");
+/// the guard checks every output as before (docs/cleanup-speed.md). `MURMUR_PROMPT_LOOKUP=0` turns it off.
 ///
 /// Unloading keeps the model and swaps its weights for empty placeholders, and reloading puts them back,
 /// so memory returns to the same level after every idle unload (docs/mlx-unload-leak.md).
@@ -49,7 +50,7 @@ public actor MLXCleanupProvider: CleanupProvider {
     let prefix = PrefixCache()
     let draftPrefix = PrefixCache()
     let draft = DraftBox()
-    var promptLookup = ProcessInfo.processInfo.environment["MURMUR_PROMPT_LOOKUP"] == "1"
+    var promptLookup = ProcessInfo.processInfo.environment["MURMUR_PROMPT_LOOKUP"] != "0"
     let lookupSettings = PromptLookupTokenIterator.Settings.fromEnvironment()
     /// Counts from the last generation that used prompt lookup.
     public private(set) var lastLookupStats: PromptLookupStats?

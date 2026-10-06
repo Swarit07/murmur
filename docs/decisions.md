@@ -168,3 +168,9 @@ Newest last. Each entry: date, decision, reason.
   - **Default output.** With the switch off the app's output is identical to before: 110/110 in three corpus passes, 16/16 in Command Mode, 11/11 long dictations. `MURMUR_PROMPT_LOOKUP=1` turns lookup on.
   - mlx-swift-lm's `SpeculativeTokenIterator` cannot take a custom guesser for Qwen3.5: it wants a draft model and caches that trim. The 4-bit checkpoint has no MTP weights.
   - The next-best option, cleaning finished sentences while the speaker talks, is written up as a proposal. Simulated, 61+ words would wait about 290–350 ms after release instead of 1.3 s, but the text changes. Corrections that span the engine's sentence ends need holding, and Smart Formatting needs the whole text. On long dictations, whole-text cleanup is often the one that leaves corrections and fillers in.
+- **2026-10-05 · Prompt-lookup decoding is on by default (owner decision: "I want the faster long dictation").** Merged from `perf/prompt-lookup-cleanup` ([cleanup-speed.md](cleanup-speed.md)).
+  - On long dictations of 34–60 words, `long-test` cleanup p50 within the limit goes from 774 to 327 ms, p50 with no limit from 676 to 290 ms, and the maximum from 1,019 to 528 ms, with 0 guard rejections.
+  - The cost: about 4 in 100 outputs are worded slightly differently from plain decoding, because MLX rounds multi-token passes differently. Examples: "6:30" vs "six thirty", "double check" vs "double-check".
+  - The guard checks every output as before, and far fewer long dictations now fall back to the rules on the time limit.
+  - `MURMUR_PROMPT_LOOKUP=0` turns it off.
+  - Known: with lookup on, footprint after an idle unload grows about 2 MB per reload (0.7 MB with it off). Small; to look into.
