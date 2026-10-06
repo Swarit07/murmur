@@ -6,8 +6,8 @@
 
 - Builds are signed with an **Apple Development** certificate (`App/project.yml:41-43`), with the hardened runtime and the App Sandbox off (`project.yml:45-46`). They aren't notarized, so README tells people how to get past Gatekeeper.
 - **Release zips are signed ad hoc** instead (`CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO`). The development certificate's name contains the maintainer's email, readable with `codesign -dv`. Ad hoc carries no personal details and no `get-task-allow`; the cost is that people grant Accessibility and Input Monitoring again after each update.
-  - v0.1.0 (`Murmur.zip`, SHA-256 `f63f3dc36d993f6488332bb558c030e84c5fe906e4301c6623886aeb66a99cc7`, tag `v0.1.0` at 880a4fb) was built that way.
-  - It predates the in-app legal files, so **rebuild the release zip after this lands**: the notices for MIT and Apache code must ship with the binary.
+  - v0.1.0 (`Murmur.zip`, SHA-256 `cb4f34b29584854a67df521f4d2fbceeae3ba4d553e12d251d4216b520e307bf`, tag `v0.1.0` at 5dcfa0a, with the in-app legal files) was built that way.
+  - It was rebuilt after the legal pass landed, so the license, privacy notes and third-party notices ship inside the app (`murmur_UI.bundle/Legal`, byte-identical to the repo). Rebuild the zip the same way for every release.
   - The Debug menu, and the debug hooks other processes can post to, are off by default from 880a4fb on.
 - `LICENSE`, `PRIVACY.md` and `THIRD_PARTY_NOTICES.md` already ship inside the app (`Murmur.app/Contents/Resources/murmur_UI.bundle/Contents/Resources/Legal/`). The app shows them under Help & setup and Settings › Data & privacy.
 - The GitHub repo is **private**. README's download link (`../../releases/latest`) and the issue links in `PRIVACY.md` and `SECURITY.md` only work for people with access.
