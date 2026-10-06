@@ -15,6 +15,11 @@ import Tokenizers
 /// The system prompt and worked examples are the same for every dictation, so their KV cache is built
 /// once and copied for each call. A dictation then only pays for its own few dozen tokens.
 ///
+/// `MURMUR_PROMPT_LOOKUP=1` checks guesses copied from the dictation in one forward pass each (prompt-lookup
+/// decoding, `PromptLookupTokenIterator`). It is off by default: MLX rounds a pass over several tokens
+/// differently from one-token passes, so a few dictations in a hundred come out worded differently
+/// (docs/cleanup-speed.md).
+///
 /// Unloading keeps the model and swaps its weights for empty placeholders, and reloading puts them back,
 /// so memory returns to the same level after every idle unload (docs/mlx-unload-leak.md).
 public actor MLXCleanupProvider: CleanupProvider {
@@ -44,6 +49,10 @@ public actor MLXCleanupProvider: CleanupProvider {
     let prefix = PrefixCache()
     let draftPrefix = PrefixCache()
     let draft = DraftBox()
+    var promptLookup = ProcessInfo.processInfo.environment["MURMUR_PROMPT_LOOKUP"] == "1"
+    let lookupSettings = PromptLookupTokenIterator.Settings.fromEnvironment()
+    /// Counts from the last generation that used prompt lookup.
+    public private(set) var lastLookupStats: PromptLookupStats?
 
     /// MLX compile is off. Qwen3.5's compiled decode traces keep its fused GDN input projections (about 400 MB)
     /// as constants, and MLX does not free them when the traces are released, so every reload leaked them.
@@ -111,7 +120,10 @@ public actor MLXCleanupProvider: CleanupProvider {
         let draft = self.draft
         let usePrefixCache = self.usePrefixCache
         let weights = self.weights
-        return try await container.perform(values: Request(rendered: rendered, key: key)) { context, request in
+        let lookup = promptLookup && draftRepo == nil ? self.lookupSettings : nil
+        let lookupStats = PromptLookupStatsBox()
+        lastLookupStats = nil
+        let output = try await container.perform(values: Request(rendered: rendered, key: key)) { context, request in
             // An unload that got the model first has emptied it.
             guard weights.present else { throw CleanupError.unavailable("model not loaded") }
             let extra: [String: any Sendable] = ["enable_thinking": false]
@@ -171,6 +183,14 @@ public actor MLXCleanupProvider: CleanupProvider {
                 (stream, producer) = generateTask(
                     promptTokenCount: input.text.tokens.size, modelConfiguration: context.configuration,
                     tokenizer: context.tokenizer, iterator: iterator)
+            } else if let lookup, let iterator = try PromptLookupTokenIterator(
+                input: input, model: context.model, cache: cache,
+                source: Array(full[(start > 0 ? start : try Self.dictationStart(of: full, request: request, context: context))...]),
+                parameters: parameters, settings: lookup, stats: lookupStats)
+            {
+                (stream, producer) = generateTask(
+                    promptTokenCount: input.text.tokens.size, modelConfiguration: context.configuration,
+                    tokenizer: context.tokenizer, iterator: iterator)
             } else {
                 let iterator = try TokenIterator(input: input, model: context.model, cache: cache, parameters: parameters)
                 (stream, producer) = generateTask(
@@ -186,6 +206,127 @@ public actor MLXCleanupProvider: CleanupProvider {
             MLXCleanupProvider.log.info("complete: MLX active \(Memory.activeMemory / 1_048_576, privacy: .public) MB, cache \(Memory.cacheMemory / 1_048_576, privacy: .public) MB")
             return output
         }
+        if lookup != nil, lookupStats.value.passes > 0 {
+            let s = lookupStats.value
+            lastLookupStats = s
+            Self.log.info("prompt lookup: \(s.tokens, privacy: .public) tokens in \(s.passes, privacy: .public) passes, \(s.accepted, privacy: .public)/\(s.drafted, privacy: .public) guessed tokens kept, \(s.replayed, privacy: .public) replayed")
+        }
+        return output
+    }
+
+    /// Turns prompt-lookup decoding on or off for later calls (for side-by-side measurements).
+    public func setPromptLookup(_ on: Bool) {
+        promptLookup = on
+    }
+
+    /// Diagnostics: does a forward pass over several tokens compute what one-token passes compute, bit for bit?
+    ///
+    /// First a single quantized linear layer of the model: each row of an `n`-row product against the same
+    /// row computed alone. Then the whole model: greedy decoding of `transcript` one token per pass, against
+    /// one pass over the first `n` of the same tokens from the same cache, comparing every logit.
+    public func numerics(transcript: String, lengths: [Int]) async throws -> [String] {
+        guard loaded, let container else { throw CleanupError.unavailable("model not loaded") }
+        let rendered = CleanupPrompt.messages(for: transcript, level: .light, vocabulary: [], smartFormatting: true)
+            .map { ["role": $0.role.rawValue, "content": $0.content] as [String: any Sendable] }
+        let parameters = GenerateParameters(temperature: 0)
+        return try await container.perform(values: rendered) { context, rendered in
+            var lines: [String] = []
+            let longest = lengths.max() ?? 1
+
+            // One layer.
+            guard let (name, layer) = context.model.namedModules().compactMap({ key, module in
+                (module as? QuantizedLinear).map { (key, $0) }
+            }).first(where: { $0.1.weight.dim(0) >= 4096 }) else { return ["no quantized layer found"] }
+            let inputDims = layer.weight.dim(1) * 32 / layer.bits
+            MLXRandom.seed(7)
+            let x = (MLXRandom.normal([1, longest, inputDims])).asType(.bfloat16)
+            let alone = (0..<longest).map { layer(x[0..., $0 ..< ($0 + 1), 0...]) }
+            eval(alone)
+            lines.append("Layer \(name) (\(inputDims) → \(layer.weight.dim(0))), random bf16 input. Rows equal to the same row computed alone:")
+            for n in lengths {
+                let together = layer(x[0..., ..<n, 0...])
+                let differ = (0..<n).map { r in (together[0..., r ..< (r + 1), 0...] .!= alone[r]).sum().item(Int.self) }
+                lines.append("  \(n) rows: \(differ.filter { $0 == 0 }.count)/\(n) rows equal; \(differ.reduce(0, +)) of \(n * layer.weight.dim(0)) outputs differ")
+            }
+
+            // The whole model.
+            let full = try context.tokenizer.applyChatTemplate(messages: rendered, tools: nil, additionalContext: ["enable_thinking": false])
+            let prompt = try context.model.newCache(parameters: parameters)
+            let first = context.model(LMInput.Text(tokens: MLXArray(full))[text: .newAxis], cache: prompt, state: nil).logits
+            var token = argMax(first[0, -1], axis: -1).item(Int.self)
+            eval(prompt.flatMap(\.state))
+            var tokens: [Int] = []
+            var single: [MLXArray] = []
+            let cache = prompt.map { $0.copy() }
+            for _ in 0..<longest {
+                tokens.append(token)
+                let logits = context.model(LMInput.Text(tokens: MLXArray([token]))[text: .newAxis], cache: cache, state: nil).logits[0, 0]
+                eval([logits] + cache.flatMap(\.state))
+                single.append(logits)
+                token = argMax(logits, axis: -1).item(Int.self)
+            }
+            let margins = single.map { row -> Float in
+                let top = sorted(row.asType(.float32))[(-2)...].asArray(Float.self)
+                return top[1] - top[0]
+            }
+            lines.append("Whole model, greedy continuation of a \(transcript.split(separator: " ").count)-word dictation. Logit rows equal to one-token decoding:")
+            for n in lengths {
+                let batched = context.model(LMInput.Text(tokens: MLXArray(Array(tokens[..<n])))[text: .newAxis], cache: prompt.map { $0.copy() }, state: nil).logits[0]
+                eval(batched)
+                var equal = 0, sameChoice = 0
+                var largest: Float = 0
+                for r in 0..<n {
+                    let a = single[r].asType(.float32), b = batched[r].asType(.float32)
+                    if (a .== b).all().item(Bool.self) { equal += 1 }
+                    if argMax(a).item(Int.self) == argMax(b).item(Int.self) { sameChoice += 1 }
+                    largest = Swift.max(largest, abs(a - b).max().item(Float.self))
+                }
+                lines.append("  \(n) tokens in one pass: \(equal)/\(n) rows equal, same top token \(sameChoice)/\(n), largest logit difference \(largest)")
+            }
+            let sortedMargins = margins.sorted()
+            lines.append("Gap between the top two logits in one-token decoding over these \(longest) tokens: smallest \(sortedMargins.first ?? 0), median \(sortedMargins[sortedMargins.count / 2])")
+            return lines
+        }
+    }
+
+    /// Diagnostics: the median time of one forward pass over `n` new tokens after a cached cleanup prompt for
+    /// `transcript`, for each `n` in `lengths`: what a prompt-lookup pass costs by how many tokens it checks.
+    public func passCost(transcript: String, lengths: [Int], repeats: Int) async throws -> [(tokens: Int, ms: Double)] {
+        guard loaded, let container else { throw CleanupError.unavailable("model not loaded") }
+        let rendered = CleanupPrompt.messages(for: transcript, level: .light, vocabulary: [], smartFormatting: true)
+            .map { ["role": $0.role.rawValue, "content": $0.content] as [String: any Sendable] }
+        let parameters = GenerateParameters(temperature: 0)
+        return try await container.perform(values: rendered) { context, rendered in
+            let full = try context.tokenizer.applyChatTemplate(messages: rendered, tools: nil, additionalContext: ["enable_thinking": false])
+            let prompt = try context.model.newCache(parameters: parameters)
+            _ = context.model(LMInput.Text(tokens: MLXArray(full))[text: .newAxis], cache: prompt, state: nil)
+            eval(prompt.flatMap(\.state))
+            var results: [(tokens: Int, ms: Double)] = []
+            for n in lengths {
+                let tokens = LMInput.Text(tokens: MLXArray(Array(full.suffix(n + 1).prefix(n))))[text: .newAxis]
+                var times: [Double] = []
+                for _ in 0..<repeats {
+                    let cache = prompt.map { $0.copy() }
+                    // One token first, so the timed pass writes into caches that have already grown.
+                    let warm = context.model(LMInput.Text(tokens: MLXArray([full[full.count - 1]]))[text: .newAxis], cache: cache, state: nil)
+                    eval([argMax(warm.logits[0], axis: -1)] + cache.flatMap(\.state))
+                    let start = Date.timeIntervalSinceReferenceDate
+                    let out = context.model(tokens, cache: cache, state: nil)
+                    eval([argMax(out.logits[0], axis: -1)] + cache.flatMap(\.state))
+                    times.append((Date.timeIntervalSinceReferenceDate - start) * 1000)
+                }
+                results.append((n, times.sorted()[times.count / 2]))
+            }
+            return results
+        }
+    }
+
+    /// Where the last user message starts in the rendered prompt: the first token that differs from the same
+    /// conversation with that message empty. Prompt-lookup guesses come from there on.
+    static func dictationStart(of full: [Int], request: Request, context: ModelContext) throws -> Int {
+        let probe = Array(request.rendered.dropLast()) + [["role": "user", "content": ""] as [String: any Sendable]]
+        let head = try context.tokenizer.applyChatTemplate(messages: probe, tools: nil, additionalContext: ["enable_thinking": false])
+        return min(zip(full, head).prefix { $0 == $1 }.count, full.count - 1)
     }
 
     /// Builds the prefix cache for these instructions with a one-token generation.
