@@ -158,9 +158,10 @@ public final class AppSettings: @unchecked Sendable {
         set { set(newValue, .showFlowBar) }
     }
 
-    /// Shows the Debug submenu (force Flow Bar states, token panel, focus test).
+    /// Shows the Debug submenu (force Flow Bar states, token panel, focus test) and enables the debug hooks
+    /// other processes can post to. Off by default for releases; Settings › System turns it on.
     public var debugMenu: Bool {
-        get { defaults.object(forKey: Key.debugMenu.rawValue) as? Bool ?? true }
+        get { defaults.object(forKey: Key.debugMenu.rawValue) as? Bool ?? false }
         set { set(newValue, .debugMenu) }
     }
 
