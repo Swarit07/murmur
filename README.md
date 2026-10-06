@@ -168,3 +168,7 @@ In the app, turn on **Settings › System › Debug menu** to get:
 ## Original work
 
 Murmur's name, icon, sounds and copy are original. It does not use any other product's assets.
+
+## License
+
+Murmur is released under the [MIT License](LICENSE). It's built on open-source packages and bundles the Geist and Newsreader fonts (SIL Open Font License); see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The speech and cleanup models it downloads on first launch come under their own licenses, linked there.
