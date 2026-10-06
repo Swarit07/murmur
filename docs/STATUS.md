@@ -112,7 +112,7 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 | T1 Engine protocol | P0 | ✅ | Parakeet (3 versions), Whisper, Apple Speech, Groq Whisper; switch without restart |
 | T2 Raw text first | P0 | ✅ | History row before transcription, raw text before cleanup |
 | T3 Languages | P1 | ✅ | Automatic or chosen list |
-| T4 Dictionary bias | P1 | 🟡 | **7/10** missed names recognized from the dictionary alone, **8/10** with a "Heard as" entry, 0 broken, **0 false insertions** in 98 clips. Engine CTC boosting turned off: it wrote dictionary words over normal speech (decisions.md, 2026-10-05) |
+| T4 Dictionary bias | P1 | 🟡 | **9/10** missed names fixed (was 7/10), 0 broken, **0 false insertions** in 98 clips. New: cut-short names ("Pri" → Priya), how hard names are said ("Chivan" → Siobhan), and sound-alike words in a list of names ("and mailing" → Mei-Ling); common first names never rewritten. The last miss (Figma, "fig mailing") is an engine mishearing ([accuracy-names-comma.md](accuracy-names-comma.md)) |
 
 ### Cleanup
 | ID | Pri | Status | Evidence / notes |
@@ -120,7 +120,7 @@ Last updated 2026-10-05. This file tracks where every milestone and requirement 
 | C1 Levels + Transforms | P0 | ✅ | Style › Auto Cleanup; the AI edits switch is in the Hub |
 | C2 Backtracking | P0 | ✅ | 27–28/30 |
 | C3 Smart Formatting | P1 | ✅ | Lists of 3+ keep their lead-in; lists of 1–2 items are a guard flag |
-| C4 Spoken punctuation | P0 | 🟡 | Synthetic voices (latest run): ? 10/10, new paragraph 10/10, new line 9/10, comma 8/10 (earlier 6/10). Real-voice clips optional (owner) |
+| C4 Spoken punctuation | P0 | 🟡 | Synthetic voices: ? 10/10, new paragraph 10/10, new line 9/10, comma 8/10. The misses are synthetic-voice mishearings ("Kama", "come and") that can't be fixed without false punctuation; real-voice clips would settle it ([accuracy-names-comma.md](accuracy-names-comma.md)) |
 | C5 Guardrails | P0 | ✅ | guard-test 291/291 |
 | C6 Time limit | P0 | ✅ | Amended: 800 ms + 10 ms per word over 30, cap 1,250 ms; stall test max 1.34 s |
 | C7 Transcript is data | P0 | ✅ | 4/4 |

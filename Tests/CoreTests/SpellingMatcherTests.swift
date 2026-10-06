@@ -54,4 +54,38 @@ struct SpellingMatcherTests {
         #expect(!EnglishWords.contains("Okonko"))
         #expect(!EnglishWords.contains("Belouve"))
     }
+
+    // Names the engine cut short, names in lists, and how hard names are said (2026-10-05).
+    let names = SpellingMatcher(spellings: ["Priya": [], "Marcus": [], "Joaquín": [], "Mei-Ling": [], "Siobhan": [], "Figma": []])
+
+    @Test func fixesANameTheEngineCutShort() {
+        #expect(names.apply("Pri and Marcus will present the migration.") == "Priya and Marcus will present the migration.")
+        // Lowercase, too short a fragment, or a real word: left alone.
+        #expect(names.apply("the pri setting") == "the pri setting")
+        #expect(names.apply("Pr and Marcus") == "Pr and Marcus")
+        #expect(names.apply("Mar and Priya") == "Mar and Priya")
+        // A fragment that is a name of its own is a different person.
+        let others = SpellingMatcher(spellings: ["Alexa": [], "Christa": [], "Jonas": [], "Joshua": []])
+        #expect(others.apply("Alex and Chris met Jon and Josh.") == "Alex and Chris met Jon and Josh.")
+    }
+
+    @Test func writesASoundAlikeWordAsANameOnlyInAListOfNames() {
+        #expect(names.apply("Send the link to Joaquin and mailing.") == "Send the link to Joaquín and Mei-Ling.")
+        #expect(names.apply("Ask mailing and Priya.") == "Ask Mei-Ling and Priya.")
+        #expect(names.apply("Check the mailing list.") == "Check the mailing list.")
+        #expect(names.apply("Joaquín and mailing lists are next.") == "Joaquín and mailing lists are next.")
+        #expect(names.apply("Send it to the team and mailing.") == "Send it to the team and mailing.")
+    }
+
+    @Test func matchesHowAHardNameIsSaid() {
+        #expect(names.apply("Ask Chivan whether the replica is caught up.") == "Ask Siobhan whether the replica is caught up.")
+        #expect(names.apply("Shivon said yes.") == "Siobhan said yes.")
+        // Not in the dictionary: nothing to match.
+        #expect(matcherWithout.apply("Ask Chivan whether") == "Ask Chivan whether")
+        // Sounds alike but spelled far from the spoken form, or a real word: left alone.
+        #expect(SpellingMatcher(spellings: ["Joaquín": []]).apply("Ask Aiken about it.") == "Ask Aiken about it.")
+        #expect(names.apply("the chicken was fine") == "the chicken was fine")
+    }
+
+    var matcherWithout: SpellingMatcher { SpellingMatcher(spellings: ["Priya": []]) }
 }
